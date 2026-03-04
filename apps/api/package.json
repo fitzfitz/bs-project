@@ -1,0 +1,46 @@
+{
+  "name": "@tmng/saas-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "dev": "tsx --watch src/server.ts",
+    "dev:wrangler": "wrangler dev",
+    "start": "node --import tsx src/server.ts",
+    "lint": "echo \"no linter configured yet\"",
+    "typecheck": "tsc --noEmit",
+    "db:seed": "npx prisma db seed",
+    "db:reset": "npx prisma migrate reset"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1000.0",
+    "@hono/node-server": "^1.19.9",
+    "@hono/swagger-ui": "^0.5.3",
+    "@hono/zod-openapi": "^1.2.2",
+    "@hono/zod-validator": "^0.7.6",
+    "@prisma/adapter-pg": "^7.4.1",
+    "@prisma/client": "^7.4.1",
+    "bcryptjs": "^3.0.3",
+    "hono": "^4.12.1",
+    "lru-cache": "^11.2.6",
+    "node-cron": "^4.2.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260228.0",
+    "@types/node": "^24.10.13",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.16.0",
+    "axios": "^1.13.5",
+    "dotenv": "^17.3.1",
+    "prisma": "^7.4.1",
+    "tsx": "^4.19.3",
+    "typescript": "~5.9.3",
+    "wrangler": "^4.4.0"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

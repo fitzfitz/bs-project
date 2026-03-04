@@ -1,0 +1,1321 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// PLATFORM ENUMS
+// ============================================================================
+
+enum PlatformRole {
+  PLATFORM_ADMIN
+  PLATFORM_SUPPORT
+}
+
+enum IndustryType {
+  BARBERSHOP
+  VET_CLINIC
+  MASSAGE
+  NAIL_SALON
+  SPA
+  PET_GROOMING
+  DENTAL_CLINIC
+  AUTO_DETAILING
+  BEAUTY_SALON
+  TATTOO_PARLOR
+  GENERAL_SERVICE
+}
+
+enum FeatureModule {
+  CORE
+  OPS
+  FINANCE
+  INTEL
+  ENGAGE
+  ADMIN
+}
+
+enum RoleScope {
+  HQ
+  BRANCH
+  CUSTOMER
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+  APPLE
+}
+
+// ============================================================================
+// STAFF ENUMS (renamed from Barber)
+// ============================================================================
+
+enum StaffTier {
+  JUNIOR
+  SENIOR
+  MASTER
+}
+
+enum StaffStatus {
+  AVAILABLE
+  BUSY
+  ON_BREAK
+  RESERVED
+  OFF_DUTY
+}
+
+// ============================================================================
+// QUEUE & BOOKING ENUMS
+// ============================================================================
+
+enum QueueSource {
+  APP
+  WEB
+  WALK_IN
+}
+
+enum QueueStatus {
+  WAITING
+  CALLED
+  IN_SERVICE
+  COMPLETED
+  AT_CHECKOUT
+  PAID
+  NO_SHOW
+  CANCELLED
+}
+
+enum BookingStatus {
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// ============================================================================
+// PAYMENT & TRANSACTION ENUMS
+// ============================================================================
+
+enum PaymentMethod {
+  CASH
+  CARD
+  QRIS
+  DIGITAL_WALLET
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  VOIDED
+  REFUNDED
+}
+
+// ============================================================================
+// COMMISSION & PAYROLL ENUMS
+// ============================================================================
+
+enum CommissionModel {
+  FLAT_PERCENTAGE
+  SLIDING_SCALE
+  BASE_PLUS_BONUS
+}
+
+enum PayrollStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  DISPUTED
+  DISBURSED
+}
+
+// ============================================================================
+// LOYALTY & ENGAGEMENT ENUMS
+// ============================================================================
+
+enum LoyaltyTierLevel {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+}
+
+enum CampaignType {
+  EMAIL
+  PUSH
+  IN_APP
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================================================
+// SERVICE & PRODUCT ENUMS
+// ============================================================================
+
+enum ServiceType {
+  STANDARD
+  COMBO
+  ADD_ON
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+// ============================================================================
+// INVENTORY ENUMS
+// ============================================================================
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  VOID_REVERSAL
+}
+
+// ============================================================================
+// OPERATIONS ENUMS
+// ============================================================================
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum TipDistribution {
+  PER_STAFF
+  POOLED
+}
+
+enum CashDrawerStatus {
+  OPEN
+  CLOSED
+}
+
+enum CashEntryType {
+  SALE
+  REFUND
+  ADJUSTMENT
+  FLOAT
+}
+
+// ============================================================================
+// AUDIT & ANOMALY ENUMS
+// ============================================================================
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VOID_TRANSACTION
+  APPLY_DISCOUNT
+  OVERRIDE_SCHEDULE
+  CLOCK_IN
+  CLOCK_OUT
+  APPROVE_PAYROLL
+  DISPUTE_PAYROLL
+  EARN_POINTS
+  REDEEM_POINTS
+  TIER_UPGRADE
+  REFERRAL_REWARD
+  MODERATE_REVIEW
+  CREATE_CAMPAIGN
+  EMERGENCY_CLOSURE
+  BRANCH_REOPENED
+  STATUS_CHANGE
+  ASSIGN_ROLE
+  REMOVE_ROLE
+  DEACTIVATE_USER
+  BRANCH_ASSIGNMENT
+  ANOMALY_FLAGGED
+}
+
+enum AnomalyType {
+  EXCESSIVE_VOIDS
+  HIGH_DISCOUNT
+  OFF_HOURS_CLOCKIN
+  UNUSUAL_REFUND
+  INVENTORY_DISCREPANCY
+}
+
+enum AnomSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ============================================================================
+// PLATFORM MODELS (no organizationId)
+// ============================================================================
+
+model PlatformAdmin {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         PlatformRole @default(PLATFORM_SUPPORT)
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("platform_admins")
+}
+
+model Feature {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  name        String
+  description String?
+  module      FeatureModule
+  sortOrder   Int           @default(0)
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+
+  permissions TenantRolePermission[]
+
+  @@map("features")
+}
+
+model IndustryTemplate {
+  id           String       @id @default(cuid())
+  industryType IndustryType @unique
+  name         String
+  description  String?
+  templateData Json
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("industry_templates")
+}
+
+model PlatformConfig {
+  key       String   @id
+  value     String
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_config")
+}
+
+// ============================================================================
+// ORGANIZATION (Tenant)
+// ============================================================================
+
+model Organization {
+  id           String       @id @default(cuid())
+  name         String
+  slug         String       @unique
+  industryType IndustryType
+  logo         String?
+  description  String?
+  contactEmail String?
+  contactPhone String?
+  website      String?
+  address      String?
+  city         String?
+  country      String?
+
+  taxEnabled   Boolean @default(false)
+  taxRate      Float   @default(0)
+  taxName      String  @default("Tax")
+  taxInclusive Boolean @default(true)
+
+  currency       String @default("IDR")
+  currencySymbol String @default("Rp")
+  timezone       String @default("Asia/Jakarta")
+  locale         String @default("id-ID")
+
+  tipDistribution      TipDistribution @default(PER_STAFF)
+  maxDiscountPercent   Float           @default(50)
+  autoNoShowMinutes    Int             @default(15)
+  autoClockOutTime     String?
+  defaultBookingBuffer Int             @default(15)
+  requireVoidApproval  Boolean         @default(true)
+
+  loyaltyEnabled          Boolean @default(false)
+  loyaltyPointsPerCurrency Float  @default(1)
+  loyaltyRedemptionRate    Float  @default(100)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users                User[]
+  branches             Branch[]
+  tenantRoles          TenantRole[]
+  services             Service[]
+  products             Product[]
+  bookings             Booking[]
+  queueEntries         QueueEntry[]
+  transactions         Transaction[]
+  promoCode            PromoCode[]
+  reviews              Review[]
+  campaigns            Campaign[]
+  customerSegments     CustomerSegment[]
+  customerMemberships  CustomerMembership[]
+  referrals            Referral[]
+  auditLogs            AuditLog[]
+  anomalyFlags         AnomalyFlag[]
+  branchDailySnapshots BranchDailySnapshot[]
+  cashDrawerSessions   CashDrawerSession[]
+  payrollPeriods       PayrollPeriod[]
+  staffEarnings        StaffEarning[]
+  loyaltyTransactions  LoyaltyTransaction[]
+  stockMovements       StockMovement[]
+  tenantRoleServices   TenantRoleService[]
+
+  @@map("organizations")
+}
+
+// ============================================================================
+// RBAC MODELS
+// ============================================================================
+
+model TenantRole {
+  id                String    @id @default(cuid())
+  organizationId    String
+  name              String
+  description       String?
+  scope             RoleScope
+  isDefault         Boolean   @default(false)
+  isSystemRole      Boolean   @default(false)
+  isServiceProvider Boolean   @default(false)
+  sortOrder         Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions  TenantRolePermission[]
+  roleServices TenantRoleService[]
+  users        User[]
+
+  @@unique([organizationId, name])
+  @@map("tenant_roles")
+}
+
+model TenantRolePermission {
+  id           String  @id @default(cuid())
+  tenantRoleId String
+  featureCode  String
+  canCreate    Boolean @default(false)
+  canRead      Boolean @default(false)
+  canUpdate    Boolean @default(false)
+  canDelete    Boolean @default(false)
+
+  tenantRole TenantRole @relation(fields: [tenantRoleId], references: [id], onDelete: Cascade)
+  feature    Feature    @relation(fields: [featureCode], references: [code], onDelete: Cascade)
+
+  @@unique([tenantRoleId, featureCode])
+  @@map("tenant_role_permissions")
+}
+
+model TenantRoleService {
+  id             String @id @default(cuid())
+  tenantRoleId   String
+  serviceId      String
+  organizationId String
+
+  tenantRole   TenantRole   @relation(fields: [tenantRoleId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantRoleId, serviceId])
+  @@map("tenant_role_services")
+}
+
+// ============================================================================
+// USER & AUTH
+// ============================================================================
+
+model User {
+  id             String       @id @default(cuid())
+  organizationId String
+  tenantRoleId   String
+  branchId       String?
+  email          String
+  passwordHash   String?
+  phone          String?
+  firstName      String
+  lastName       String
+  avatar         String?
+  isCustomer     Boolean      @default(false)
+  isActive       Boolean      @default(true)
+
+  // authProvider: Which method the user registered with. EMAIL users have a
+  //   passwordHash; GOOGLE users have a googleId and may have no password.
+  authProvider  AuthProvider @default(EMAIL)
+  // googleId: The "sub" claim from Google's ID token. Globally unique across
+  //   all orgs — if a user uses the same Google account at two orgs, each org
+  //   gets its own User record but they share the same googleId.
+  googleId      String?      @unique
+  // emailVerified: true if the email was confirmed via Google OAuth or an
+  //   email verification flow. Google users are auto-verified.
+  emailVerified Boolean      @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tenantRole         TenantRole            @relation(fields: [tenantRoleId], references: [id])
+  branch             Branch?               @relation("BranchStaff", fields: [branchId], references: [id])
+  staffProfile       StaffProfile?
+  customerMembership CustomerMembership?
+  bookings           Booking[]
+  reviews            Review[]
+  auditLogs          AuditLog[]
+  refreshTokens      RefreshToken[]
+  cashDrawerSessions CashDrawerSession[]
+  referralsGiven     Referral[]            @relation("referrals_given")
+  referralsReceived  Referral[]            @relation("referrals_received")
+  segmentMemberships CustomerSegmentMember[]
+  anomalyFlags       AnomalyFlag[]         @relation("anomaly_flags")
+
+  @@unique([organizationId, email])
+  @@unique([organizationId, phone])
+  @@index([organizationId])
+  @@index([tenantRoleId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id             String   @id @default(cuid())
+  token          String   @unique
+  userId         String
+  organizationId String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ============================================================================
+// BRANCH
+// ============================================================================
+
+model Branch {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  name               String
+  address            String
+  city               String
+  phone              String?
+  email              String?
+  latitude           Float?
+  longitude          Float?
+  imageUrl           String?
+  isActive           Boolean          @default(true)
+  isEmergencyClosed  Boolean          @default(false)
+  tipDistribution    TipDistribution?
+  maxDiscountPercent Float?
+  averageRating      Float            @default(0)
+  totalReviews       Int              @default(0)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users              User[]                @relation("BranchStaff")
+  operatingHours     OperatingHour[]
+  serviceOverrides   BranchServiceOverride[]
+  queueEntries       QueueEntry[]
+  bookings           Booking[]
+  transactions       Transaction[]
+  inventory          BranchInventory[]
+  surgeRules         SurgeRule[]
+  promoCodes         PromoCode[]
+  auditLogs          AuditLog[]
+  cashDrawerSessions CashDrawerSession[]
+  reviews            Review[]
+  customerSegments   CustomerSegment[]
+  campaigns          Campaign[]
+  holidays           BranchHoliday[]
+  dailySnapshots     BranchDailySnapshot[]
+  anomalyFlags       AnomalyFlag[]
+
+  @@index([organizationId])
+  @@map("branches")
+}
+
+model OperatingHour {
+  id             String    @id @default(cuid())
+  branchId       String
+  organizationId String
+  dayOfWeek      DayOfWeek
+  openTime       String
+  closeTime      String
+  isClosed       Boolean   @default(false)
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, dayOfWeek])
+  @@map("operating_hours")
+}
+
+model BranchHoliday {
+  id             String   @id @default(cuid())
+  branchId       String
+  organizationId String
+  date           DateTime @db.Date
+  name           String
+  isClosed       Boolean  @default(true)
+  openTime       String?
+  closeTime      String?
+  createdAt      DateTime @default(now())
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, date])
+  @@map("branch_holidays")
+}
+
+// ============================================================================
+// STAFF (renamed from Barber)
+// ============================================================================
+
+model StaffProfile {
+  id              String          @id @default(cuid())
+  userId          String          @unique
+  organizationId  String
+  bio             String?
+  specialties     String[]
+  tier            StaffTier       @default(JUNIOR)
+  status          StaffStatus     @default(OFF_DUTY)
+  commissionModel CommissionModel @default(FLAT_PERCENTAGE)
+  commissionRate  Float           @default(0.4)
+  baseSalary      Float?
+  bonusRate       Float?
+  averageRating   Float           @default(0)
+  totalReviews    Int             @default(0)
+
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attendances     StaffAttendance[]
+  queueEntries    QueueEntry[]
+  bookings        Booking[]
+  earnings        StaffEarning[]
+  shiftSchedules  ShiftSchedule[]
+  reviews         Review[]
+  commissionTiers CommissionTier[]
+  payrollPeriods  PayrollPeriod[]
+
+  @@index([organizationId])
+  @@map("staff_profiles")
+}
+
+model CommissionTier {
+  id             String @id @default(cuid())
+  staffProfileId String
+  minRevenue     Float
+  maxRevenue     Float?
+  rate           Float
+
+  staff StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([staffProfileId, minRevenue])
+  @@map("commission_tiers")
+}
+
+model StaffAttendance {
+  id             String    @id @default(cuid())
+  staffProfileId String
+  organizationId String
+  clockIn        DateTime
+  clockOut       DateTime?
+  autoClockOut   Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+
+  staff StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+
+  @@index([staffProfileId, clockIn])
+  @@map("staff_attendances")
+}
+
+model ShiftSchedule {
+  id             String   @id @default(cuid())
+  staffProfileId String
+  organizationId String
+  date           DateTime @db.Date
+  startTime      String
+  endTime        String
+  isLeave        Boolean  @default(false)
+  note           String?
+
+  staff StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([staffProfileId, date])
+  @@map("shift_schedules")
+}
+
+// ============================================================================
+// SERVICE CATALOG
+// ============================================================================
+
+model Service {
+  id               String      @id @default(cuid())
+  organizationId   String
+  name             String
+  description      String?
+  category         String
+  type             ServiceType @default(STANDARD)
+  basePrice        Float
+  durationMinutes  Int
+  bufferMinutes    Int         @default(5)
+  isCommissionable Boolean     @default(true)
+  loyaltyEligible  Boolean     @default(true)
+  isActive         Boolean     @default(true)
+  sortOrder        Int         @default(0)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  organization     Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  comboChildren    ComboService[]        @relation("ComboParent")
+  comboParents     ComboService[]        @relation("ComboChild")
+  branchOverrides  BranchServiceOverride[]
+  tierSurcharges   TierSurcharge[]
+  bookingItems     BookingItem[]
+  transactionItems TransactionItem[]
+  roleServices     TenantRoleService[]
+
+  @@index([organizationId])
+  @@map("services")
+}
+
+model ComboService {
+  id             String @id @default(cuid())
+  comboId        String
+  childServiceId String
+  organizationId String
+
+  combo        Service @relation("ComboParent", fields: [comboId], references: [id], onDelete: Cascade)
+  childService Service @relation("ComboChild", fields: [childServiceId], references: [id], onDelete: Cascade)
+
+  @@unique([comboId, childServiceId])
+  @@map("combo_services")
+}
+
+model TierSurcharge {
+  id             String    @id @default(cuid())
+  serviceId      String
+  organizationId String
+  tier           StaffTier
+  surcharge      Float
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, tier])
+  @@map("tier_surcharges")
+}
+
+model BranchServiceOverride {
+  id             String  @id @default(cuid())
+  branchId       String
+  serviceId      String
+  organizationId String
+  overridePrice  Float?
+  isActive       Boolean @default(true)
+
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, serviceId])
+  @@map("branch_service_overrides")
+}
+
+model SurgeRule {
+  id             String    @id @default(cuid())
+  branchId       String
+  organizationId String
+  name           String    @default("")
+  dayOfWeek      DayOfWeek
+  startHour      Int
+  endHour        Int
+  multiplier     Float     @default(1.0)
+  isActive       Boolean   @default(true)
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@map("surge_rules")
+}
+
+// ============================================================================
+// BOOKING & QUEUE
+// ============================================================================
+
+model Booking {
+  id             String        @id @default(cuid())
+  organizationId String
+  customerId     String
+  branchId       String
+  staffProfileId String?
+  status         BookingStatus @default(CONFIRMED)
+  scheduledAt    DateTime
+  totalDuration  Int
+  note           String?
+  cancelledAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     User          @relation(fields: [customerId], references: [id])
+  branch       Branch        @relation(fields: [branchId], references: [id])
+  staff        StaffProfile? @relation(fields: [staffProfileId], references: [id])
+  items        BookingItem[]
+  queueEntry   QueueEntry?
+
+  @@index([branchId, scheduledAt])
+  @@index([customerId])
+  @@index([organizationId])
+  @@map("bookings")
+}
+
+model BookingItem {
+  id             String  @id @default(cuid())
+  bookingId      String
+  serviceId      String
+  organizationId String
+  price          Float
+  isAddOn        Boolean @default(false)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@map("booking_items")
+}
+
+model QueueEntry {
+  id             String      @id @default(cuid())
+  organizationId String
+  branchId       String
+  staffProfileId String?
+  bookingId      String?     @unique
+  source         QueueSource
+  status         QueueStatus @default(WAITING)
+  position       Int
+  customerName   String?
+  customerId     String?
+  estimatedWait  Int?
+  calledAt       DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch        @relation(fields: [branchId], references: [id])
+  staff        StaffProfile? @relation(fields: [staffProfileId], references: [id])
+  booking      Booking?      @relation(fields: [bookingId], references: [id])
+  transaction  Transaction?
+
+  @@index([branchId, status])
+  @@index([branchId, createdAt])
+  @@index([staffProfileId, status])
+  @@index([organizationId])
+  @@map("queue_entries")
+}
+
+// ============================================================================
+// TRANSACTIONS & POS
+// ============================================================================
+
+model Transaction {
+  id                  String            @id @default(cuid())
+  organizationId      String
+  branchId            String
+  queueEntryId        String?           @unique
+  staffProfileId      String?
+  customerId          String?
+  grossAmount         Float
+  discountAmount      Float             @default(0)
+  taxAmount           Float             @default(0)
+  tipAmount           Float             @default(0)
+  netAmount           Float
+  totalDue            Float
+  loyaltyPointsUsed   Int               @default(0)
+  loyaltyPointsEarned Int               @default(0)
+  promoCode           String?
+  status              TransactionStatus @default(PENDING)
+  clientUuid          String?           @unique
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch            @relation(fields: [branchId], references: [id])
+  queueEntry   QueueEntry?       @relation(fields: [queueEntryId], references: [id])
+  items        TransactionItem[]
+  payments     Payment[]
+
+  @@index([branchId, createdAt])
+  @@index([organizationId])
+  @@map("transactions")
+}
+
+model TransactionItem {
+  id             String  @id @default(cuid())
+  transactionId  String
+  serviceId      String?
+  productId      String?
+  organizationId String
+  name           String
+  quantity       Int     @default(1)
+  unitPrice      Float
+  discount       Float   @default(0)
+  total          Float
+  isAddOn        Boolean @default(false)
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  service     Service?    @relation(fields: [serviceId], references: [id])
+  product     Product?    @relation(fields: [productId], references: [id])
+
+  @@map("transaction_items")
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  transactionId  String
+  organizationId String
+  method         PaymentMethod
+  amount         Float
+  reference      String?
+  createdAt      DateTime      @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+// ============================================================================
+// COMMISSION & PAYROLL
+// ============================================================================
+
+model StaffEarning {
+  id             String   @id @default(cuid())
+  staffProfileId String
+  organizationId String
+  date           DateTime @db.Date
+  commissionBase Float
+  commission     Float
+  tips           Float    @default(0)
+  total          Float
+  createdAt      DateTime @default(now())
+
+  staff        StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([staffProfileId, date])
+  @@map("staff_earnings")
+}
+
+model PayrollPeriod {
+  id              String        @id @default(cuid())
+  staffProfileId  String
+  organizationId  String
+  periodStart     DateTime      @db.Date
+  periodEnd       DateTime      @db.Date
+  totalCommission Float
+  totalTips       Float
+  totalPayout     Float
+  status          PayrollStatus @default(DRAFT)
+  approvedBy      String?
+  approvedAt      DateTime?
+  note            String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  staff        StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([staffProfileId, periodStart])
+  @@index([organizationId])
+  @@map("payroll_periods")
+}
+
+// ============================================================================
+// CUSTOMER MEMBERSHIP & LOYALTY
+// ============================================================================
+
+model CustomerMembership {
+  id               String           @id @default(cuid())
+  userId           String           @unique
+  organizationId   String
+  pointsBalance    Int              @default(0)
+  lifetimePoints   Int              @default(0)
+  tier             LoyaltyTierLevel @default(BRONZE)
+  tierMultiplier   Float            @default(1.0)
+  referralCode     String?
+  pointsExpiringAt DateTime?
+  lastActivityAt   DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions LoyaltyTransaction[]
+
+  @@unique([userId, organizationId])
+  @@unique([organizationId, referralCode])
+  @@map("customer_memberships")
+}
+
+model LoyaltyTransaction {
+  id                   String   @id @default(cuid())
+  customerMembershipId String
+  organizationId       String
+  points               Int
+  description          String
+  transactionId        String?
+  createdAt            DateTime @default(now())
+
+  membership   CustomerMembership @relation(fields: [customerMembershipId], references: [id], onDelete: Cascade)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([customerMembershipId, createdAt])
+  @@map("loyalty_transactions")
+}
+
+// ============================================================================
+// PROMO CODES & REVIEWS
+// ============================================================================
+
+model PromoCode {
+  id             String       @id @default(cuid())
+  organizationId String
+  code           String
+  description    String?
+  type           DiscountType
+  value          Float
+  minGrossAmount Float        @default(0)
+  maxDiscount    Float?
+  usageLimit     Int?
+  usageCount     Int          @default(0)
+  startDate      DateTime     @default(now())
+  endDate        DateTime?
+  isActive       Boolean      @default(true)
+  branchId       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+  campaigns    Campaign[]
+
+  @@unique([organizationId, code])
+  @@map("promo_codes")
+}
+
+model Review {
+  id             String   @id @default(cuid())
+  organizationId String
+  customerId     String
+  staffProfileId String?
+  branchId       String?
+  queueEntryId   String?
+  rating         Int
+  comment        String?
+  photoUrls      String[]
+  isVisible      Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     User          @relation(fields: [customerId], references: [id])
+  staff        StaffProfile? @relation(fields: [staffProfileId], references: [id])
+  branch       Branch?       @relation(fields: [branchId], references: [id])
+
+  @@unique([customerId, queueEntryId])
+  @@index([branchId])
+  @@index([staffProfileId])
+  @@index([organizationId])
+  @@map("reviews")
+}
+
+// ============================================================================
+// REFERRALS
+// ============================================================================
+
+model Referral {
+  id             String         @id @default(cuid())
+  organizationId String
+  referrerId     String
+  refereeId      String
+  bonusPoints    Int            @default(10)
+  status         ReferralStatus @default(PENDING)
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  referrer     User         @relation("referrals_given", fields: [referrerId], references: [id])
+  referee      User         @relation("referrals_received", fields: [refereeId], references: [id])
+
+  @@unique([referrerId, refereeId])
+  @@map("referrals")
+}
+
+// ============================================================================
+// INVENTORY & PRODUCTS
+// ============================================================================
+
+model Product {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  sku            String
+  description    String?
+  costPrice      Float
+  sellPrice      Float
+  imageUrl       String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inventory        BranchInventory[]
+  stockMovements   StockMovement[]
+  transactionItems TransactionItem[]
+
+  @@unique([organizationId, sku])
+  @@map("products")
+}
+
+model BranchInventory {
+  id               String @id @default(cuid())
+  branchId         String
+  productId        String
+  organizationId   String
+  quantity         Int    @default(0)
+  reorderThreshold Int    @default(5)
+  avgCost          Float  @default(0)
+
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, productId])
+  @@map("branch_inventory")
+}
+
+model StockMovement {
+  id             String            @id @default(cuid())
+  productId      String
+  branchId       String
+  organizationId String
+  type           StockMovementType
+  quantity       Int
+  costPerUnit    Float?
+  note           String?
+  createdAt      DateTime          @default(now())
+
+  product      Product      @relation(fields: [productId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([productId, branchId, createdAt])
+  @@map("stock_movements")
+}
+
+// ============================================================================
+// CASH DRAWER
+// ============================================================================
+
+model CashDrawerSession {
+  id              String           @id @default(cuid())
+  branchId        String
+  organizationId  String
+  openedById      String
+  openingBalance  Float
+  closingBalance  Float?
+  expectedBalance Float?
+  discrepancy     Float?
+  status          CashDrawerStatus @default(OPEN)
+  openedAt        DateTime         @default(now())
+  closedAt        DateTime?
+  notes           String?
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch            @relation(fields: [branchId], references: [id])
+  openedBy     User              @relation(fields: [openedById], references: [id])
+  entries      CashDrawerEntry[]
+
+  @@index([branchId, status])
+  @@map("cash_drawer_sessions")
+}
+
+model CashDrawerEntry {
+  id             String        @id @default(cuid())
+  sessionId      String
+  organizationId String
+  type           CashEntryType
+  amount         Float
+  reference      String?
+  createdAt      DateTime      @default(now())
+
+  session CashDrawerSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("cash_drawer_entries")
+}
+
+// ============================================================================
+// CRM & CAMPAIGNS
+// ============================================================================
+
+model CustomerSegment {
+  id             String   @id @default(cuid())
+  organizationId String
+  branchId       String?
+  name           String
+  rules          Json
+  isAutomatic    Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch?               @relation(fields: [branchId], references: [id])
+  members      CustomerSegmentMember[]
+
+  @@map("customer_segments")
+}
+
+model CustomerSegmentMember {
+  id             String   @id @default(cuid())
+  segmentId      String
+  customerId     String
+  organizationId String
+  addedAt        DateTime @default(now())
+
+  segment  CustomerSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  customer User            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([segmentId, customerId])
+  @@map("customer_segment_members")
+}
+
+model Campaign {
+  id             String         @id @default(cuid())
+  organizationId String
+  branchId       String?
+  name           String
+  description    String?
+  type           CampaignType
+  promoCodeId    String?
+  segmentId      String?
+  status         CampaignStatus @default(DRAFT)
+  startsAt       DateTime
+  endsAt         DateTime?
+  sentCount      Int            @default(0)
+  openCount      Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+  promoCode    PromoCode?   @relation(fields: [promoCodeId], references: [id])
+
+  @@index([branchId, status])
+  @@index([organizationId])
+  @@map("campaigns")
+}
+
+// ============================================================================
+// AUDIT LOG
+// ============================================================================
+
+model AuditLog {
+  id             String      @id @default(cuid())
+  organizationId String
+  userId         String?
+  tenantRoleId   String?
+  branchId       String?
+  action         AuditAction
+  entityType     String
+  entityId       String
+  details        Json?
+  ipAddress      String?
+  createdAt      DateTime    @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id])
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+
+  @@index([branchId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([organizationId])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// ANALYTICS
+// ============================================================================
+
+model BranchDailySnapshot {
+  id               String   @id @default(cuid())
+  branchId         String
+  organizationId   String
+  date             DateTime @db.Date
+  totalRevenue     Float    @default(0)
+  serviceRevenue   Float    @default(0)
+  productRevenue   Float    @default(0)
+  totalTips        Float    @default(0)
+  transactionCount Int      @default(0)
+  customerCount    Int      @default(0)
+  walkInCount      Int      @default(0)
+  onlineCount      Int      @default(0)
+  avgTransValue    Float    @default(0)
+  topServiceId     String?
+  createdAt        DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id])
+
+  @@unique([branchId, date])
+  @@index([date])
+  @@index([organizationId])
+  @@map("branch_daily_snapshots")
+}
+
+model AnomalyFlag {
+  id             String       @id @default(cuid())
+  branchId       String
+  organizationId String
+  userId         String?
+  type           AnomalyType
+  severity       AnomSeverity @default(MEDIUM)
+  details        Json
+  isResolved     Boolean      @default(false)
+  resolvedBy     String?
+  resolvedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id])
+  user         User?        @relation("anomaly_flags", fields: [userId], references: [id])
+
+  @@index([branchId, createdAt])
+  @@index([organizationId])
+  @@map("anomaly_flags")
+}

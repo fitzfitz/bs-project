@@ -1,0 +1,27 @@
+@media print {
+  /* Hide everything except the receipt */
+  body > * {
+    visibility: hidden;
+  }
+  #root {
+    visibility: visible;
+  }
+
+  /* Reset page layout */
+  @page {
+    size: 80mm auto;
+    margin: 2mm;
+  }
+
+  body {
+    font-size: 11px;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Hide navigation, buttons, and non-receipt elements */
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+}

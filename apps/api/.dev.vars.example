@@ -1,0 +1,46 @@
+# =============================================================================
+# Cloudflare Workers local dev vars (used by `wrangler dev`)
+# Copy this file to .dev.vars and fill in your values.
+# =============================================================================
+
+# --- Database ---
+DATABASE_URL="postgresql://user:password@localhost:5432/barber_db?schema=public"
+
+# --- JWT ---
+# Generate secrets with: openssl rand -base64 48
+JWT_SECRET="your-jwt-secret-must-be-at-least-32-characters-long"
+JWT_REFRESH_SECRET="your-refresh-secret-must-be-at-least-32-characters-long"
+JWT_ACCESS_EXPIRY="15m"
+JWT_REFRESH_EXPIRY="7d"
+
+# --- Environment ---
+NODE_ENV="development"
+
+# --- Soketi / Pusher (WebSocket real-time updates) ---
+# See docs/soketi_server_setup.md for self-hosted Soketi setup
+PUSHER_APP_ID="barber-queue-app"
+PUSHER_KEY="your-pusher-key"
+PUSHER_SECRET="your-pusher-secret"
+PUSHER_CLUSTER="mt1"
+PUSHER_HOST="ws.yourdomain.com"
+PUSHER_PORT="443"
+PUSHER_USE_TLS="true"
+
+# --- Xendit Payment Gateway (optional — omit for CASH-only mode) ---
+# Get keys from: https://dashboard.xendit.co/settings/developers#api-keys
+# XENDIT_SECRET_KEY="xnd_development_..."
+# XENDIT_WEBHOOK_TOKEN="your-webhook-verification-token"
+
+# --- OneSignal Push Notifications (optional — omit to skip push) ---
+# Get from: https://onesignal.com > Your App > Settings > Keys & IDs
+# See docs/onesignal_setup.md for full setup guide
+# ONESIGNAL_APP_ID="your-onesignal-app-id"
+# ONESIGNAL_REST_API_KEY="your-onesignal-rest-api-key"
+
+# --- S3 / MinIO Media Storage (optional — omit to skip file uploads) ---
+# See docs/minio_server_setup.md for self-hosted MinIO setup
+# S3_ENDPOINT="http://57.128.251.45:5555"
+# S3_ACCESS_KEY="your-minio-access-key"
+# S3_SECRET_KEY="your-minio-secret-key"
+# S3_BUCKET="barber-media"
+# S3_PUBLIC_URL="http://57.128.251.45:5555/barber-media"

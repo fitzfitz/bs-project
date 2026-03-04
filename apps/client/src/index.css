@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "sans-serif";
+
+  /* App Brand - Dark Gold */
+  --color-gold-50: #fbf9f2;
+  --color-gold-100: #f5f0df;
+  --color-gold-200: #ebddbe;
+  --color-gold-300: #dec391;
+  --color-gold-400: #d0a361;
+  --color-gold-500: #c58a3c;
+  --color-gold-600: #b57231;
+  --color-gold-700: #97592b;
+  --color-gold-800: #7d4928;
+  --color-gold-900: #653d23;
+  --color-gold-950: #391f11;
+
+  --color-primary: var(--color-gold-600);
+  --color-primary-foreground: #ffffff;
+}
+
+/* Base resets & typography */
+@layer base {
+  body {
+    @apply antialiased bg-slate-50 text-slate-900 font-sans;
+  }
+}

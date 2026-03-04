@@ -1,0 +1,9 @@
+# Barber Project - Daily Database Backup
+# Add to crontab: crontab -e
+#
+# Runs daily at 2:00 AM server time.
+# Adjust DATABASE_URL to match your production configuration.
+#
+# Logs go to /var/log/barber-backup.log
+
+0 2 * * * DATABASE_URL="postgresql://user:password@localhost:5432/barber-project" /path/to/barber-project/scripts/backup-db.sh >> /var/log/barber-backup.log 2>&1

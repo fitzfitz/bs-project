@@ -1,0 +1,20 @@
+services:
+  saas-api:
+    image: ghcr.io/${GHCR_OWNER}/saas-api:latest
+    container_name: saas-api
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env.production
+    environment:
+      - PORT=8787
+      - NODE_ENV=production
+    networks:
+      - tmng-net
+
+networks:
+  tmng-net:
+    driver: bridge
