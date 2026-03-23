@@ -40,3 +40,29 @@ export async function updateStatus(clientUuid: string, status: OfflineTransactio
     await db.put(STORE, tx);
   }
 }
+
+export async function cleanupSynced(olderThanDays = 7): Promise<number> {
+  const db = await getDB();
+  const all = await db.getAll(STORE);
+  const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
+  let removed = 0;
+  for (const tx of all) {
+    if (tx.status === "SYNCED" && tx.createdAt < cutoff) {
+      await db.delete(STORE, tx.clientUuid);
+      removed++;
+    }
+  }
+  return removed;
+}
+
+export async function getOfflineCounts(): Promise<{ pending: number; failed: number }> {
+  const db = await getDB();
+  const all = await db.getAll(STORE);
+  let pending = 0;
+  let failed = 0;
+  for (const tx of all) {
+    if (tx.status === "PENDING_SYNC" || tx.status === "SYNCING") pending++;
+    else if (tx.status === "FAILED") failed++;
+  }
+  return { pending, failed };
+}

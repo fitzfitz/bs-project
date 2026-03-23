@@ -296,6 +296,86 @@ export class AnalyticsService {
     };
   }
 
+  static async getUtilization(
+    db: PrismaClient,
+    opts: { branchId?: string; dateFrom: string; dateTo: string }
+  ) {
+    const from = new Date(opts.dateFrom);
+    const to = new Date(opts.dateTo);
+    to.setUTCHours(23, 59, 59, 999);
+
+    const attendanceWhere: Record<string, unknown> = {
+      clockIn: { gte: from, lte: to },
+    };
+    if (opts.branchId) {
+      attendanceWhere.staff = { user: { branchId: opts.branchId } };
+    }
+
+    const attendances = await db.staffAttendance.findMany({
+      where: attendanceWhere as any,
+      include: {
+        staff: {
+          include: { user: { select: { firstName: true, lastName: true, branchId: true } } },
+        },
+      },
+    });
+
+    const queueWhere: Record<string, unknown> = {
+      status: { in: ["COMPLETED", "PAID"] },
+      createdAt: { gte: from, lte: to },
+    };
+    if (opts.branchId) queueWhere.branchId = opts.branchId;
+
+    const queueEntries = await db.queueEntry.findMany({
+      where: queueWhere as any,
+      select: {
+        staffProfileId: true,
+        startedAt: true,
+        completedAt: true,
+      },
+    });
+
+    const staffMap = new Map<string, { name: string; availableMinutes: number; busyMinutes: number; servicesCount: number }>();
+
+    for (const att of attendances) {
+      const id = att.staffProfileId;
+      const entry = staffMap.get(id) ?? {
+        name: `${att.staff?.user?.firstName ?? ""} ${att.staff?.user?.lastName ?? ""}`.trim() || id,
+        availableMinutes: 0,
+        busyMinutes: 0,
+        servicesCount: 0,
+      };
+      const clockOut = att.clockOut ?? new Date();
+      entry.availableMinutes += (clockOut.getTime() - att.clockIn.getTime()) / 60000;
+      staffMap.set(id, entry);
+    }
+
+    for (const q of queueEntries) {
+      if (!q.staffProfileId || !q.startedAt || !q.completedAt) continue;
+      const entry = staffMap.get(q.staffProfileId);
+      if (!entry) continue;
+      entry.busyMinutes += (q.completedAt.getTime() - q.startedAt.getTime()) / 60000;
+      entry.servicesCount++;
+    }
+
+    const barbers = Array.from(staffMap.entries()).map(([staffProfileId, data]) => ({
+      staffProfileId,
+      name: data.name,
+      availableMinutes: Math.round(data.availableMinutes),
+      busyMinutes: Math.round(data.busyMinutes),
+      servicesCount: data.servicesCount,
+      utilizationRate: data.availableMinutes > 0 ? Math.round((data.busyMinutes / data.availableMinutes) * 100) : 0,
+    }));
+
+    barbers.sort((a, b) => b.utilizationRate - a.utilizationRate);
+
+    const totalAvailable = barbers.reduce((s, b) => s + b.availableMinutes, 0);
+    const totalBusy = barbers.reduce((s, b) => s + b.busyMinutes, 0);
+    const overallRate = totalAvailable > 0 ? Math.round((totalBusy / totalAvailable) * 100) : 0;
+
+    return { overallRate, totalAvailableMinutes: totalAvailable, totalBusyMinutes: totalBusy, barbers };
+  }
+
   static async computeDailySnapshots(db: PrismaClient, dateStr?: string) {
     const date = dateStr ? new Date(dateStr) : new Date();
     date.setUTCHours(0, 0, 0, 0);

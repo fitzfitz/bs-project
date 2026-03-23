@@ -8,7 +8,11 @@ export const platformLoginSchema = z.object({
 export const createOrgSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(2).regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with hyphens"),
-  industry: z.enum(["BARBERSHOP", "SALON", "SPA", "VET", "MASSAGE", "CLINIC", "OTHER"]),
+  industry: z.enum([
+    "BARBERSHOP", "VET_CLINIC", "MASSAGE", "NAIL_SALON", "SPA",
+    "PET_GROOMING", "DENTAL_CLINIC", "AUTO_DETAILING", "BEAUTY_SALON",
+    "TATTOO_PARLOR", "GENERAL_SERVICE",
+  ]),
   ownerEmail: z.string().email(),
   ownerFirstName: z.string().min(1),
   ownerLastName: z.string().min(1),

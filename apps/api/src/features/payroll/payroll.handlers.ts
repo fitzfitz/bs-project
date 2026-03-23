@@ -225,7 +225,7 @@ export const getByIdHandler: RouteHandler<typeof getByIdRoute, AppEnv> = async (
     const id = c.req.param("id");
     const period = await PayrollService.getById(c.var.db, id);
     const scope = c.get("scope");
-    if (scope !== "HQ" && c.var.userId) {
+    if (scope !== "HQ" && scope !== "BRANCH" && c.var.userId) {
       await PayrollService.assertBarberOwnsPayroll(c.var.db, period.staffProfileId, c.var.userId);
     }
     return c.json({ success: true as const, data: toPayload(period) }, 200);

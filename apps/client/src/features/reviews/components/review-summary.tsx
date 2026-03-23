@@ -13,7 +13,7 @@ export function ReviewSummary({ reviews, averageRating, totalReviews }: Props) {
 
   const avg =
     averageRating ??
-    reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+    (reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0);
 
   const distribution: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
   for (const r of reviews) {

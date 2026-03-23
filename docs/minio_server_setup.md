@@ -33,12 +33,10 @@ nano .env
 
 Paste the following, replacing the secret key with a strong password:
 
-> [!TIP]
-> **How to generate a secure secret key:**
-> `openssl rand -base64 32`
+> [!TIP] > **How to generate a secure secret key:** > `openssl rand -base64 32`
 
 ```env
-MINIO_ROOT_USER=barber-admin
+MINIO_ROOT_USER=minioadmin
 MINIO_ROOT_PASSWORD=themonograf2026
 MINIO_BROWSER_REDIRECT_URL=http://57.128.251.45:5556
 # Note: MinIO API runs on port 5555, Console on port 5556
@@ -55,16 +53,16 @@ nano docker-compose.yml
 Paste the following configuration:
 
 ```yaml
-version: '3'
+version: "3"
 
 services:
   minio:
     image: minio/minio:latest
-    container_name: barber-minio
+    container_name: minio
     restart: unless-stopped
     ports:
-      - "5555:9000"   # S3 API endpoint
-      - "5556:9001"   # Admin Console (Web UI)
+      - "5555:9000" # S3 API endpoint
+      - "5556:9001" # Admin Console (Web UI)
     env_file:
       - .env
     volumes:
@@ -88,7 +86,7 @@ docker-compose up -d
 Verify it's running:
 
 ```bash
-docker logs barber-minio
+docker logs minio
 ```
 
 At this point:
@@ -103,9 +101,9 @@ At this point:
 ### Option A: Via the Web Console
 
 1. Open `http://YOUR_VPS_IP:5556` in your browser
-2. Log in with `barber-admin` / `your_super_secure_password_here`
+2. Log in with `minioadmin` / `your_super_secure_password_here`
 3. Click **"Create Bucket"**
-4. Name it `barber-media`
+4. Name it `saas-project`
 5. Set **Access Policy** to `Public` (for read-only public access to assets)
 
 ### Option B: Via the MinIO CLI (`mc`)
@@ -124,10 +122,10 @@ Configure and create bucket:
 mc alias set barber http://localhost:9000 barber-admin your_super_secure_password_here
 
 # Create the bucket
-mc mb barber/barber-media
+mc mb barber/saas-project
 
 # Set bucket policy to public-read (anyone can download, only API can upload)
-mc anonymous set download barber/barber-media
+mc anonymous set download barber/saas-project
 ```
 
 ## Step 6: Create Organized Prefixes (Folders)
@@ -139,7 +137,7 @@ Organize media by category:
 # These are virtual "folders" — MinIO uses flat object storage with prefix-based organization
 
 # The actual folder structure will be:
-# barber-media/
+# saas-project/
 #   avatars/       — User profile photos
 #   barbers/       — Barber profile photos
 #   branches/      — Branch images
@@ -236,7 +234,7 @@ For your Hono API to upload files, create a dedicated access key with limited pe
 2. Go to **Access Keys** → **Create Access Key**
 3. Name it `barber-api`
 4. Copy the **Access Key** and **Secret Key** — you'll need them for your API env vars
-5. Set policy to restrict to `barber-media` bucket only:
+5. Set policy to restrict to `saas-project` bucket only:
 
 ```json
 {
@@ -250,10 +248,7 @@ For your Hono API to upload files, create a dedicated access key with limited pe
         "s3:DeleteObject",
         "s3:ListBucket"
       ],
-      "Resource": [
-        "arn:aws:s3:::barber-media",
-        "arn:aws:s3:::barber-media/*"
-      ]
+      "Resource": ["arn:aws:s3:::saas-project", "arn:aws:s3:::saas-project/*"]
     }
   ]
 }
@@ -274,9 +269,9 @@ Your Hono API server will use the S3 SDK to upload/manage files:
 S3_ENDPOINT="https://media.yourdomain.com"
 S3_ACCESS_KEY="your_api_access_key_here"
 S3_SECRET_KEY="your_api_secret_key_here"
-S3_BUCKET="barber-media"
+S3_BUCKET="saas-project"
 S3_REGION="us-east-1"       # MinIO default, doesn't matter for self-hosted
-S3_PUBLIC_URL="https://media.yourdomain.com/barber-media"
+S3_PUBLIC_URL="https://media.yourdomain.com/saas-project"
 ```
 
 ### React App (Frontend)
@@ -285,12 +280,12 @@ Your frontend displays images using the public URL pattern:
 
 ```typescript
 // All media URLs follow this pattern:
-const imageUrl = `https://media.yourdomain.com/barber-media/${category}/${fileId}.jpg`;
+const imageUrl = `https://media.yourdomain.com/saas-project/${category}/${fileId}.jpg`;
 
 // Examples:
-// Avatar:  https://media.yourdomain.com/barber-media/avatars/cm3abc123.jpg
-// Review:  https://media.yourdomain.com/barber-media/reviews/cm3def456.jpg
-// Product: https://media.yourdomain.com/barber-media/products/cm3ghi789.jpg
+// Avatar:  https://media.yourdomain.com/saas-project/avatars/cm3abc123.jpg
+// Review:  https://media.yourdomain.com/saas-project/reviews/cm3def456.jpg
+// Product: https://media.yourdomain.com/saas-project/products/cm3ghi789.jpg
 ```
 
 ### API Upload Integration
@@ -299,7 +294,7 @@ In your Hono API, use the AWS S3 SDK (compatible with MinIO):
 
 ```typescript
 // utils/s3.ts
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 export function createS3Client() {
   return new S3Client({
@@ -321,13 +316,15 @@ export async function uploadFile(
   contentType: string
 ): Promise<string> {
   const key = `${category}/${fileId}`;
-  
-  await s3.send(new PutObjectCommand({
-    Bucket: 'barber-media',
-    Key: key,
-    Body: new Uint8Array(fileBuffer),
-    ContentType: contentType,
-  }));
+
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: "saas-project",
+      Key: key,
+      Body: new Uint8Array(fileBuffer),
+      ContentType: contentType,
+    })
+  );
 
   return `${process.env.S3_PUBLIC_URL}/${key}`;
 }
@@ -341,17 +338,16 @@ All uploaded media assets should be documented with their storage key and purpos
 
 ```bash
 # List all assets in a category
-mc ls barber/barber-media/avatars/
+mc ls barber/saas-project/avatars/
 
 # Get info about a specific asset
-mc stat barber/barber-media/avatars/cm3abc123.jpg
+mc stat barber/saas-project/avatars/cm3abc123.jpg
 
 # Download an asset
-mc cp barber/barber-media/avatars/cm3abc123.jpg ./local-copy.jpg
+mc cp barber/saas-project/avatars/cm3abc123.jpg ./local-copy.jpg
 ```
 
 ### Storage Key Format
-
 
 | Category       | Key Pattern                         | Example                  |
 | -------------- | ----------------------------------- | ------------------------ |
@@ -361,7 +357,6 @@ mc cp barber/barber-media/avatars/cm3abc123.jpg ./local-copy.jpg
 | Product Images | `products/{productId}.{ext}`        | `products/cm3jkl789.jpg` |
 | Review Photos  | `reviews/{reviewId}/{index}.{ext}`  | `reviews/cm3mno/0.jpg`   |
 
-
 ---
 
 ## Monitoring & Maintenance
@@ -369,7 +364,7 @@ mc cp barber/barber-media/avatars/cm3abc123.jpg ./local-copy.jpg
 ### Check disk usage:
 
 ```bash
-mc du barber/barber-media
+mc du barber/saas-project
 ```
 
 ### Check server health:
@@ -381,7 +376,7 @@ mc admin info barber
 ### Backup all media:
 
 ```bash
-mc mirror barber/barber-media ./backup/barber-media-$(date +%Y%m%d)
+mc mirror barber/saas-project ./backup/saas-project-$(date +%Y%m%d)
 ```
 
 ### Restart MinIO:
@@ -390,4 +385,3 @@ mc mirror barber/barber-media ./backup/barber-media-$(date +%Y%m%d)
 cd ~/minio-server
 docker-compose restart
 ```
-

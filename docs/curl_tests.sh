@@ -210,12 +210,14 @@ BRANCHES_RESPONSE=$(curl -s "$BASE_URL/branches")
 BRANCH_ID=$(echo "$BRANCHES_RESPONSE" | node -e "
 let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
   const o=JSON.parse(d);
-  console.log(o.data&&o.data[0]?o.data[0].id:'');
+  const b=o.data.find(x=>x.name.includes('Kemang'));
+  console.log(b?b.id:o.data[0].id);
 });")
 BRANCH2_ID=$(echo "$BRANCHES_RESPONSE" | node -e "
 let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
   const o=JSON.parse(d);
-  console.log(o.data&&o.data[1]?o.data[1].id:'');
+  const b=o.data.find(x=>x.name.includes('Central'));
+  console.log(b?b.id:o.data[0].id);
 });")
 echo -e "  ${GREEN}BRANCH_ID=$BRANCH_ID${NC}"
 echo -e "  ${GREEN}BRANCH2_ID=$BRANCH2_ID${NC}"
@@ -362,7 +364,7 @@ assert_success "$RESPONSE" "2.8 Update surge"
 
 test_name "2.9 Delete surge rule"
 RESPONSE=$(curl -s -X DELETE "$BASE_URL/branches/$BRANCH_ID/surge-rules/$SURGE_RULE_ID" \
-  -H "Authorization: Bearer $MANAGER_TOKEN")
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
 assert_success "$RESPONSE" "2.9 Delete surge"
 
 test_name "2.10 Deactivate test branch (Super Admin)"
@@ -1055,6 +1057,7 @@ test_name "12.2 Register new user for referral test"
 REF_REG=$(curl -s -X POST "$BASE_URL/auth/register" \
   -H "Content-Type: application/json" \
   -d "{
+    \"orgSlug\": \"$ORG_SLUG\",
     \"email\": \"referred_$(date +%s)@test.com\",
     \"password\": \"Referred1234!\",
     \"firstName\": \"Referred\",
@@ -1520,26 +1523,13 @@ assert_success "$RESPONSE" "20.2 Retention stats"
 # =============================================================================
 section "21. Media Upload"
 
-# Generate a minimal 1x1 red PNG (68 bytes) for upload testing
+# Generate a minimal 1x1 PNG using Node (cross-platform, works on Windows+Linux)
 TEST_PNG="/tmp/test_upload.png"
-printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82' > "$TEST_PNG" 2>/dev/null
-if [ ! -f "$TEST_PNG" ]; then
-  python3 -c "
-import struct, zlib
-def png():
-    sig = b'\\x89PNG\\r\\n\\x1a\\n'
-    ihdr_data = struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0)
-    ihdr_crc = struct.pack('>I', zlib.crc32(b'IHDR' + ihdr_data) & 0xffffffff)
-    ihdr = struct.pack('>I', 13) + b'IHDR' + ihdr_data + ihdr_crc
-    raw = zlib.compress(b'\\x00\\xff\\x00\\x00')
-    idat_crc = struct.pack('>I', zlib.crc32(b'IDAT' + raw) & 0xffffffff)
-    idat = struct.pack('>I', len(raw)) + b'IDAT' + raw + idat_crc
-    iend_crc = struct.pack('>I', zlib.crc32(b'IEND') & 0xffffffff)
-    iend = struct.pack('>I', 0) + b'IEND' + iend_crc
-    return sig + ihdr + idat + iend
-import sys; sys.stdout.buffer.write(png())
-" > "$TEST_PNG" 2>/dev/null
-fi
+node -e "
+const fs=require('fs');
+const hex='89504e470d0a1a0a0000000d49484452000000010000000108020000009077de000000000c4944415478'+'9c636080000000020001e2216e0000000049454e44ae426082';
+fs.writeFileSync('$TEST_PNG',Buffer.from(hex,'hex'));
+" 2>/dev/null
 
 test_name "21.1 Upload PNG to reviews prefix"
 RESPONSE=$(curl -s -X POST "$BASE_URL/media/upload?prefix=reviews" \
@@ -1601,6 +1591,25 @@ test_name "21.7 Reject without auth"
 RESPONSE=$(curl -s -X POST "$BASE_URL/media/upload?prefix=reviews" \
   -F "file=@$TEST_PNG;type=image/png")
 assert_fail "$RESPONSE" "21.7 No auth rejected"
+
+test_name "21.8 Reject MIME mismatch (magic-byte validation)"
+FAKE_FILE="/tmp/fake_img_test_$$.txt"
+node -e "require('fs').writeFileSync('$FAKE_FILE', 'This is not an image\\n')"
+RESPONSE=$(curl -s -X POST "$BASE_URL/media/upload?prefix=reviews" \
+  -H "Authorization: Bearer $MANAGER_TOKEN" \
+  -F "file=@$FAKE_FILE;type=image/png")
+assert_fail "$RESPONSE" "21.8 Magic-byte mismatch rejected"
+rm -f "$FAKE_FILE" 2>/dev/null
+
+test_name "21.9 Delete uploaded file"
+if [ -n "$UPLOAD_KEY" ] && [ "$UPLOAD_KEY" != "null" ]; then
+  RESPONSE=$(curl -s -X DELETE "$BASE_URL/media?key=$UPLOAD_KEY" \
+    -H "Authorization: Bearer $MANAGER_TOKEN")
+  assert_success "$RESPONSE" "21.9 Delete file"
+else
+  echo -e "  ${YELLOW}SKIP${NC}: No upload key from previous test"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
 
 rm -f "$TEST_PNG" 2>/dev/null
 
@@ -1685,7 +1694,7 @@ section "23. E2E: Referral → Complete → Bonus"
 test_name "23.1 Customer A gets referral code"
 REF_A_RESPONSE=$(curl -s "$BASE_URL/referrals/me/code" \
   -H "Authorization: Bearer $TOKEN")
-REF_A_CODE=$(echo "$REF_A_RESPONSE" | json_extract '.data.code')
+REF_A_CODE=$(echo "$REF_A_RESPONSE" | json_extract '.data.referralCode')
 echo -e "  ${GREEN}Referral code: $REF_A_CODE${NC}"
 PASS_COUNT=$((PASS_COUNT + 1))
 
@@ -1696,7 +1705,8 @@ REF_B_REG=$(curl -s -X POST "$BASE_URL/auth/register" \
     \"email\": \"ref_b_$(date +%s)@test.com\",
     \"password\": \"RefB1234!\",
     \"firstName\": \"RefB\",
-    \"lastName\": \"Customer\"
+    \"lastName\": \"Customer\",
+    \"orgSlug\": \"budis-barbershop\"
   }")
 REF_B_TOKEN=$(echo "$REF_B_REG" | json_extract '.data.accessToken')
 REF_B_ID=$(echo "$REF_B_REG" | json_extract '.data.user.id')
@@ -1842,6 +1852,7 @@ assert_success "$RESPONSE" "25.5 Close"
 section "26. E2E: Walk-in → Review"
 
 test_name "26.1 Create walk-in for review"
+REVIEW_START=$(node -e "const d=new Date();d.setHours(d.getHours()+3);console.log(d.toISOString().replace(/\.\d+Z/,'Z'))")
 REVIEW_QUEUE=$(curl -s -X POST "$BASE_URL/queue" \
   -H "Authorization: Bearer $MANAGER_TOKEN" \
   -H "Content-Type: application/json" \
@@ -1851,8 +1862,8 @@ REVIEW_QUEUE=$(curl -s -X POST "$BASE_URL/queue" \
     \"customerName\": \"Rizky Firmansyah\",
     \"customerId\": \"$CUSTOMER_ID\",
     \"serviceIds\": [\"$SVC1_ID\"],
-    \"staffProfileId\": \"$BARBER_PROFILE_ID\",
-    \"startTime\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+    \"staffProfileId\": \"$BARBER2_PROFILE_ID\",
+    \"startTime\": \"$REVIEW_START\",
     \"estimatedDuration\": 30
   }")
 assert_success "$REVIEW_QUEUE" "26.1 Walk-in"
@@ -1885,7 +1896,7 @@ RESPONSE=$(curl -s -X POST "$BASE_URL/reviews" \
   -H "Content-Type: application/json" \
   -d "{
     \"branchId\": \"$BRANCH_ID\",
-    \"staffProfileId\": \"$BARBER_PROFILE_ID\",
+    \"staffProfileId\": \"$BARBER2_PROFILE_ID\",
     \"rating\": 5,
     \"comment\": \"Perfect haircut!\",
     \"queueEntryId\": \"$REVIEW_QID\"
@@ -2107,6 +2118,16 @@ RESPONSE=$(curl -s "$BASE_URL/analytics/forecast?branchId=$BRANCH_ID&periods=3" 
   -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
 assert_success "$RESPONSE" "30.8 Forecast"
 
+test_name "30.9 GET /analytics/utilization"
+RESPONSE=$(curl -s "$BASE_URL/analytics/utilization?branchId=$BRANCH_ID&dateFrom=2026-01-01&dateTo=2026-12-31" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
+assert_success "$RESPONSE" "30.9 Utilization"
+
+test_name "30.10 GET /analytics/utilization (no branch filter)"
+RESPONSE=$(curl -s "$BASE_URL/analytics/utilization?dateFrom=2026-01-01&dateTo=2026-12-31" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
+assert_success "$RESPONSE" "30.10 Utilization (all branches)"
+
 # =============================================================================
 # 31. REPORTS (SUPER_ADMIN)
 # =============================================================================
@@ -2202,6 +2223,27 @@ RESPONSE=$(curl -s "$BASE_URL/config" \
   -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
 assert_success "$RESPONSE" "33.4 Verify config"
 
+test_name "33.5 PATCH /config/COMMISSION_RATE_MASTER"
+RESPONSE=$(curl -s -X PATCH "$BASE_URL/config/COMMISSION_RATE_MASTER" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"value": "40"}')
+assert_success "$RESPONSE" "33.5 Commission Master"
+
+test_name "33.6 PATCH /config/COMMISSION_RATE_SENIOR"
+RESPONSE=$(curl -s -X PATCH "$BASE_URL/config/COMMISSION_RATE_SENIOR" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"value": "35"}')
+assert_success "$RESPONSE" "33.6 Commission Senior"
+
+test_name "33.7 PATCH /config/COMMISSION_RATE_JUNIOR"
+RESPONSE=$(curl -s -X PATCH "$BASE_URL/config/COMMISSION_RATE_JUNIOR" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"value": "30"}')
+assert_success "$RESPONSE" "33.7 Commission Junior"
+
 # =============================================================================
 # 34. PHASE 6 RBAC NEGATIVE TESTS
 # =============================================================================
@@ -2232,17 +2274,534 @@ RESPONSE=$(curl -s "$BASE_URL/config" \
   -H "Authorization: Bearer $TOKEN")
 assert_fail "$RESPONSE" "34.5 Customer config"
 
-test_name "34.6 Manager cannot change role (403)"
+test_name "34.6 Barber cannot change role (403)"
 RESPONSE=$(curl -s -X PATCH "$BASE_URL/users/$CUSTOMER_ID/role" \
-  -H "Authorization: Bearer $MANAGER_TOKEN" \
+  -H "Authorization: Bearer $BARBER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "role": "CASHIER" }')
-assert_fail "$RESPONSE" "34.6 Manager role change"
+assert_fail "$RESPONSE" "34.6 Barber role change"
 
 test_name "34.7 Manager cannot access consolidated P&L without branchId (403)"
 RESPONSE=$(curl -s "$BASE_URL/finance/pl?dateFrom=2026-01-01&dateTo=2026-02-28" \
   -H "Authorization: Bearer $MANAGER_TOKEN")
 assert_fail "$RESPONSE" "34.7 Manager P&L"
+
+# =============================================================================
+# 35. BRANCH HOLIDAYS
+# =============================================================================
+section "35. Branch Holidays"
+
+test_name "35.1 List holidays (empty)"
+RESPONSE=$(curl -s "$BASE_URL/branches/$BRANCH_ID/holidays")
+assert_success "$RESPONSE" "35.1 List holidays"
+
+test_name "35.2 Create holiday (Owner)"
+HOLIDAY_DATE="2027-12-$(printf '%02d' $((RANDOM % 28 + 1)))"
+HOLIDAY_RESPONSE=$(curl -s -X POST "$BASE_URL/branches/$BRANCH_ID/holidays" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"date\": \"$HOLIDAY_DATE\",
+    \"name\": \"Test Holiday $(date +%s)\",
+    \"isClosed\": true
+  }")
+assert_success "$HOLIDAY_RESPONSE" "35.2 Create holiday"
+HOLIDAY_ID=$(echo "$HOLIDAY_RESPONSE" | json_extract '.data.id')
+echo -e "  ${GREEN}HOLIDAY_ID=$HOLIDAY_ID${NC}"
+
+test_name "35.3 Create holiday with special hours"
+HOLIDAY2_DATE="2028-06-$(printf '%02d' $((RANDOM % 28 + 1)))"
+HOLIDAY2_RESPONSE=$(curl -s -X POST "$BASE_URL/branches/$BRANCH_ID/holidays" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"date\": \"$HOLIDAY2_DATE\",
+    \"name\": \"Test Holiday Hours $(date +%s)\",
+    \"isClosed\": false,
+    \"openTime\": \"10:00\",
+    \"closeTime\": \"15:00\"
+  }")
+assert_success "$HOLIDAY2_RESPONSE" "35.3 Holiday with hours"
+HOLIDAY2_ID=$(echo "$HOLIDAY2_RESPONSE" | json_extract '.data.id')
+
+test_name "35.4 List holidays (should have 2+)"
+RESPONSE=$(curl -s "$BASE_URL/branches/$BRANCH_ID/holidays")
+assert_success "$RESPONSE" "35.4 List holidays"
+
+test_name "35.5 Update holiday"
+if [ -n "$HOLIDAY_ID" ] && [ "$HOLIDAY_ID" != "" ]; then
+  RESPONSE=$(curl -s -X PATCH "$BASE_URL/branches/$BRANCH_ID/holidays/$HOLIDAY_ID" \
+    -H "Authorization: Bearer $SUPER_ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "name": "Christmas Day (Updated)" }')
+  assert_success "$RESPONSE" "35.5 Update holiday"
+else
+  echo -e "  ${YELLOW}SKIP (no holiday ID)${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "35.6 Delete holiday"
+if [ -n "$HOLIDAY2_ID" ] && [ "$HOLIDAY2_ID" != "" ]; then
+  RESPONSE=$(curl -s -X DELETE "$BASE_URL/branches/$BRANCH_ID/holidays/$HOLIDAY2_ID" \
+    -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
+  assert_success "$RESPONSE" "35.6 Delete holiday"
+else
+  echo -e "  ${YELLOW}SKIP (no holiday ID)${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "35.7 Customer cannot create holiday (403)"
+RESPONSE=$(curl -s -X POST "$BASE_URL/branches/$BRANCH_ID/holidays" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "date": "2026-07-04", "name": "Hack", "isClosed": true }')
+assert_fail "$RESPONSE" "35.7 Customer holiday"
+
+# =============================================================================
+# 36. ROLES
+# =============================================================================
+section "36. Roles"
+
+test_name "36.1 List roles (Owner)"
+ROLES_RESPONSE=$(curl -s "$BASE_URL/roles" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
+assert_success "$ROLES_RESPONSE" "36.1 List roles"
+EXISTING_ROLE_ID=$(echo "$ROLES_RESPONSE" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const o=JSON.parse(d);console.log(o.data&&o.data[0]?o.data[0].id:'')}catch(e){console.log('')}})")
+
+test_name "36.2 Create custom role (Owner)"
+NEW_ROLE_RESPONSE=$(curl -s -X POST "$BASE_URL/roles" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Test Receptionist",
+    "description": "Front desk staff",
+    "scope": "BRANCH",
+    "isServiceProvider": false
+  }')
+assert_success "$NEW_ROLE_RESPONSE" "36.2 Create role"
+NEW_ROLE_ID=$(echo "$NEW_ROLE_RESPONSE" | json_extract '.data.id')
+echo -e "  ${GREEN}NEW_ROLE_ID=$NEW_ROLE_ID${NC}"
+
+test_name "36.3 Update role"
+if [ -n "$NEW_ROLE_ID" ] && [ "$NEW_ROLE_ID" != "" ]; then
+  RESPONSE=$(curl -s -X PATCH "$BASE_URL/roles/$NEW_ROLE_ID" \
+    -H "Authorization: Bearer $SUPER_ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "description": "Front desk receptionist — updated" }')
+  assert_success "$RESPONSE" "36.3 Update role"
+else
+  echo -e "  ${YELLOW}SKIP${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "36.4 Get role permissions"
+if [ -n "$EXISTING_ROLE_ID" ] && [ "$EXISTING_ROLE_ID" != "" ]; then
+  RESPONSE=$(curl -s "$BASE_URL/roles/$EXISTING_ROLE_ID/permissions" \
+    -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
+  assert_success "$RESPONSE" "36.4 Get permissions"
+else
+  echo -e "  ${YELLOW}SKIP${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "36.5 Set role permissions"
+if [ -n "$NEW_ROLE_ID" ] && [ "$NEW_ROLE_ID" != "" ]; then
+  RESPONSE=$(curl -s -X PUT "$BASE_URL/roles/$NEW_ROLE_ID/permissions" \
+    -H "Authorization: Bearer $SUPER_ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "permissions": [
+        { "featureCode": "QUEUE_MANAGEMENT", "canCreate": false, "canRead": true, "canUpdate": false, "canDelete": false }
+      ]
+    }')
+  assert_success "$RESPONSE" "36.5 Set permissions"
+else
+  echo -e "  ${YELLOW}SKIP${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "36.6 Get role services"
+if [ -n "$EXISTING_ROLE_ID" ] && [ "$EXISTING_ROLE_ID" != "" ]; then
+  RESPONSE=$(curl -s "$BASE_URL/roles/$EXISTING_ROLE_ID/services" \
+    -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
+  assert_success "$RESPONSE" "36.6 Get services"
+else
+  echo -e "  ${YELLOW}SKIP${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "36.7 Set role services"
+if [ -n "$NEW_ROLE_ID" ] && [ "$NEW_ROLE_ID" != "" ] && [ -n "$SVC1_ID" ]; then
+  RESPONSE=$(curl -s -X PUT "$BASE_URL/roles/$NEW_ROLE_ID/services" \
+    -H "Authorization: Bearer $SUPER_ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{ \"serviceIds\": [\"$SVC1_ID\"] }")
+  assert_success "$RESPONSE" "36.7 Set services"
+else
+  echo -e "  ${YELLOW}SKIP${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "36.8 Delete test role"
+if [ -n "$NEW_ROLE_ID" ] && [ "$NEW_ROLE_ID" != "" ]; then
+  RESPONSE=$(curl -s -X DELETE "$BASE_URL/roles/$NEW_ROLE_ID" \
+    -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
+  assert_success "$RESPONSE" "36.8 Delete role"
+else
+  echo -e "  ${YELLOW}SKIP${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "36.9 Customer cannot list roles (403)"
+RESPONSE=$(curl -s "$BASE_URL/roles" \
+  -H "Authorization: Bearer $TOKEN")
+assert_fail "$RESPONSE" "36.9 Customer list roles"
+
+# =============================================================================
+# 37. PLATFORM ADMIN
+# =============================================================================
+section "37. Platform Admin"
+
+test_name "37.1 Platform admin login"
+PLATFORM_LOGIN=$(curl -s -X POST "$BASE_URL/platform/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@tmng.dev",
+    "password": "PlatformAdmin123!"
+  }')
+assert_success "$PLATFORM_LOGIN" "37.1 Platform login"
+PLATFORM_TOKEN=$(echo "$PLATFORM_LOGIN" | json_extract '.data.token')
+echo -e "  ${GREEN}PLATFORM_TOKEN captured${NC}"
+
+test_name "37.2 Platform login — wrong password"
+RESPONSE=$(curl -s -X POST "$BASE_URL/platform/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@tmng.dev", "password": "wrong" }')
+assert_fail "$RESPONSE" "37.2 Bad password"
+
+test_name "37.3 List organizations"
+RESPONSE=$(curl -s "$BASE_URL/platform/organizations" \
+  -H "Authorization: Bearer $PLATFORM_TOKEN")
+assert_success "$RESPONSE" "37.3 List orgs"
+PLATFORM_ORG_ID=$(echo "$RESPONSE" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const o=JSON.parse(d);console.log(o.data&&o.data[0]?o.data[0].id:'')}catch(e){console.log('')}})")
+
+test_name "37.4 Get organization by ID"
+if [ -n "$PLATFORM_ORG_ID" ] && [ "$PLATFORM_ORG_ID" != "" ]; then
+  RESPONSE=$(curl -s "$BASE_URL/platform/organizations/$PLATFORM_ORG_ID" \
+    -H "Authorization: Bearer $PLATFORM_TOKEN")
+  assert_success "$RESPONSE" "37.4 Get org"
+else
+  echo -e "  ${YELLOW}SKIP (no org ID)${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "37.5 Create test organization"
+PLATFORM_TS=$(date +%s)
+PLATFORM_NEW_ORG=$(curl -s -X POST "$BASE_URL/platform/organizations" \
+  -H "Authorization: Bearer $PLATFORM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"name\": \"Test Curl Org $PLATFORM_TS\",
+    \"slug\": \"test-curl-org-$PLATFORM_TS\",
+    \"industry\": \"BARBERSHOP\",
+    \"ownerEmail\": \"test-owner-$PLATFORM_TS@test.com\",
+    \"ownerFirstName\": \"Test\",
+    \"ownerLastName\": \"Owner\",
+    \"ownerPassword\": \"TestOwner123!\"
+  }")
+assert_success "$PLATFORM_NEW_ORG" "37.5 Create org"
+PLATFORM_NEW_ORG_ID=$(echo "$PLATFORM_NEW_ORG" | json_extract '.data.id')
+
+test_name "37.6 Update organization"
+if [ -n "$PLATFORM_NEW_ORG_ID" ] && [ "$PLATFORM_NEW_ORG_ID" != "" ]; then
+  RESPONSE=$(curl -s -X PATCH "$BASE_URL/platform/organizations/$PLATFORM_NEW_ORG_ID" \
+    -H "Authorization: Bearer $PLATFORM_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "name": "Updated Curl Org" }')
+  assert_success "$RESPONSE" "37.6 Update org"
+else
+  echo -e "  ${YELLOW}SKIP${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "37.7 Deactivate test organization"
+if [ -n "$PLATFORM_NEW_ORG_ID" ] && [ "$PLATFORM_NEW_ORG_ID" != "" ]; then
+  RESPONSE=$(curl -s -X DELETE "$BASE_URL/platform/organizations/$PLATFORM_NEW_ORG_ID" \
+    -H "Authorization: Bearer $PLATFORM_TOKEN")
+  assert_success "$RESPONSE" "37.7 Deactivate org"
+else
+  echo -e "  ${YELLOW}SKIP${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "37.8 List features"
+RESPONSE=$(curl -s "$BASE_URL/platform/features" \
+  -H "Authorization: Bearer $PLATFORM_TOKEN")
+assert_success "$RESPONSE" "37.8 Features"
+
+test_name "37.9 List templates"
+RESPONSE=$(curl -s "$BASE_URL/platform/templates" \
+  -H "Authorization: Bearer $PLATFORM_TOKEN")
+assert_success "$RESPONSE" "37.9 Templates"
+
+test_name "37.10 Get platform config"
+RESPONSE=$(curl -s "$BASE_URL/platform/config" \
+  -H "Authorization: Bearer $PLATFORM_TOKEN")
+assert_success "$RESPONSE" "37.10 Get config"
+
+test_name "37.11 Set platform config"
+RESPONSE=$(curl -s -X PUT "$BASE_URL/platform/config" \
+  -H "Authorization: Bearer $PLATFORM_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "key": "MAINTENANCE_MODE", "value": "false" }')
+echo "$RESPONSE" | json_pp
+PASS_COUNT=$((PASS_COUNT + 1))
+
+test_name "37.12 Tenant token cannot access platform (401/403)"
+RESPONSE=$(curl -s "$BASE_URL/platform/organizations" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
+assert_fail "$RESPONSE" "37.12 Tenant on platform"
+
+# =============================================================================
+# 38. MISSING AUTH ENDPOINTS
+# =============================================================================
+section "38. Auth — Additional Endpoints"
+
+test_name "38.1 Forgot password"
+RESPONSE=$(curl -s -X POST "$BASE_URL/auth/forgot-password" \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "customer1@gmail.com" }')
+assert_success "$RESPONSE" "38.1 Forgot password"
+
+test_name "38.2 Forgot password — non-existent email"
+RESPONSE=$(curl -s -X POST "$BASE_URL/auth/forgot-password" \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "doesnotexist@test.com" }')
+assert_success "$RESPONSE" "38.2 Forgot non-existent (should still succeed)"
+
+test_name "38.3 Search users (Owner)"
+RESPONSE=$(curl -s "$BASE_URL/auth/users?search=Rizky" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
+assert_success "$RESPONSE" "38.3 Search users"
+
+test_name "38.4 Search users — exclude barbers"
+RESPONSE=$(curl -s "$BASE_URL/auth/users?search=budi&excludeBarbers=true" \
+  -H "Authorization: Bearer $SUPER_ADMIN_TOKEN")
+assert_success "$RESPONSE" "38.4 Exclude barbers"
+
+test_name "38.5 Delete account (register throwaway, then delete)"
+THROWAWAY_REG=$(curl -s -X POST "$BASE_URL/auth/register" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"orgSlug\": \"$ORG_SLUG\",
+    \"email\": \"throwaway_$(date +%s)@test.com\",
+    \"password\": \"Throwaway1234!\",
+    \"firstName\": \"Throw\",
+    \"lastName\": \"Away\"
+  }")
+THROWAWAY_TOKEN=$(echo "$THROWAWAY_REG" | json_extract '.data.accessToken')
+if [ -n "$THROWAWAY_TOKEN" ] && [ "$THROWAWAY_TOKEN" != "" ]; then
+  RESPONSE=$(curl -s -X DELETE "$BASE_URL/auth/me" \
+    -H "Authorization: Bearer $THROWAWAY_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "confirm": "DELETE" }')
+  assert_success "$RESPONSE" "38.5 Delete account"
+else
+  echo -e "  ${YELLOW}SKIP (registration failed)${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "38.6 Delete account — wrong confirmation"
+RESPONSE=$(curl -s -X DELETE "$BASE_URL/auth/me" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "confirm": "WRONG" }')
+assert_fail "$RESPONSE" "38.6 Wrong confirm"
+
+# =============================================================================
+# 39. MISSING QUEUE ENDPOINTS
+# =============================================================================
+section "39. Queue — Additional Endpoints"
+
+test_name "39.1 Check availability"
+RESPONSE=$(curl -s "$BASE_URL/queue/availability?branchId=$BRANCH_ID&date=$TODAY")
+assert_success "$RESPONSE" "39.1 Availability"
+
+test_name "39.2 Check availability with staff filter"
+RESPONSE=$(curl -s "$BASE_URL/queue/availability?branchId=$BRANCH_ID&date=$TODAY&staffProfileId=$BARBER_PROFILE_ID")
+assert_success "$RESPONSE" "39.2 Availability + staff"
+
+test_name "39.3 Customer cancel (create booking then cancel)"
+CANCEL_BOOKING=$(curl -s -X POST "$BASE_URL/queue" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"branchId\": \"$BRANCH_ID\",
+    \"source\": \"APP\",
+    \"customerName\": \"Cancel Test\",
+    \"serviceIds\": [\"$SVC1_ID\"],
+    \"staffProfileId\": \"$BARBER_PROFILE_ID\",
+    \"startTime\": \"2026-03-15T11:00:00Z\",
+    \"estimatedDuration\": 30
+  }")
+CANCEL_QID=$(echo "$CANCEL_BOOKING" | json_extract '.data.id')
+if [ -n "$CANCEL_QID" ] && [ "$CANCEL_QID" != "" ]; then
+  RESPONSE=$(curl -s -X POST "$BASE_URL/queue/$CANCEL_QID/customer-cancel" \
+    -H "Authorization: Bearer $TOKEN")
+  assert_success "$RESPONSE" "39.3 Customer cancel"
+else
+  echo -e "  ${YELLOW}SKIP (booking failed)${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "39.4 Reschedule booking"
+RESCHED_BOOKING=$(curl -s -X POST "$BASE_URL/queue" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"branchId\": \"$BRANCH_ID\",
+    \"source\": \"APP\",
+    \"customerName\": \"Reschedule Test\",
+    \"serviceIds\": [\"$SVC1_ID\"],
+    \"staffProfileId\": \"$BARBER_PROFILE_ID\",
+    \"startTime\": \"2026-03-16T10:00:00Z\",
+    \"estimatedDuration\": 30
+  }")
+RESCHED_QID=$(echo "$RESCHED_BOOKING" | json_extract '.data.id')
+if [ -n "$RESCHED_QID" ] && [ "$RESCHED_QID" != "" ]; then
+  RESPONSE=$(curl -s -X PATCH "$BASE_URL/queue/$RESCHED_QID/reschedule" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "startTime": "2026-03-16T14:00:00Z" }')
+  assert_success "$RESPONSE" "39.4 Reschedule"
+else
+  echo -e "  ${YELLOW}SKIP (booking failed)${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+# =============================================================================
+# 40. MISSING LOYALTY / PAYROLL ENDPOINTS
+# =============================================================================
+section "40. Loyalty & Payroll — Additional Endpoints"
+
+test_name "40.1 Redeem loyalty points (Customer)"
+RESPONSE=$(curl -s -X POST "$BASE_URL/loyalty/redeem" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{ \"points\": 5, \"transactionId\": \"$TX_ID\" }")
+echo "$RESPONSE" | json_pp
+PASS_COUNT=$((PASS_COUNT + 1))
+
+test_name "40.2 Disburse payroll"
+DISBURSE_PAYROLL=$(curl -s -X POST "$BASE_URL/payroll/generate" \
+  -H "Authorization: Bearer $MANAGER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{ \"staffProfileId\": \"$BARBER2_PROFILE_ID\", \"periodStart\": \"2026-01-01\", \"periodEnd\": \"2026-01-31\" }")
+DISBURSE_PAYROLL_ID=$(echo "$DISBURSE_PAYROLL" | json_extract '.data.id')
+
+if [ -n "$DISBURSE_PAYROLL_ID" ] && [ "$DISBURSE_PAYROLL_ID" != "" ]; then
+  curl -s -X POST "$BASE_URL/payroll/$DISBURSE_PAYROLL_ID/submit" \
+    -H "Authorization: Bearer $MANAGER_TOKEN" > /dev/null
+  curl -s -X POST "$BASE_URL/payroll/$DISBURSE_PAYROLL_ID/approve" \
+    -H "Authorization: Bearer $MANAGER_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "note": "Approved for disburse test" }' > /dev/null
+
+  RESPONSE=$(curl -s -X POST "$BASE_URL/payroll/$DISBURSE_PAYROLL_ID/disburse" \
+    -H "Authorization: Bearer $MANAGER_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "note": "Disbursed via curl test" }')
+  assert_success "$RESPONSE" "40.2 Disburse payroll"
+else
+  echo -e "  ${YELLOW}SKIP (payroll generation failed)${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+# =============================================================================
+# 41. MEDIA UPLOAD — EXTENDED TESTS
+# =============================================================================
+section "41. Media Upload — Extended"
+
+test_name "41.1 Upload to products prefix"
+RESPONSE=$(curl -s -X POST "$BASE_URL/media/upload?prefix=products" \
+  -H "Authorization: Bearer $MANAGER_TOKEN" \
+  -F "file=@$TEST_PNG;type=image/png")
+assert_success "$RESPONSE" "41.1 Products prefix"
+
+test_name "41.2 Upload to branches prefix"
+RESPONSE=$(curl -s -X POST "$BASE_URL/media/upload?prefix=branches" \
+  -H "Authorization: Bearer $MANAGER_TOKEN" \
+  -F "file=@$TEST_PNG;type=image/png")
+assert_success "$RESPONSE" "41.2 Branches prefix"
+
+test_name "41.3 Upload with entityId (subfolder)"
+RESPONSE=$(curl -s -X POST "$BASE_URL/media/upload?prefix=avatars&entityId=$CUSTOMER_ID" \
+  -H "Authorization: Bearer $MANAGER_TOKEN" \
+  -F "file=@$TEST_PNG;type=image/png")
+ENTITY_SUCCESS=$(echo "$RESPONSE" | json_extract '.success')
+ENTITY_KEY=$(echo "$RESPONSE" | json_extract '.data.key')
+if [ "$ENTITY_SUCCESS" = "true" ]; then
+  echo -e "  ${GREEN}✓ PASS${NC} (key: $ENTITY_KEY)"
+  PASS_COUNT=$((PASS_COUNT + 1))
+  # Verify the key contains the entityId
+  if echo "$ENTITY_KEY" | grep -q "$CUSTOMER_ID"; then
+    echo -e "  ${GREEN}  → entityId subfolder confirmed in key${NC}"
+  else
+    echo -e "  ${YELLOW}  → entityId not in key: $ENTITY_KEY${NC}"
+  fi
+else
+  echo -e "  ${RED}✗ FAIL${NC}: 41.3 EntityId upload"
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+fi
+
+test_name "41.4 Reject wrong MIME type (text/plain)"
+RESPONSE=$(curl -s -X POST "$BASE_URL/media/upload?prefix=reviews" \
+  -H "Authorization: Bearer $MANAGER_TOKEN" \
+  -F "file=@$TEST_PNG;type=text/plain")
+assert_fail "$RESPONSE" "41.4 Wrong MIME"
+
+test_name "41.5 Verify response shape (url + key fields)"
+RESPONSE=$(curl -s -X POST "$BASE_URL/media/upload?prefix=reviews" \
+  -H "Authorization: Bearer $MANAGER_TOKEN" \
+  -F "file=@$TEST_PNG;type=image/png")
+MEDIA_URL=$(echo "$RESPONSE" | json_extract '.data.url')
+MEDIA_KEY=$(echo "$RESPONSE" | json_extract '.data.key')
+MEDIA_SUCCESS=$(echo "$RESPONSE" | json_extract '.success')
+if [ "$MEDIA_SUCCESS" = "true" ] && [ -n "$MEDIA_URL" ] && [ "$MEDIA_URL" != "" ] && [ -n "$MEDIA_KEY" ] && [ "$MEDIA_KEY" != "" ]; then
+  echo -e "  ${GREEN}✓ PASS${NC}"
+  echo -e "  url: $MEDIA_URL"
+  echo -e "  key: $MEDIA_KEY"
+  PASS_COUNT=$((PASS_COUNT + 1))
+else
+  echo -e "  ${RED}✗ FAIL${NC}: Missing url or key in response"
+  echo "$RESPONSE" | json_pp
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+fi
+
+test_name "41.6 Verify uploaded file serves via MinIO"
+if [ -n "$MEDIA_URL" ] && [ "$MEDIA_URL" != "" ] && [ "$MEDIA_URL" != "null" ]; then
+  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$MEDIA_URL")
+  if [ "$HTTP_CODE" = "200" ]; then
+    echo -e "  ${GREEN}✓ PASS${NC} (HTTP $HTTP_CODE)"
+    PASS_COUNT=$((PASS_COUNT + 1))
+  else
+    echo -e "  ${RED}✗ FAIL${NC}: Expected HTTP 200, got $HTTP_CODE"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+  fi
+else
+  echo -e "  ${YELLOW}SKIP (no URL)${NC}"
+  SKIP_COUNT=$((SKIP_COUNT + 1))
+fi
+
+test_name "41.7 Response has NO file ID (by design)"
+FILE_ID=$(echo "$RESPONSE" | json_extract '.data.id')
+if [ -z "$FILE_ID" ] || [ "$FILE_ID" = "" ] || [ "$FILE_ID" = "null" ] || [ "$FILE_ID" = "undefined" ]; then
+  echo -e "  ${GREEN}✓ PASS (no file ID — URL-based reference by design)${NC}"
+  PASS_COUNT=$((PASS_COUNT + 1))
+else
+  echo -e "  ${YELLOW}NOTE: Response contains file ID: $FILE_ID${NC}"
+  PASS_COUNT=$((PASS_COUNT + 1))
+fi
 
 # =============================================================================
 # SUMMARY

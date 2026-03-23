@@ -2,9 +2,32 @@ import type { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import type { RegisterInput, LoginInput, GoogleAuthInput } from "./auth.schema";
 
+export async function getPermissionsForRole(db: PrismaClient, tenantRoleId: string) {
+  const perms = await db.tenantRolePermission.findMany({
+    where: { tenantRoleId },
+    select: {
+      featureCode: true,
+      canCreate: true,
+      canRead: true,
+      canUpdate: true,
+      canDelete: true,
+    },
+  });
+  const map: Record<string, { canCreate: boolean; canRead: boolean; canUpdate: boolean; canDelete: boolean }> = {};
+  for (const p of perms) {
+    map[p.featureCode] = {
+      canCreate: p.canCreate,
+      canRead: p.canRead,
+      canUpdate: p.canUpdate,
+      canDelete: p.canDelete,
+    };
+  }
+  return map;
+}
+
 export const AuthService = {
   async getUserById(db: PrismaClient, id: string) {
-    return db.user.findUnique({
+    const user = await db.user.findUnique({
       where: { id },
       select: {
         id: true,
@@ -20,6 +43,10 @@ export const AuthService = {
         tenantRole: { select: { id: true, name: true, scope: true } },
       },
     });
+    if (!user || !user.tenantRoleId) return user;
+
+    const permissions = await getPermissionsForRole(db, user.tenantRoleId);
+    return { ...user, permissions };
   },
 
   async resolveOrg(db: PrismaClient, orgSlug: string) {

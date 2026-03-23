@@ -52,7 +52,6 @@ export const PlatformService = {
         },
       });
 
-      // Seed default roles from industry template (or generic defaults)
       const templateJson = template?.templateData as Record<string, unknown> | null;
       const defaultRoles = (templateJson?.defaultRoles as Array<{ name: string; scope: string; isServiceProvider: boolean }>) ?? null;
       const rolesToCreate = defaultRoles ?? [
@@ -77,26 +76,23 @@ export const PlatformService = {
 
       const ownerRole = createdRoles.find((r) => r.scope === "HQ") ?? createdRoles[0];
 
-      // Seed default permissions for all roles
       const features = await tx.feature.findMany();
-      for (const role of createdRoles) {
-        for (const feature of features) {
+      const permData = createdRoles.flatMap((role) =>
+        features.map((feature) => {
           const isHQ = role.scope === "HQ";
           const isStaff = role.scope === "BRANCH";
-          await tx.tenantRolePermission.create({
-            data: {
-              tenantRoleId: role.id,
-              featureCode: feature.code,
-              canCreate: isHQ,
-              canRead: isHQ || isStaff,
-              canUpdate: isHQ,
-              canDelete: isHQ,
-            },
-          });
-        }
-      }
+          return {
+            tenantRoleId: role.id,
+            featureCode: feature.code,
+            canCreate: isHQ,
+            canRead: isHQ || isStaff,
+            canUpdate: isHQ,
+            canDelete: isHQ,
+          };
+        }),
+      );
+      await tx.tenantRolePermission.createMany({ data: permData });
 
-      // Create the owner user
       const passwordHash = await bcrypt.hash(data.ownerPassword, 10);
       await tx.user.create({
         data: {
@@ -111,7 +107,7 @@ export const PlatformService = {
       });
 
       return { ...org, roles: createdRoles };
-    });
+    }, { timeout: 30000 });
   },
 
   async updateOrganization(db: PrismaClient, id: string, data: UpdateOrgInput) {

@@ -13,6 +13,7 @@ type AuthMeResponse = {
   tenantRole?: { name: string; scope: string } | null;
   staffProfile?: { id: string; tier: string } | null;
   isCustomer?: boolean;
+  permissions?: Record<string, { canCreate: boolean; canRead: boolean; canUpdate: boolean; canDelete: boolean }>;
 };
 
 export function useAuthMe() {
@@ -37,6 +38,7 @@ export function useAuthMe() {
         staffProfile: userData.staffProfile ?? null,
         tenantRole: userData.tenantRole ?? null,
         isCustomer: userData.isCustomer,
+        permissions: userData.permissions,
       });
     }
   }, [userData, updateUser]);

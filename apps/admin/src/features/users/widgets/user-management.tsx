@@ -8,6 +8,7 @@ import {
   useRemoveUserBranch,
   type UserRow,
 } from "../api/use-users";
+import { useBranches } from "@/features/pos/api/use-branches";
 import {
   Search,
   ChevronLeft,
@@ -393,6 +394,9 @@ function BranchAssignDialog({
   error: Error | null;
   onClose: () => void;
 }) {
+  const { data: branchesData } = useBranches();
+  const branches = branchesData?.data ?? [];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
@@ -406,13 +410,18 @@ function BranchAssignDialog({
           </span>{" "}
           to a branch
         </p>
-        <input
-          type="text"
-          placeholder="Enter Branch ID"
+        <select
           value={branchId}
           onChange={(e) => setBranchId(e.target.value)}
           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-        />
+        >
+          <option value="">Select a branch</option>
+          {branches.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
         <p className="text-xs text-slate-400">
           Current:{" "}
           {user.branch?.name ?? "None"}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { BranchSelector } from "@/components/branch-selector";
 import { useBranchStore } from "@/store/use-branch-store";
 import {
@@ -11,7 +11,7 @@ import {
 } from "@/features/attendance/api/use-attendance";
 import { useBarbers } from "@/features/barbers/api/use-barbers";
 
-type Tab = "attendance" | "shifts";
+type Tab = "attendance" | "shifts" | "calendar";
 
 export default function AttendancePage() {
   const selectedBranchId = useBranchStore((s) => s.selectedBranchId) ?? "";
@@ -75,14 +75,14 @@ export default function AttendancePage() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
-        {(["attendance", "shifts"] as const).map((t) => (
+        {([["attendance", "Attendance Log"], ["shifts", "Shift Schedule"], ["calendar", "Calendar"]] as const).map(([t, label]) => (
           <button
             key={t}
             type="button"
-            onClick={() => setTab(t)}
+            onClick={() => setTab(t as Tab)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
           >
-            {t === "attendance" ? "Attendance Log" : "Shift Schedule"}
+            {label}
           </button>
         ))}
       </div>
@@ -231,6 +231,117 @@ export default function AttendancePage() {
           )}
         </>
       )}
+
+      {tab === "calendar" && (
+        <WeeklyCalendar
+          branchId={selectedBranchId}
+          barbers={barbers}
+        />
+      )}
+    </div>
+  );
+}
+
+function getWeekDates(referenceDate: string): string[] {
+  const d = new Date(referenceDate);
+  const day = d.getDay();
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - ((day + 6) % 7));
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + i);
+    dates.push(date.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
+const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const HOURS = Array.from({ length: 14 }, (_, i) => i + 7); // 7:00 to 20:00
+
+function WeeklyCalendar({ branchId, barbers }: { branchId: string; barbers: Array<{ id: string; user: { firstName: string; lastName: string } }> }) {
+  const [weekRef, setWeekRef] = useState(() => new Date().toISOString().slice(0, 10));
+  const weekDates = useMemo(() => getWeekDates(weekRef), [weekRef]);
+
+  const shiftQueries = weekDates.map((date) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useShifts({ branchId, date })
+  );
+
+  const allShifts: Array<ShiftBlock & { dayIndex: number }> = [];
+  shiftQueries.forEach((q, i) => {
+    for (const s of (q.data?.data ?? [])) {
+      allShifts.push({ ...s, dayIndex: i });
+    }
+  });
+
+  const barberNames = new Map(barbers.map((b) => [b.id, `${b.user.firstName} ${b.user.lastName}`]));
+
+  const prevWeek = () => {
+    const d = new Date(weekRef);
+    d.setDate(d.getDate() - 7);
+    setWeekRef(d.toISOString().slice(0, 10));
+  };
+  const nextWeek = () => {
+    const d = new Date(weekRef);
+    d.setDate(d.getDate() + 7);
+    setWeekRef(d.toISOString().slice(0, 10));
+  };
+  const goToday = () => setWeekRef(new Date().toISOString().slice(0, 10));
+
+  function parseHour(t: string): number {
+    const [h, m] = t.split(":").map(Number);
+    return h + (m ?? 0) / 60;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={prevWeek} className="rounded border px-3 py-1 text-sm">Prev</button>
+        <button type="button" onClick={goToday} className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground">Today</button>
+        <button type="button" onClick={nextWeek} className="rounded border px-3 py-1 text-sm">Next</button>
+        <span className="text-sm font-medium">{weekDates[0]} — {weekDates[6]}</span>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <div className="grid min-w-[800px]" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
+          {/* Header */}
+          <div className="border-b bg-muted/50 px-2 py-2 text-xs font-medium text-slate-500" />
+          {DAY_LABELS.map((label, i) => (
+            <div key={label} className="border-b border-l bg-muted/50 px-2 py-2 text-center">
+              <div className="text-xs font-medium text-slate-500">{label}</div>
+              <div className="text-xs text-slate-400">{weekDates[i]?.slice(5)}</div>
+            </div>
+          ))}
+
+          {/* Hour rows */}
+          {HOURS.map((hour) => (
+            <div key={hour} className="contents">
+              <div className="border-b px-2 py-3 text-right text-xs text-slate-400">{String(hour).padStart(2, "0")}:00</div>
+              {weekDates.map((date, di) => {
+                const dayShifts = allShifts.filter((s) => s.dayIndex === di);
+                const blocksInHour = dayShifts.filter((s) => {
+                  const start = parseHour(s.startTime);
+                  const end = parseHour(s.endTime);
+                  return start <= hour && end > hour;
+                });
+                return (
+                  <div key={date} className="relative border-b border-l px-1 py-1 min-h-[48px]">
+                    {blocksInHour.map((s) => (
+                      <div
+                        key={s.id}
+                        className="mb-0.5 rounded bg-primary/15 px-1.5 py-0.5 text-xs text-primary truncate"
+                        title={`${barberNames.get(s.staffProfileId) ?? "?"}: ${s.startTime}–${s.endTime}`}
+                      >
+                        {barberNames.get(s.staffProfileId)?.split(" ")[0] ?? "?"} {s.startTime}–{s.endTime}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

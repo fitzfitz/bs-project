@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { ProtectedRoute } from "@/routes/_guards/protected-route";
+import { RequirePermission } from "@/routes/_guards/require-permission";
 
 const LoginPage = lazy(() => import("@/pages/auth/login-page"));
 const DashboardPage = lazy(() => import("@/pages/dashboard/page"));
@@ -21,7 +22,6 @@ const MySchedulePage = lazy(() => import("@/pages/barber-portal/my-schedule"));
 const MyCommissionsPage = lazy(() => import("@/pages/barber-portal/my-commissions"));
 const MyAttendancePage = lazy(() => import("@/pages/barber-portal/my-attendance"));
 
-// Phase 6: Super Admin pages
 const AnalyticsPage = lazy(() => import("@/pages/analytics/page"));
 const ReportsPage = lazy(() => import("@/pages/reports/page"));
 const UsersPage = lazy(() => import("@/pages/users/page"));
@@ -47,29 +47,29 @@ export default function App() {
           }
         >
           <Route index element={<DashboardPage />} />
-          <Route path="queue" element={<QueuePage />} />
-          <Route path="pos" element={<POSPage />} />
-          <Route path="transactions" element={<TransactionsPage />} />
-          <Route path="barbers" element={<BarbersPage />} />
-          <Route path="attendance" element={<AttendancePage />} />
-          <Route path="commissions" element={<CommissionsPage />} />
-          <Route path="payroll" element={<PayrollPage />} />
-          <Route path="inventory" element={<InventoryPage />} />
-          <Route path="cash-drawer" element={<CashDrawerPage />} />
-          <Route path="reviews" element={<ReviewsPage />} />
-          <Route path="loyalty" element={<LoyaltyPage />} />
-          <Route path="branches" element={<BranchSettingsPage />} />
+          <Route path="queue" element={<RequirePermission feature="QUEUE_MANAGEMENT"><QueuePage /></RequirePermission>} />
+          <Route path="pos" element={<RequirePermission feature="TRANSACTION" action="canCreate"><POSPage /></RequirePermission>} />
+          <Route path="transactions" element={<RequirePermission feature="TRANSACTION"><TransactionsPage /></RequirePermission>} />
+          <Route path="barbers" element={<RequirePermission feature="STAFF_MANAGEMENT"><BarbersPage /></RequirePermission>} />
+          <Route path="attendance" element={<RequirePermission feature="ATTENDANCE"><AttendancePage /></RequirePermission>} />
+          <Route path="commissions" element={<RequirePermission feature="COMMISSION"><CommissionsPage /></RequirePermission>} />
+          <Route path="payroll" element={<RequirePermission feature="PAYROLL"><PayrollPage /></RequirePermission>} />
+          <Route path="inventory" element={<RequirePermission feature="INVENTORY"><InventoryPage /></RequirePermission>} />
+          <Route path="cash-drawer" element={<RequirePermission feature="CASH_DRAWER"><CashDrawerPage /></RequirePermission>} />
+          <Route path="reviews" element={<RequirePermission feature="REVIEWS"><ReviewsPage /></RequirePermission>} />
+          <Route path="loyalty" element={<RequirePermission feature="LOYALTY"><LoyaltyPage /></RequirePermission>} />
+          <Route path="branches" element={<RequirePermission feature="BRANCH_MANAGEMENT"><BranchSettingsPage /></RequirePermission>} />
           {/* Barber Portal */}
           <Route path="my-schedule" element={<MySchedulePage />} />
           <Route path="my-commissions" element={<MyCommissionsPage />} />
           <Route path="my-attendance" element={<MyAttendancePage />} />
-          {/* Phase 6: Super Admin */}
-          <Route path="analytics" element={<AnalyticsPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="audit" element={<AuditPage />} />
-          <Route path="finance" element={<FinancePage />} />
-          <Route path="config" element={<ConfigPage />} />
+          {/* Administration */}
+          <Route path="analytics" element={<RequirePermission feature="ANALYTICS"><AnalyticsPage /></RequirePermission>} />
+          <Route path="reports" element={<RequirePermission feature="REPORTS"><ReportsPage /></RequirePermission>} />
+          <Route path="users" element={<RequirePermission feature="USER_MANAGEMENT"><UsersPage /></RequirePermission>} />
+          <Route path="audit" element={<RequirePermission feature="AUDIT_LOG"><AuditPage /></RequirePermission>} />
+          <Route path="finance" element={<RequirePermission feature="FINANCE_REPORTS"><FinancePage /></RequirePermission>} />
+          <Route path="config" element={<RequirePermission feature="ORG_SETTINGS"><ConfigPage /></RequirePermission>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -1,0 +1,86 @@
+# GLOBAL MONOREPO CONSTRAINTS
+
+## 1. Core Directives
+- **READ FIRST:** Before proposing any architecture, adding dependencies, or writing multi-file features, you MUST read `docs/implementation_plan.md`.
+- **Monorepo Manager:** This is a `pnpm` workspace (NOT Nx). **NEVER** use `npm`, `yarn`, or `bun`. Always execute commands using `pnpm` (e.g., `pnpm add`, `pnpm install`). Workspace filtering: `pnpm --filter <pkg>`.
+- **No Boilerplate:** Always use CLI tools to scaffold files when available. Never manually write boilerplate that a CLI can generate.
+
+## 2. Workspace Structure
+
+```
+bs-project/                     # pnpm workspace root
+├── apps/
+│   ├── api/                    # @tmng/saas-api      — Hono.js REST API (Node.js 22)
+│   ├── admin/                  # @tmng/barber-admin   — Admin dashboard (React 19, desktop-first)
+│   └── client/                 # @tmng/barber-client  — Customer PWA (React 19, mobile-first)
+├── packages/                   # Shared packages (currently empty)
+└── docs/                       # Architecture & planning docs (source of truth)
+```
+
+- **Package namespace:** All packages use the `@tmng/` scope.
+- **No shared packages yet** — do not create packages in `packages/` without explicit discussion.
+
+## 3. Source-of-Truth Documentation
+
+Before generating code that touches architecture, RBAC, database models, or deployment, consult:
+
+| Doc | Purpose |
+|-----|---------|
+| `docs/implementation_plan.md` | Feature phases, key decisions, full spec |
+| `docs/hono-setup.md` | API architecture, OpenAPIHono patterns, middleware stack |
+| `docs/rbac_system.md` | 25-feature permission catalog, TenantRole model, middleware |
+| `docs/service_architecture.md` | Infra topology, deployment, scheduler, multi-tenancy |
+| `docs/database_schema.md` | Complete Prisma schema (46 models, multi-tenant) |
+| `docs/platform_architecture.md` | Platform vision, multi-tenancy, user model |
+
+## 4. Universal Tech Standards
+- **TypeScript:** Strict mode is mandatory across all packages and apps.
+- **Zod v4:** The single source of truth for types on both frontend and backend. Import from `zod` (v4), not `@hono/zod-openapi`'s re-export of `z` unless inside a schema file.
+- **Time/Dates:** All timestamps stored, processed, and transmitted in UTC. Only format to WIB (UTC+7) at the final UI rendering layer.
+
+## 5. Multi-Tenancy & Naming
+
+- **Multi-tenant model:** Every data table is scoped by `organizationId`. Auth uses `orgSlug` to identify the tenant.
+- **Database-driven RBAC:** Roles are `TenantRole` records per org. Permissions are `TenantRolePermission` rows (25 feature codes, CRUD flags). Never hardcode role names for access checks.
+- **Generic naming:** Use `StaffProfile` (not `BarberProfile`), `staff` (not `barber`) in API routes and types. The platform is industry-agnostic.
+- **JWT claims:** `userId`, `organizationId`, `tenantRoleId`, `scope` (HQ | BRANCH | CUSTOMER), `branchId`.
+
+## 6. API Response Envelope
+
+All API responses follow this shape:
+
+```typescript
+{ success: boolean; data?: T; message?: string; pagination?: { page, limit, total, totalPages } }
+```
+
+Frontend `lib/api.ts` (both apps) unwraps this envelope automatically. Hooks receive `data` directly.
+
+## 7. Workflow Verification
+- **Order of Operations:** Always run `lint` -> `typecheck` -> `test` in that exact order before considering any phase or feature complete.
+- **Root scripts:** `pnpm verify` runs the full chain. `pnpm dev:api`, `pnpm dev:admin`, `pnpm dev:client` start individual apps.
+
+## 8. Read-Before-Write Protocol
+
+- Before modifying any file, you MUST read it first.
+- Before creating a file in a directory, read at least one sibling file to learn local conventions.
+- Before importing a module, verify the path exists.
+- NEVER guess the signature of a function, hook, or component — read its source.
+
+## 9. Dependency Discipline
+
+- Never assume a package is installed. Check the app's `package.json` before using an import.
+- Never add a dependency without checking if the functionality already exists in an installed package.
+- To add deps: `pnpm --filter <pkg> add <dep>`. Never edit `package.json` by hand.
+- When using Zod, confirm whether the app has v3 or v4 (backend is v4).
+
+## 10. No Invention Rule
+
+- Do NOT create directories, files, utility functions, or middleware that do not already exist unless explicitly asked.
+- Before proposing a new shared module, check `lib/`, `utils/`, `hooks/`, or `middlewares/` for existing solutions.
+- If you need something that doesn't exist, state that explicitly and propose creation before writing code.
+
+## 11. Verification After Changes
+
+- After code changes, run `pnpm --filter <affected-app> typecheck` to verify compilation.
+- After adding/changing an API route, verify the OpenAPI spec loads at `/api/docs`.
+- Full `pnpm verify` only required at feature completion, not during iterative dev.

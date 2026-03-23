@@ -81,35 +81,29 @@ export const InventoryService = {
    */
   async recordStockIn(db: PrismaClient, organizationId: string, data: StockInInput) {
     return db.$transaction(async (tx) => {
-      const inv = await tx.branchInventory.findUnique({
-        where: {
-          branchId_productId: { branchId: data.branchId, productId: data.productId },
-        },
+      const existing = await tx.branchInventory.findUnique({
+        where: { branchId_productId: { branchId: data.branchId, productId: data.productId } },
       });
-      let quantity: number;
-      let avgCost: number;
-      if (!inv) {
-        quantity = data.quantity;
-        avgCost = data.costPerUnit;
-        await tx.branchInventory.create({
-          data: {
-            branchId: data.branchId,
-            productId: data.productId,
-            organizationId,
-            quantity,
-            avgCost,
-            reorderThreshold: 5,
-          },
-        });
-      } else {
-        const totalCost = inv.quantity * inv.avgCost + data.quantity * data.costPerUnit;
-        quantity = inv.quantity + data.quantity;
-        avgCost = quantity > 0 ? totalCost / quantity : data.costPerUnit;
-        await tx.branchInventory.update({
-          where: { id: inv.id },
-          data: { quantity, avgCost },
-        });
-      }
+
+      const oldQty = existing?.quantity ?? 0;
+      const oldAvg = existing?.avgCost ?? 0;
+      const totalCost = oldQty * oldAvg + data.quantity * data.costPerUnit;
+      const quantity = oldQty + data.quantity;
+      const avgCost = quantity > 0 ? totalCost / quantity : data.costPerUnit;
+
+      await tx.branchInventory.upsert({
+        where: { branchId_productId: { branchId: data.branchId, productId: data.productId } },
+        create: {
+          branchId: data.branchId,
+          productId: data.productId,
+          organizationId,
+          quantity,
+          avgCost,
+          reorderThreshold: 5,
+        },
+        update: { quantity, avgCost },
+      });
+
       await tx.stockMovement.create({
         data: {
           productId: data.productId,
@@ -122,7 +116,7 @@ export const InventoryService = {
         },
       });
       return { quantity, avgCost };
-    });
+    }, { timeout: 30000 });
   },
 
   /**
@@ -195,7 +189,7 @@ export const InventoryService = {
         },
       });
       return { quantity: data.newQuantity };
-    });
+    }, { timeout: 30000 });
   },
 
   /**

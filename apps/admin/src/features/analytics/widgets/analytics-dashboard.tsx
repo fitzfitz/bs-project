@@ -4,8 +4,9 @@ import { useGlobalDashboard } from "../api/use-global-dashboard";
 import { useBranchComparison } from "../api/use-branch-comparison";
 import { usePeakHeatmap } from "../api/use-peak-heatmap";
 import { useRetention } from "../api/use-retention";
+import { useUtilization, type UtilizationBarber } from "../api/use-utilization";
 
-const TABS = ["Overview", "Comparison", "Peak Hours", "Retention"] as const;
+const TABS = ["Overview", "Comparison", "Peak Hours", "Retention", "Utilization"] as const;
 type Tab = (typeof TABS)[number];
 
 export function AnalyticsDashboard({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }) {
@@ -32,6 +33,7 @@ export function AnalyticsDashboard({ dateFrom, dateTo }: { dateFrom: string; dat
       {tab === "Comparison" && <ComparisonTab dateFrom={dateFrom} dateTo={dateTo} />}
       {tab === "Peak Hours" && <HeatmapTab branchId={branchId} dateFrom={dateFrom} dateTo={dateTo} />}
       {tab === "Retention" && <RetentionTab branchId={branchId} />}
+      {tab === "Utilization" && <UtilizationTab branchId={branchId} dateFrom={dateFrom} dateTo={dateTo} />}
     </div>
   );
 }
@@ -181,6 +183,49 @@ function RetentionTab({ branchId }: { branchId?: string | null }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function UtilizationTab({ branchId, dateFrom, dateTo }: { branchId?: string | null; dateFrom: string; dateTo: string }) {
+  const { data, isLoading } = useUtilization({ branchId: branchId ?? undefined, dateFrom, dateTo });
+  if (isLoading) return <div className="h-64 animate-pulse rounded-xl bg-slate-100" />;
+  const util = (data as any)?.data;
+  if (!util) return <p className="text-sm text-slate-500">No utilization data.</p>;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-4">
+        <StatCard label="Overall Utilization" value={`${util.overallRate}%`} />
+        <StatCard label="Available Hours" value={String(Math.round(util.totalAvailableMinutes / 60))} />
+        <StatCard label="Busy Hours" value={String(Math.round(util.totalBusyMinutes / 60))} />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <h3 className="mb-4 font-semibold">Per-Barber Utilization</h3>
+        {(util.barbers as UtilizationBarber[]).length === 0 ? (
+          <p className="text-sm text-slate-500">No barber data for this period.</p>
+        ) : (
+          <div className="space-y-3">
+            {(util.barbers as UtilizationBarber[]).map((b) => (
+              <div key={b.staffProfileId} className="flex items-center gap-3">
+                <span className="w-36 truncate text-sm font-medium">{b.name}</span>
+                <div className="flex-1 rounded-full bg-slate-100">
+                  <div
+                    className="h-6 rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(100, b.utilizationRate)}%`,
+                      backgroundColor: b.utilizationRate >= 80 ? "#22c55e" : b.utilizationRate >= 50 ? "#eab308" : "#ef4444",
+                    }}
+                  />
+                </div>
+                <span className="w-16 text-right text-sm font-bold">{b.utilizationRate}%</span>
+                <span className="w-28 text-right text-xs text-slate-400">{b.servicesCount} services</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

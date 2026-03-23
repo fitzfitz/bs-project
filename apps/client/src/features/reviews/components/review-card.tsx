@@ -62,7 +62,7 @@ export function ReviewCard({ review }: Props) {
       )}
 
       {/* Photos */}
-      {review.photoUrls.length > 0 && (
+      {review.photoUrls && review.photoUrls.length > 0 && (
         <div className="mt-3 flex gap-2 overflow-x-auto">
           {review.photoUrls.map((url, i) => (
             <img

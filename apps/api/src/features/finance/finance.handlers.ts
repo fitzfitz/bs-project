@@ -16,6 +16,10 @@ export const plSummaryRoute = createRoute({
 
 export const plSummaryHandler: RouteHandler<typeof plSummaryRoute, AppEnv> = async (c) => {
   const query = c.req.valid("query");
+  const scope = c.get("scope");
+  if (scope === "BRANCH" && !query.branchId) {
+    return c.json({ success: false as const, message: "Branch-scoped users must specify branchId" }, 403);
+  }
   const data = await FinanceService.getPLSummary(c.var.db, query);
   return c.json({ success: true, data }, 200);
 };

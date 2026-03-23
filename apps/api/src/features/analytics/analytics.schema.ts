@@ -30,3 +30,9 @@ export const forecastQuery = z.object({
 export const computeSnapshotsBody = z.object({
   date: z.string().optional(),
 });
+
+export const utilizationQuery = z.object({
+  branchId: z.string().optional(),
+  dateFrom: z.string(),
+  dateTo: z.string(),
+});

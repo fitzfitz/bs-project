@@ -1,6 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { registerSchema, loginSchema, refreshSchema, updateProfileSchema, deleteAccountSchema, forgotPasswordSchema, googleAuthSchema } from "./auth.schema";
-import { AuthService } from "./auth.service";
+import { AuthService, getPermissionsForRole } from "./auth.service";
 import { createSuccessSchema, ErrorSchema } from "../../utils/openapi";
 import type { AppEnv } from "../../types";
 import type { RouteHandler } from "@hono/zod-openapi";
@@ -262,7 +262,7 @@ export const registerHandler: RouteHandler<typeof registerRoute, AppEnv> = async
   }
   const user = await AuthService.register(c.var.db, { ...data, orgSlug });
 
-  const expDate = new Date(Date.now() + 15 * 60 * 1000); // 15 mins default
+  const expDate = new Date(Date.now() + 15 * 60 * 1000);
   const accessToken = await sign(
     {
       sub: user.id,
@@ -278,11 +278,15 @@ export const registerHandler: RouteHandler<typeof registerRoute, AppEnv> = async
 
   const rt = await AuthService.createRefreshToken(c.var.db, user.id, user.organizationId);
 
+  const permissions = user.tenantRoleId
+    ? await getPermissionsForRole(c.var.db, user.tenantRoleId)
+    : {};
+
   return c.json(
     {
       success: true as const,
       data: {
-        user,
+        user: { ...user, permissions },
         accessToken,
         refreshToken: rt.token,
       },
@@ -322,11 +326,15 @@ export const loginHandler: RouteHandler<typeof loginRoute, AppEnv> = async (c) =
 
   const rt = await AuthService.createRefreshToken(c.var.db, user.id, user.organizationId);
 
+  const permissions = user.tenantRoleId
+    ? await getPermissionsForRole(c.var.db, user.tenantRoleId)
+    : {};
+
   return c.json(
     {
       success: true as const,
       data: {
-        user,
+        user: { ...user, permissions },
         accessToken,
         refreshToken: rt.token,
       },
@@ -492,11 +500,15 @@ export const googleAuthHandler: RouteHandler<typeof googleAuthRoute, AppEnv> = a
 
     const rt = await AuthService.createRefreshToken(c.var.db, user.id, user.organizationId);
 
+    const permissions = user.tenantRoleId
+      ? await getPermissionsForRole(c.var.db, user.tenantRoleId)
+      : {};
+
     return c.json(
       {
         success: true as const,
         data: {
-          user,
+          user: { ...user, permissions },
           accessToken,
           refreshToken: rt.token,
         },

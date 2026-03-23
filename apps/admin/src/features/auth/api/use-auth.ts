@@ -22,6 +22,7 @@ export function useLogin() {
           tenantRole: data.data.user.tenantRole ?? null,
           staffProfile: data.data.user.staffProfile ?? null,
           isCustomer: data.data.user.isCustomer,
+          permissions: data.data.user.permissions,
         },
         data.data.accessToken,
         data.data.refreshToken

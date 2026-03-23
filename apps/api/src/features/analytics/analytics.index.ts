@@ -14,6 +14,8 @@ import {
   retentionHandler,
   forecastRoute,
   forecastHandler,
+  utilizationRoute,
+  utilizationHandler,
   computeSnapshotsRoute,
   computeSnapshotsHandler,
 } from "./analytics.handlers";
@@ -27,6 +29,7 @@ analyticsApp.openapi(globalDashboardRoute, globalDashboardHandler);
 analyticsApp.openapi(branchComparisonRoute, branchComparisonHandler);
 analyticsApp.openapi(retentionRoute, retentionHandler);
 analyticsApp.openapi(forecastRoute, forecastHandler);
+analyticsApp.openapi(utilizationRoute, utilizationHandler);
 analyticsApp.openapi(computeSnapshotsRoute, computeSnapshotsHandler);
 
 export default analyticsApp;

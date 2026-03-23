@@ -8,7 +8,14 @@ import type {
 import { promotionsService } from "../promotions/promotions.service";
 import { HTTPException } from "hono/http-exception";
 
-const TAX_RATE = 0.12; // 12% PPN
+async function getOrgTaxRate(db: PrismaClient, organizationId: string): Promise<number> {
+  const org = await db.organization.findUnique({
+    where: { id: organizationId },
+    select: { taxEnabled: true, taxRate: true },
+  });
+  if (!org || !org.taxEnabled) return 0;
+  return org.taxRate / 100;
+}
 
 /** Transaction client from db.$transaction (for use in addPayments and webhook finalization). */
 type TxClient = Prisma.TransactionClient;
@@ -168,9 +175,9 @@ export const TransactionService = {
         // Supervisors, Managers, and Super Admins have no limit
     }
 
-    // Total discount is the sum of manual discount (if any), promo discount, and loyalty discount
     const discountAmount = (data.discountAmount || 0) + promoDiscount + loyaltyDiscount;
-    const taxAmount = (grossAmount - discountAmount) * TAX_RATE;
+    const taxRate = await getOrgTaxRate(db, organizationId);
+    const taxAmount = (grossAmount - discountAmount) * taxRate;
     const netAmount = grossAmount - discountAmount + taxAmount;
     const tipAmount = data.tipAmount || 0;
     const totalDue = netAmount + tipAmount;
@@ -281,7 +288,7 @@ export const TransactionService = {
 
       await finalizeTransactionSideEffects(tx, transactionId, updatedTransaction);
       return updatedTransaction;
-    });
+    }, { timeout: 30000 });
   },
 
   async voidTransaction(db: PrismaClient, transactionId: string, userId: string, scope: string, reason: string) {
@@ -326,7 +333,7 @@ export const TransactionService = {
       });
 
       return updatedTransaction;
-    });
+    }, { timeout: 30000 });
   },
 
   async getDailySummary(db: PrismaClient, branchId: string, date: Date) {
@@ -449,7 +456,7 @@ export const TransactionService = {
       });
       await finalizeTransactionSideEffects(tx, transactionId, updatedTransaction);
       return updatedTransaction;
-    });
+    }, { timeout: 30000 });
   },
 
   async getTransactionById(db: PrismaClient, id: string) {

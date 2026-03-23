@@ -1,7 +1,7 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import type { RouteHandler } from "@hono/zod-openapi";
 import type { AppEnv } from "../../types";
-import { getS3Client, uploadFile, buildPublicUrl } from "../../utils/s3";
+import { getS3Client, uploadFile, deleteFile, buildPublicUrl } from "../../utils/s3";
 import {
   ALLOWED_MIME_TYPES,
   MAX_FILE_SIZE,
@@ -19,9 +19,26 @@ function extFromMime(mime: string): string {
       return "png";
     case "image/webp":
       return "webp";
+    case "image/gif":
+      return "gif";
     default:
       return "bin";
   }
+}
+
+const MAGIC_BYTES: Record<string, number[][]> = {
+  "image/jpeg": [[0xff, 0xd8, 0xff]],
+  "image/png": [[0x89, 0x50, 0x4e, 0x47]],
+  "image/webp": [[0x52, 0x49, 0x46, 0x46]],
+  "image/gif": [[0x47, 0x49, 0x46]],
+};
+
+function validateMagicBytes(bytes: Uint8Array, claimedMime: string): boolean {
+  const signatures = MAGIC_BYTES[claimedMime];
+  if (!signatures) return false;
+  return signatures.some((sig) =>
+    sig.every((byte, i) => i < bytes.length && bytes[i] === byte),
+  );
 }
 
 export const uploadRoute = createRoute({
@@ -52,6 +69,7 @@ export const uploadRoute = createRoute({
       },
     },
     400: { description: "Invalid file" },
+    413: { description: "File too large" },
     503: { description: "Storage not configured" },
   },
 });
@@ -64,6 +82,14 @@ export const uploadHandler: RouteHandler<typeof uploadRoute, AppEnv> = async (
     return c.json(
       { success: false as const, message: "Object storage is not configured" },
       503,
+    );
+  }
+
+  const contentLength = parseInt(c.req.header("content-length") ?? "0", 10);
+  if (contentLength > MAX_FILE_SIZE) {
+    return c.json(
+      { success: false as const, message: "File too large" },
+      413,
     );
   }
 
@@ -93,14 +119,60 @@ export const uploadHandler: RouteHandler<typeof uploadRoute, AppEnv> = async (
     );
   }
 
+  const buffer = new Uint8Array(await file.arrayBuffer());
+
+  if (!validateMagicBytes(buffer, file.type)) {
+    return c.json(
+      { success: false as const, message: "File content does not match declared MIME type" },
+      400,
+    );
+  }
+
   const { prefix, entityId } = c.req.valid("query");
   const ext = extFromMime(file.type);
   const fileName = `${randomUUID()}.${ext}`;
   const key = entityId ? `${prefix}/${entityId}/${fileName}` : `${prefix}/${fileName}`;
 
-  const buffer = new Uint8Array(await file.arrayBuffer());
   await uploadFile(s3, c.env.S3_BUCKET, key, buffer, file.type);
 
   const url = buildPublicUrl(c.env, key);
   return c.json({ success: true as const, data: { url, key } }, 200);
+};
+
+export const deleteRoute = createRoute({
+  method: "delete",
+  path: "/",
+  tags: ["Media"],
+  summary: "Delete a media file from S3/MinIO",
+  request: {
+    query: z.object({
+      key: z.string().min(1),
+    }),
+  },
+  responses: {
+    200: {
+      description: "File deleted",
+      content: {
+        "application/json": {
+          schema: z.object({ success: z.literal(true), message: z.string() }),
+        },
+      },
+    },
+    400: { description: "Missing key" },
+    503: { description: "Storage not configured" },
+  },
+});
+
+export const deleteHandler: RouteHandler<typeof deleteRoute, AppEnv> = async (c) => {
+  const s3 = getS3Client(c.env);
+  if (!s3 || !c.env.S3_BUCKET) {
+    return c.json(
+      { success: false as const, message: "Object storage is not configured" },
+      503,
+    );
+  }
+
+  const { key } = c.req.valid("query");
+  await deleteFile(s3, c.env.S3_BUCKET, key);
+  return c.json({ success: true as const, message: "File deleted" }, 200);
 };

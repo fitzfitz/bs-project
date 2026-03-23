@@ -17,7 +17,8 @@ export default function LoginPage() {
     e.preventDefault();
     const form = e.currentTarget;
     const email = (form.elements.namedItem("email") as HTMLInputElement).value;
-    const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+    const password = (form.elements.namedItem("password") as HTMLInputElement)
+      .value;
     login({ email, password });
   };
 
@@ -29,7 +30,7 @@ export default function LoginPage() {
             <Scissors className="h-7 w-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Barber Admin
+            Brbr Admin
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Sign in to manage your barbershop

@@ -138,7 +138,7 @@ export default function HistoryTracker() {
   const activeBranchId = bookings?.find(
     (b) => b.status === 'WAITING' || b.status === 'CALLED' || b.status === 'IN_SERVICE'
   )?.branchId ?? null;
-  const queueQueryKeys = useMemo(() => [["history"]], []);
+  const queueQueryKeys = useMemo(() => [["my-bookings"]], []);
   usePusherChannel(
     activeBranchId ? `branch-${activeBranchId}` : null,
     "QUEUE_UPDATED",

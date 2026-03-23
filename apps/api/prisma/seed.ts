@@ -100,8 +100,8 @@ const PERMISSION_MATRIX: Record<string, Record<string, Perms>> = {
   },
   Barber: {
     QUEUE_MANAGEMENT: RU, BOOKING: _, STAFF_MANAGEMENT: _, BRANCH_MANAGEMENT: _,
-    SERVICE_CATALOG: _, ATTENDANCE: CR, TRANSACTION: _, CASH_DRAWER: _,
-    INVENTORY: _, COMMISSION: R, PAYROLL: R, FINANCE_REPORTS: _,
+    SERVICE_CATALOG: _, ATTENDANCE: CRU, TRANSACTION: _, CASH_DRAWER: _,
+    INVENTORY: _, COMMISSION: R, PAYROLL: RU, FINANCE_REPORTS: _,
     ANALYTICS: _, REPORTS: _, LOYALTY: _, PROMOTIONS: _,
     REVIEWS: _, REFERRALS: _, CAMPAIGNS: _, CRM: _, RETENTION: _,
     AUDIT_LOG: _, USER_MANAGEMENT: _, ROLE_MANAGEMENT: _, ORG_SETTINGS: _,
@@ -266,6 +266,88 @@ async function main() {
   });
   log("+", `Organization: ${org.name} (${org.slug})`);
 
+  // 2-cleanup. Purge all operational/transactional data for clean re-seed (FK-safe order)
+  log(">", "Cleaning existing tenant data (FK-safe order)...");
+
+  // Analytics & audit
+  await prisma.anomalyFlag.deleteMany({ where: { organizationId: org.id } });
+  await prisma.branchDailySnapshot.deleteMany({ where: { organizationId: org.id } });
+  await prisma.auditLog.deleteMany({ where: { organizationId: org.id } });
+
+  // CRM & campaigns
+  await prisma.customerSegmentMember.deleteMany({ where: { organizationId: org.id } });
+  await prisma.campaign.deleteMany({ where: { organizationId: org.id } });
+  await prisma.customerSegment.deleteMany({ where: { organizationId: org.id } });
+
+  // Loyalty & referrals
+  await prisma.loyaltyTransaction.deleteMany({ where: { organizationId: org.id } });
+  await prisma.referral.deleteMany({ where: { organizationId: org.id } });
+  await prisma.review.deleteMany({ where: { organizationId: org.id } });
+
+  // Cash drawer
+  await prisma.cashDrawerEntry.deleteMany({ where: { organizationId: org.id } });
+  await prisma.cashDrawerSession.deleteMany({ where: { organizationId: org.id } });
+
+  // Transactions (explicit children before parent, even though CASCADE exists)
+  await prisma.payment.deleteMany({ where: { organizationId: org.id } });
+  await prisma.transactionItem.deleteMany({ where: { organizationId: org.id } });
+  await prisma.transaction.deleteMany({ where: { organizationId: org.id } });
+
+  // Queue & bookings (transaction → queueEntry → bookingItem → booking)
+  await prisma.queueEntry.deleteMany({ where: { organizationId: org.id } });
+  await prisma.bookingItem.deleteMany({ where: { organizationId: org.id } });
+  await prisma.booking.deleteMany({ where: { organizationId: org.id } });
+
+  // Payroll & commission
+  await prisma.payrollPeriod.deleteMany({ where: { organizationId: org.id } });
+  await prisma.staffEarning.deleteMany({ where: { organizationId: org.id } });
+  await prisma.commissionTier.deleteMany({ where: { staff: { organizationId: org.id } } });
+
+  // Attendance & schedules
+  await prisma.staffAttendance.deleteMany({ where: { organizationId: org.id } });
+  await prisma.shiftSchedule.deleteMany({ where: { organizationId: org.id } });
+
+  // Inventory
+  await prisma.stockMovement.deleteMany({ where: { organizationId: org.id } });
+  await prisma.branchInventory.deleteMany({ where: { organizationId: org.id } });
+
+  // Service catalog dependents (must precede service deletion)
+  await prisma.tenantRoleService.deleteMany({ where: { organizationId: org.id } });
+  await prisma.comboService.deleteMany({ where: { organizationId: org.id } });
+  await prisma.tierSurcharge.deleteMany({ where: { organizationId: org.id } });
+  await prisma.branchServiceOverride.deleteMany({ where: { organizationId: org.id } });
+  await prisma.surgeRule.deleteMany({ where: { organizationId: org.id } });
+
+  // Core entities (now safe — all FK children removed)
+  await prisma.staffProfile.deleteMany({ where: { organizationId: org.id } });
+  await prisma.service.deleteMany({ where: { organizationId: org.id } });
+  await prisma.product.deleteMany({ where: { organizationId: org.id } });
+
+  // Branch config
+  await prisma.branchHoliday.deleteMany({ where: { organizationId: org.id } });
+  await prisma.operatingHour.deleteMany({ where: { organizationId: org.id } });
+  await prisma.promoCode.deleteMany({ where: { organizationId: org.id } });
+
+  // Non-seeded branches (created by test 2.4 etc.) — nullify user refs first
+  await prisma.user.updateMany({
+    where: {
+      organizationId: org.id,
+      branchId: { notIn: ["branch-central", "branch-kemang"] },
+    },
+    data: { branchId: null },
+  });
+  await prisma.branch.deleteMany({
+    where: {
+      organizationId: org.id,
+      id: { notIn: ["branch-central", "branch-kemang"] },
+    },
+  });
+
+  // Permissions (purge stale data so createMany re-seeds correctly)
+  await prisma.tenantRolePermission.deleteMany({ where: { tenantRole: { organizationId: org.id } } });
+
+  log("+", "Existing tenant data cleaned");
+
   // 2b. Tenant Roles
   log(">", "Creating tenant roles...");
   const ROLES_DEF = [
@@ -281,7 +363,7 @@ async function main() {
   for (const rd of ROLES_DEF) {
     const role = await prisma.tenantRole.upsert({
       where: { organizationId_name: { organizationId: org.id, name: rd.name } },
-      update: {},
+      update: { scope: rd.scope, isDefault: rd.isDefault ?? false, isSystemRole: rd.isSystemRole, isServiceProvider: rd.isServiceProvider, sortOrder: rd.sortOrder },
       create: { organizationId: org.id, ...rd },
     });
     roles[rd.name] = role.id;
@@ -299,14 +381,14 @@ async function main() {
       permData.push({ tenantRoleId: roleId, featureCode, ...perms });
     }
   }
-  await prisma.tenantRolePermission.createMany({ data: permData, skipDuplicates: true });
+  await prisma.tenantRolePermission.createMany({ data: permData });
   log("+", `${permData.length} permission entries seeded`);
 
   // 2d. Branches
   log(">", "Creating branches...");
   const branchCentral = await prisma.branch.upsert({
     where: { id: "branch-central" },
-    update: {},
+    update: { name: "Barber Central Jakarta", address: "Jl. M.H. Thamrin No. 1, Menteng", city: "Jakarta Pusat", isActive: true },
     create: {
       id: "branch-central",
       organizationId: org.id,
@@ -323,7 +405,7 @@ async function main() {
 
   const branchSouth = await prisma.branch.upsert({
     where: { id: "branch-kemang" },
-    update: {},
+    update: { name: "Barber Kemang", address: "Jl. Kemang Raya No. 45, Bangka", city: "Jakarta Selatan", isActive: true },
     create: {
       id: "branch-kemang",
       organizationId: org.id,
@@ -357,7 +439,6 @@ async function main() {
       });
     }
   }
-  await prisma.operatingHour.deleteMany({ where: { organizationId: org.id } });
   await prisma.operatingHour.createMany({ data: hourData });
   log("+", "14 operating hours set");
 
@@ -416,7 +497,6 @@ async function main() {
 
   // 2h. Staff Profiles
   log(">", "Creating staff profiles...");
-  await prisma.staffProfile.deleteMany({ where: { organizationId: org.id } });
   const staffBudi = await prisma.staffProfile.create({
     data: {
       organizationId: org.id, userId: barberUser1.id,
@@ -450,7 +530,6 @@ async function main() {
 
   // 2i. Services
   log(">", "Creating services...");
-  await prisma.service.deleteMany({ where: { organizationId: org.id } });
   const haircut = await prisma.service.create({
     data: {
       organizationId: org.id, name: "Haircut",
@@ -505,7 +584,6 @@ async function main() {
     },
   });
 
-  await prisma.comboService.deleteMany({ where: { organizationId: org.id } });
   await prisma.comboService.createMany({
     data: [
       { organizationId: org.id, comboId: combo.id, childServiceId: haircut.id },
@@ -516,7 +594,6 @@ async function main() {
 
   // 2j. Tier Surcharges
   log(">", "Adding tier surcharges...");
-  await prisma.tierSurcharge.deleteMany({ where: { organizationId: org.id } });
   await prisma.tierSurcharge.createMany({
     data: [
       { organizationId: org.id, serviceId: haircut.id, tier: "SENIOR", surcharge: 15000 },
@@ -530,7 +607,6 @@ async function main() {
   log("+", "6 tier surcharges added");
 
   // 2k. Branch Service Override
-  await prisma.branchServiceOverride.deleteMany({ where: { organizationId: org.id } });
   await prisma.branchServiceOverride.create({
     data: {
       organizationId: org.id,
@@ -544,7 +620,6 @@ async function main() {
 
   // 2l. Surge Rules
   log(">", "Adding surge pricing rules...");
-  await prisma.surgeRule.deleteMany({ where: { organizationId: org.id } });
   await prisma.surgeRule.createMany({
     data: [
       { organizationId: org.id, branchId: branchCentral.id, dayOfWeek: "SATURDAY", startHour: 10, endHour: 14, multiplier: 1.2, isActive: true },
@@ -555,7 +630,6 @@ async function main() {
 
   // 2m. Promo Codes
   log(">", "Creating promo codes...");
-  await prisma.promoCode.deleteMany({ where: { organizationId: org.id } });
   await prisma.promoCode.createMany({
     data: [
       {
@@ -599,8 +673,6 @@ async function main() {
     create: { organizationId: org.id, name: "Aftershave Balm", sku: "PROD-AFTERSHAVE-001", description: "Soothing aftershave balm, 100ml", costPrice: 20000, sellPrice: 45000 },
   });
 
-  await prisma.stockMovement.deleteMany({ where: { organizationId: org.id } });
-  await prisma.branchInventory.deleteMany({ where: { organizationId: org.id } });
   await prisma.branchInventory.createMany({
     data: [
       { organizationId: org.id, branchId: branchCentral.id, productId: pomade.id, quantity: 20, reorderThreshold: 5, avgCost: 35000 },
@@ -632,7 +704,6 @@ async function main() {
       roleSvcData.push({ organizationId: org.id, tenantRoleId: roleId, serviceId: svc.id });
     }
   }
-  await prisma.tenantRoleService.deleteMany({ where: { organizationId: org.id } });
   await prisma.tenantRoleService.createMany({ data: roleSvcData });
   log("+", `${roleSvcData.length} role-service assignments`);
 

@@ -9,6 +9,7 @@ import {
   retentionQuery,
   forecastQuery,
   computeSnapshotsBody,
+  utilizationQuery,
 } from "./analytics.schema";
 
 const jsonRes = z.object({ success: z.boolean(), data: z.any() });
@@ -86,6 +87,20 @@ export const forecastRoute = createRoute({
 export const forecastHandler: RouteHandler<typeof forecastRoute, AppEnv> = async (c) => {
   const query = c.req.valid("query");
   const data = await AnalyticsService.getRevenueForecast(c.var.db, query);
+  return c.json({ success: true, data }, 200);
+};
+
+export const utilizationRoute = createRoute({
+  method: "get",
+  path: "/utilization",
+  request: { query: utilizationQuery },
+  responses: { 200: { description: "Barber utilization data", content: { "application/json": { schema: jsonRes } } } },
+  tags: ["Analytics"],
+});
+
+export const utilizationHandler: RouteHandler<typeof utilizationRoute, AppEnv> = async (c) => {
+  const query = c.req.valid("query");
+  const data = await AnalyticsService.getUtilization(c.var.db, query);
   return c.json({ success: true, data }, 200);
 };
 

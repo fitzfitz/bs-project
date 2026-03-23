@@ -26,6 +26,14 @@ const CONFIG_SECTIONS: { label: string; keys: { key: string; label: string; unit
       { key: "TAX_RATE", label: "PPN rate", unit: "%" },
     ],
   },
+  {
+    label: "Commission Templates",
+    keys: [
+      { key: "COMMISSION_RATE_MASTER", label: "Default rate for Master barbers", unit: "%" },
+      { key: "COMMISSION_RATE_SENIOR", label: "Default rate for Senior barbers", unit: "%" },
+      { key: "COMMISSION_RATE_JUNIOR", label: "Default rate for Junior barbers", unit: "%" },
+    ],
+  },
 ];
 
 export function ConfigPanel() {

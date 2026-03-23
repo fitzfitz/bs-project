@@ -22,27 +22,22 @@ import {
 
 const usersApp = new OpenAPIHono<AppEnv>();
 
-// Read permissions
-usersApp.on("GET", listUsersRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("USER_MANAGEMENT", "read"), (c, next) => next());
-usersApp.openapi(listUsersRoute, listUsersHandler);
+usersApp.use("*", authMiddleware(), orgScopeMiddleware());
 
-usersApp.on("GET", getUserRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("USER_MANAGEMENT", "read"), (c, next) => next());
-usersApp.openapi(getUserRoute, getUserHandler);
+const readApp = new OpenAPIHono<AppEnv>();
+readApp.use("*", requirePermission("USER_MANAGEMENT", "read"));
+readApp.openapi(listUsersRoute, listUsersHandler);
+readApp.openapi(getUserRoute, getUserHandler);
 
-// Update permissions
-usersApp.on("PATCH", updateRoleRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("USER_MANAGEMENT", "update"), (c, next) => next());
-usersApp.openapi(updateRoleRoute, updateRoleHandler);
+const updateApp = new OpenAPIHono<AppEnv>();
+updateApp.use("*", requirePermission("USER_MANAGEMENT", "update"));
+updateApp.openapi(updateRoleRoute, updateRoleHandler);
+updateApp.openapi(assignBranchRoute, assignBranchHandler);
+updateApp.openapi(removeBranchRoute, removeBranchHandler);
+updateApp.openapi(deactivateUserRoute, deactivateUserHandler);
+updateApp.openapi(reactivateUserRoute, reactivateUserHandler);
 
-usersApp.on("POST", assignBranchRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("USER_MANAGEMENT", "update"), (c, next) => next());
-usersApp.openapi(assignBranchRoute, assignBranchHandler);
-
-usersApp.on("DELETE", removeBranchRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("USER_MANAGEMENT", "update"), (c, next) => next());
-usersApp.openapi(removeBranchRoute, removeBranchHandler);
-
-usersApp.on("PATCH", deactivateUserRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("USER_MANAGEMENT", "update"), (c, next) => next());
-usersApp.openapi(deactivateUserRoute, deactivateUserHandler);
-
-usersApp.on("PATCH", reactivateUserRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("USER_MANAGEMENT", "update"), (c, next) => next());
-usersApp.openapi(reactivateUserRoute, reactivateUserHandler);
+usersApp.route("/", readApp);
+usersApp.route("/", updateApp);
 
 export default usersApp;

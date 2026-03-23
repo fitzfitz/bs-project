@@ -372,3 +372,60 @@ DELETE /api/platform/organizations/:id        Deactivate org
 GET    /api/platform/features                 List all features
 GET    /api/platform/templates                List industry templates
 ```
+
+## Frontend Permission Integration
+
+### Permission Delivery
+
+The `/auth/me` and `/auth/login` responses include a `permissions` object keyed by feature code:
+
+```json
+{
+  "permissions": {
+    "QUEUE_MANAGEMENT": { "canCreate": true, "canRead": true, "canUpdate": true, "canDelete": true },
+    "TRANSACTION": { "canCreate": true, "canRead": true, "canUpdate": true, "canDelete": true },
+    "STAFF_MANAGEMENT": { "canCreate": false, "canRead": false, "canUpdate": false, "canDelete": false }
+  }
+}
+```
+
+### Admin App — Sidebar Visibility
+
+The admin sidebar filters menu items based on the user's `permissions`. Each nav item declares a required `feature` code; the item is visible only if the user has any permission (create/read/update/delete) for that feature.
+
+| Nav Item | Required Feature |
+|----------|-----------------|
+| Dashboard | _(always shown)_ |
+| Queue | `QUEUE_MANAGEMENT` |
+| POS | `TRANSACTION` |
+| Transactions | `TRANSACTION` |
+| Cash Drawer | `CASH_DRAWER` |
+| Barbers | `STAFF_MANAGEMENT` |
+| Attendance | `ATTENDANCE` |
+| Commissions | `COMMISSION` |
+| Payroll | `PAYROLL` |
+| Inventory | `INVENTORY` |
+| Reviews | `REVIEWS` |
+| Loyalty | `LOYALTY` |
+| Branch Settings | `BRANCH_MANAGEMENT` |
+| Analytics | `ANALYTICS` |
+| Reports | `REPORTS` |
+| User Management | `USER_MANAGEMENT` |
+| Audit Log | `AUDIT_LOG` |
+| Finance | `FINANCE_REPORTS` |
+| Settings | `ORG_SETTINGS` |
+
+### Admin App — Route Guards
+
+Each route is wrapped with `<RequirePermission feature="..." action="canRead">`. If the user lacks the required permission, they are redirected to the dashboard. Barber portal routes (`/my-schedule`, `/my-commissions`, `/my-attendance`) have no permission guard since they use the barber's own data.
+
+### Admin App — Barber Dashboard
+
+Barbers lack `TRANSACTION` read access, so the dashboard detects this and renders a barber-specific view showing queue status, completed services, and today's commission entries instead of the revenue summary.
+
+### Helper Functions (`features/auth/store.ts`)
+
+```typescript
+hasPermission(permissions, "TRANSACTION", "canRead")   // specific action
+hasAnyPermission(permissions, "STAFF_MANAGEMENT")       // any CRUD action
+```

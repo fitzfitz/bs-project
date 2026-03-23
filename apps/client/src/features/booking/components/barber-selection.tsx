@@ -76,14 +76,14 @@ export default function BarberSelection() {
                 >
                   <div className="w-14 h-14 rounded-full bg-slate-100 overflow-hidden shrink-0 border border-slate-200 flex items-center justify-center">
                     {barber.avatarUrl ? (
-                      <img src={barber.avatarUrl} alt={barber.user.firstName} className="w-full h-full object-cover" />
+                      <img src={barber.avatarUrl} alt={barber.user?.firstName ?? ''} className="w-full h-full object-cover" />
                     ) : (
                       <UserCircle2 className="w-8 h-8 text-slate-400" />
                     )}
                   </div>
                   <div className="flex-1 pl-4">
                     <div className="flex items-center gap-2">
-                      <div className="font-bold text-slate-900 text-[16px]">{barber.user.firstName} {barber.user.lastName}</div>
+                      <div className="font-bold text-slate-900 text-[16px]">{barber.user?.firstName} {barber.user?.lastName}</div>
                       <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
                         {barber.tier}
                       </span>
@@ -98,7 +98,7 @@ export default function BarberSelection() {
                         <>
                           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                           <span className="text-xs font-semibold text-slate-700">
-                            {barber.averageRating.toFixed(1)}
+                            {(barber.averageRating ?? 0).toFixed(1)}
                           </span>
                           <span className="text-xs text-slate-400">
                             ({barber.totalReviews} review{barber.totalReviews !== 1 ? 's' : ''})

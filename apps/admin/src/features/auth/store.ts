@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+type FeaturePermission = {
+  canCreate: boolean;
+  canRead: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+};
+
 type UserSession = {
   id: string;
   email: string;
@@ -11,6 +18,7 @@ type UserSession = {
   tenantRole?: { name: string; scope: string } | null;
   staffProfile?: { id: string; tier: string } | null;
   isCustomer?: boolean;
+  permissions?: Record<string, FeaturePermission>;
 } | null;
 
 interface SessionState {
@@ -53,4 +61,23 @@ export function canAccessAdmin(
   if (isCustomer) return false;
   const scope = tenantRole?.scope;
   return scope === "HQ" || scope === "BRANCH";
+}
+
+export function hasPermission(
+  permissions: Record<string, FeaturePermission> | undefined,
+  feature: string,
+  action: "canCreate" | "canRead" | "canUpdate" | "canDelete" = "canRead"
+): boolean {
+  if (!permissions) return false;
+  return permissions[feature]?.[action] ?? false;
+}
+
+export function hasAnyPermission(
+  permissions: Record<string, FeaturePermission> | undefined,
+  feature: string
+): boolean {
+  if (!permissions) return false;
+  const p = permissions[feature];
+  if (!p) return false;
+  return p.canCreate || p.canRead || p.canUpdate || p.canDelete;
 }

@@ -1,8 +1,8 @@
-# System Audit Report (Phases 1–5)
+# System Audit Report (Phases 1–7)
 
-This report documents the current state of the application as of February 2026, covering all implemented features across the API backend, client app, and admin app.
+This report documents the current state of the application as of March 2026, covering all implemented features across the API backend, client app, and admin app.
 
-**Last updated:** Mar 3, 2026 — **Phase 7 complete (SaaS Platform Refactor).** Phase 6 complete (Super Admin & Analytics). Multi-branch analytics dashboard, user/role management, audit log viewer with anomaly detection, financial oversight (P&L), report generation with CSV export, and global platform config panel all implemented. Nightly snapshot cron and anomaly detection cron active. Phase 7 SaaS refactor: multi-tenant schema, database-driven RBAC (`requirePermission()`), generic naming (staff), platform admin, tenant role management, `@tmng/*` package namespace.
+**Last updated:** Mar 9, 2026 — Admin UI & Offline POS Sprint: POS product sales, dynamic TAX_RATE, inventory stock actions, user branch dropdown, DIGITAL_WALLET, offline sync UI, admin PWA, analytics utilization, attendance calendar, commission templates. Documentation audit complete.
 
 ---
 
@@ -33,13 +33,13 @@ This report documents the current state of the application as of February 2026, 
 | **Login**             | ✅ Working | Role-gated via database-driven RBAC (tenant roles). ProtectedRoute guard. orgSlug required.                          |
 | **Dashboard**         | ✅ Working | Daily summary (revenue, tips, transaction count) with branch selector and date picker.                               |
 | **Queue Management**  | ✅ Working | DnD Kanban board (dnd-kit) with droppable lanes, richer cards (time, duration, status/source badges). Assign staff, status transitions, real-time via Pusher/Soketi. |
-| **POS Checkout**      | ✅ Working | Service catalog, cart, discount (flat/%), tip, payment (CASH). Branch selector. Offline fallback to IndexedDB.       |
+| **POS Checkout**      | ✅ Working | Services + Products tabs, cart, discount (flat/%), tip, payment (CASH/QRIS/CARD/E-Wallet). Dynamic tax from config. Branch selector. Offline fallback to IndexedDB + sync UI (pending/failed counts, retry, 7-day cleanup). |
 | **Transactions**      | ✅ Working | List with filters (branch, date, status), pagination, detail modal, void action.                                     |
 | **Barber Management** | ✅ Working | Table, create barber with searchable user combobox, update status, assign/unassign branch, deactivate.               |
-| **Attendance**        | ✅ Working | Attendance log + shift schedule tabs with date picker, add shift modal.                                              |
+| **Attendance**        | ✅ Working | Attendance log + shift schedule + weekly calendar view. Date picker, add shift modal.                                |
 | **Commissions**       | ✅ Working | Earnings table with date/staff filters.                                                                             |
 | **Payroll**           | ✅ Working | Period list with status badges, generate/submit/approve/dispute/disburse actions.                                    |
-| **Inventory**         | ✅ Working | Product table, stock-in/adjust dialogs, low-stock alerts.                                                            |
+| **Inventory**         | ✅ Working | Product table with branch selector, stock-in/stock-out/adjust action dialogs per product row, low-stock alerts.      |
 | **Branch Settings**   | ✅ Working | Tabs: Details (name, address, tip distribution), Operating Hours (day-of-week), Surge Pricing (rules CRUD).          |
 | **Cash Drawer**       | ✅ Working | Open/close drawer, running total, entries list, end-of-day discrepancy summary.                                      |
 | **Reviews Moderation**| ✅ Working | Review table with rating filter, branch selector, show/hide toggle, moderation notes. Pagination.                    |
@@ -47,10 +47,10 @@ This report documents the current state of the application as of February 2026, 
 | **Staff Portal**     | ✅ Working | Service-provider role: My Schedule (today's queue), My Commissions (earnings), My Attendance (clock-in/out history).            |
 | **User Management**        | ✅ Working  | Searchable user table, role change dialog, branch assignment, activate/reactivate. RBAC: SUPER_ADMIN only for mutations. |
 | **Audit Log**              | ✅ Working  | Filterable log table (branch, user, action, date range), expandable detail rows, anomaly dashboard with severity cards, resolve dialog. |
-| **Analytics**              | ✅ Working  | 4 tabs: Overview (branch status cards, totals, alerts), Comparison (bar chart), Peak Hours (7x24 heatmap), Retention (cohort table). |
+| **Analytics**              | ✅ Working  | 5 tabs: Overview (branch status cards, totals, alerts), Comparison (bar chart), Peak Hours (7x24 heatmap), Retention (cohort table), Utilization (per-barber utilization rates). |
 | **Reports**                | ✅ Working  | 5 report types (daily revenue, service popularity, staff leaderboard, customer visits, booking source), CSV export. |
 | **Financial Oversight**    | ✅ Working  | P&L summary cards (revenue, costs, gross profit, margins), revenue/cost breakdown bars, void/discount cards. |
-| **Platform Settings**      | ✅ Working  | Grouped config form (Loyalty, Referrals, POS & Tax) with per-key save, last-updated-by info. |
+| **Platform Settings**      | ✅ Working  | Grouped config form (Loyalty, Referrals, POS & Tax, Commission Templates) with per-key save, last-updated-by info. |
 
 
 ---
@@ -60,10 +60,10 @@ This report documents the current state of the application as of February 2026, 
 
 | Feature Module   | Routes                                                              | Status                                                 |
 | ---------------- | ------------------------------------------------------------------- | ------------------------------------------------------ |
-| **auth**         | register, login, refresh, forgot-password, GET/PATCH/DELETE /me, favorite-branch, user search | ✅ Complete                                    |
+| **auth**         | register, login, refresh, forgot-password, google, GET/PATCH/DELETE /me, user search | ✅ Complete                                    |
 | **health**       | GET /                                                               | ✅ Complete                                             |
 | **services**     | CRUD, tier surcharges, combos, branch overrides                     | ✅ Complete                                             |
-| **branches**     | CRUD, operating hours, surge rules                                  | ✅ Complete                                             |
+| **branches**     | CRUD, operating hours, surge rules, emergency close/reopen, holidays CRUD | ✅ Complete                                      |
 | **staff**        | CRUD, branch assign/unassign, status update                         | ✅ Complete                                             |
 | **attendance**   | clock-in/out, shift CRUD                                            | ✅ Complete                                             |
 | **queue**        | list, create, status update, assign, postpone, cancel, customer-cancel, reschedule, availability, /me | ✅ Complete                                             |
@@ -83,6 +83,12 @@ This report documents the current state of the application as of February 2026, 
 | **crm**          | GET /customers, GET /customers/:id, GET /segments, POST /segments/recompute | ✅ Complete (Phase 5)                             |
 | **campaigns**    | CRUD, POST /:id/send, lifecycle management                          | ✅ Complete (Phase 5)                                   |
 | **retention**    | POST /trigger (manual), GET /stats, daily cron                      | ✅ Complete (Phase 5)                                   |
+| **users**        | list, get, update role, assign/remove branch, deactivate/reactivate | ✅ Complete (Phase 6)                                   |
+| **audit**        | logs, anomalies, anomaly stats, resolve anomaly                     | ✅ Complete (Phase 6)                                   |
+| **analytics**    | dashboard, branch comparison, peak heatmap, retention, forecast, utilization, snapshots | ✅ Complete (Phase 6 + utilization)           |
+| **reports**      | generate report, export CSV                                         | ✅ Complete (Phase 6)                                   |
+| **finance**      | P&L summary, payroll oversight, tax summary, void/discount audit    | ✅ Complete (Phase 6)                                   |
+| **config**       | list org settings, update org settings                              | ✅ Complete (Phase 6)                                   |
 
 
 ---
@@ -116,8 +122,8 @@ These are functional but unpolished areas in the admin app:
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | **Commission/Payroll tables** | ✅ Resolved — `payroll.getById` now includes `barber.user` for barber names. List endpoint already had it.                           |
 | **BranchSelector**            | ✅ Resolved — Always visible (even single branch), shows loading skeleton while fetching.                                            |
-| **Inventory page**            | Uses first branch only; no branch selector in InventoryManager widget.                                                              |
-| **POS**                       | Shows services only; no product catalog in UI. Products can be added via API.                                                       |
+| **Inventory page**            | ✅ Resolved — Branch selector with stock-in/out/adjust action dialogs per product row.                                               |
+| **POS**                       | ✅ Resolved — Services + Products tabs, DIGITAL_WALLET payment, dynamic TAX_RATE from config.                                        |
 | **Add Barber**                | ✅ Resolved — Searchable user combobox replaces UUID pasting.                                                                       |
 | **Forgot Password**           | Backend returns generic message; no actual email is sent.                                                                           |
 | **Digital Receipt**           | ✅ Complete — receipt page with print CSS, linked from booking history.                                                              |
@@ -228,9 +234,19 @@ These are functional but unpolished areas in the admin app:
 | ~~Phase 7: Frontend type updates (admin + client)~~ | Phase 7D | Phase 7 Sprint |
 | ~~Phase 7: Package rename (@tmng/* namespace)~~ | Phase 7E | Phase 7 Sprint |
 | ~~Phase 7: Documentation update~~ | Phase 7F | Phase 7 Sprint |
+| POS product sales tab (Services/Products)                      | —              | Admin UI & Offline POS Sprint |
+| Dynamic TAX_RATE from org config (API + admin)                 | —              | Admin UI & Offline POS Sprint |
+| Inventory stock-in/stock-out/adjust dialogs                    | —              | Admin UI & Offline POS Sprint |
+| User branch assignment dropdown (replaced free-text)           | —              | Admin UI & Offline POS Sprint |
+| DIGITAL_WALLET payment method in POS                           | —              | Admin UI & Offline POS Sprint |
+| Offline POS sync UI (pending/failed counts, retry, cleanup)    | —              | Admin UI & Offline POS Sprint |
+| Admin PWA via vite-plugin-pwa                                  | —              | Admin UI & Offline POS Sprint |
+| GET /analytics/utilization + admin utilization tab             | GAP-18         | Admin UI & Offline POS Sprint |
+| Weekly calendar view on attendance page                        | —              | Admin UI & Offline POS Sprint |
+| Commission template config (COMMISSION_RATE_MASTER/SENIOR/JUNIOR) | GAP-24     | Admin UI & Offline POS Sprint |
 
 
-## 9. Phase 7: SaaS Platform Refactor
+## 7. Phase 7: SaaS Platform Refactor
 
 | Item | Status | Sprint |
 |------|--------|--------|
@@ -247,14 +263,14 @@ These are functional but unpolished areas in the admin app:
 
 ---
 
-## 10. Remaining High-Priority Items
+## 8. Remaining High-Priority Items
 
 | Priority | Item                                     | Reference      |
 | -------- | ---------------------------------------- | -------------- |
 | **P1**   | Xendit payment adapter (charge creation) | Phase 4 Task 5 |
 
 
-## 11. Resolved Items (Phase 6 Completion)
+## 9. Resolved Items (Phase 6 Completion)
 
 | Item                                     | Reference      | Sprint                    |
 | ---------------------------------------- | -------------- | ------------------------- |

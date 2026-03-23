@@ -1,5 +1,14 @@
 # TMNG SaaS Platform — Technical Specification
 
+> [!WARNING]
+> **This document is superseded.** The schema references below reflect the original pre-Phase 7 design. For current architecture and schema, see:
+> - [database_schema.md](database_schema.md) — Current Prisma schema (46 models, multi-tenant)
+> - [platform_architecture.md](platform_architecture.md) — Platform architecture and multi-tenancy model
+> - [implementation_plan.md](implementation_plan.md) — Full implementation plan with phase completion status
+> - [rbac_system.md](rbac_system.md) — Database-driven RBAC system (25 features)
+>
+> This file is retained for historical reference of original business requirements and objectives.
+
 ## 1. System Overview
 
 The TMNG SaaS Platform is a multi-tenant, industry-agnostic digital ecosystem designed to unify operations across service-based businesses with multiple branches. Architected as a dual-platform solution, the system comprises a high-performance Client Application and a robust Admin Dashboard. The primary objective is to replace fragmented manual processes with an integrated workflow that enhances service quality, optimizes workforce utilization through dynamic allocation, and fosters customer retention via a structured loyalty program. This ecosystem serves as the single source of truth for operational data, ensuring consistency and professionalism across all business locations.

@@ -12,6 +12,7 @@ export type LoginResponse = {
       tenantRole?: { name: string; scope: string };
       staffProfile?: { id: string; tier: string } | null;
       isCustomer?: boolean;
+      permissions?: Record<string, { canCreate: boolean; canRead: boolean; canUpdate: boolean; canDelete: boolean }>;
     };
     accessToken: string;
     refreshToken: string;

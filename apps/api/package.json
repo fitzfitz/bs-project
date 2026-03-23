@@ -7,7 +7,6 @@
   "types": "src/index.ts",
   "scripts": {
     "dev": "tsx --watch src/server.ts",
-    "dev:wrangler": "wrangler dev",
     "start": "node --import tsx src/server.ts",
     "lint": "echo \"no linter configured yet\"",
     "typecheck": "tsc --noEmit",
@@ -29,7 +28,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260228.0",
     "@types/node": "^24.10.13",
     "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.16.0",
@@ -37,8 +35,7 @@
     "dotenv": "^17.3.1",
     "prisma": "^7.4.1",
     "tsx": "^4.19.3",
-    "typescript": "~5.9.3",
-    "wrangler": "^4.4.0"
+    "typescript": "~5.9.3"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

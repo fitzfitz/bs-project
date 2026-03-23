@@ -52,7 +52,7 @@ export default function HomePage() {
               Hi, {user ? (user.firstName || 'Customer') : 'Guest'}!
             </h1>
             <button
-              onClick={() => navigate('/branches')}
+              onClick={() => navigate('/book')}
               className="flex items-center gap-1 text-primary-foreground/80 mt-1 text-sm hover:text-primary-foreground transition-colors"
             >
               <MapPin className="w-4 h-4" />
