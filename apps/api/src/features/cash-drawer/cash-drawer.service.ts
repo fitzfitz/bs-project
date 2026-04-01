@@ -1,7 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
 import type {
-  OpenSessionInput,
-  CloseSessionInput,
   AddEntryInput,
 } from "./cash-drawer.schema";
 

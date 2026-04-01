@@ -6,8 +6,16 @@ import {
   createTransactionSchema,
   addPaymentsSchema,
   voidTransactionSchema,
+  refundTransactionSchema,
   listTransactionsQuerySchema,
-  ReceiptDataSchema,
+  createTransaction201Schema,
+  addPayments200Schema,
+  voidTransaction200Schema,
+  refundTransaction200Schema,
+  listTransactions200Schema,
+  getDailySummary200Schema,
+  getTransactionById200Schema,
+  getReceipt200Schema,
 } from "./transactions.schema";
 
 // -----------------------------------------------------------------------------
@@ -30,11 +38,7 @@ export const createTransactionRoute = createRoute({
       description: "Transaction created successfully",
       content: {
         "application/json": {
-          schema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-            data: z.any(),
-          }),
+          schema: createTransaction201Schema,
         },
       },
     },
@@ -61,11 +65,7 @@ export const addPaymentsRoute = createRoute({
       description: "Payments recorded and transaction completed",
       content: {
         "application/json": {
-          schema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-            data: z.any(),
-          }),
+          schema: addPayments200Schema,
         },
       },
     },
@@ -92,15 +92,38 @@ export const voidRoute = createRoute({
       description: "Transaction voided",
       content: {
         "application/json": {
-          schema: z.object({
-            success: z.boolean(),
-            message: z.string(),
-            data: z.any(),
-          }),
+          schema: voidTransaction200Schema,
         },
       },
     },
     400: { description: "Transaction already voided" },
+    404: { description: "Transaction not found" },
+    500: { description: "Internal server error" },
+  },
+});
+
+export const refundRoute = createRoute({
+  method: "post",
+  path: "/{id}/refund",
+  tags: ["Transactions"],
+  summary: "Refund a transaction",
+  description: "Refunds a completed transaction, reversing inventory and loyalty points.",
+  request: {
+    params: z.object({ id: z.string() }),
+    body: {
+      content: { "application/json": { schema: refundTransactionSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: "Transaction refunded",
+      content: {
+        "application/json": {
+          schema: refundTransaction200Schema,
+        },
+      },
+    },
+    400: { description: "Transaction cannot be refunded" },
     404: { description: "Transaction not found" },
     500: { description: "Internal server error" },
   },
@@ -120,16 +143,7 @@ export const listRoute = createRoute({
       description: "List of transactions",
       content: {
         "application/json": {
-          schema: z.object({
-            success: z.boolean(),
-            data: z.array(z.any()),
-            pagination: z.object({
-              page: z.number(),
-              limit: z.number(),
-              total: z.number(),
-              totalPages: z.number(),
-            }),
-          }),
+          schema: listTransactions200Schema,
         },
       },
     },
@@ -154,10 +168,7 @@ export const getSummaryRoute = createRoute({
       description: "Daily summary",
       content: {
         "application/json": {
-          schema: z.object({
-            success: z.boolean(),
-            data: z.any(),
-          }),
+          schema: getDailySummary200Schema,
         },
       },
     },
@@ -179,10 +190,7 @@ export const getByIdRoute = createRoute({
       description: "Transaction details",
       content: {
         "application/json": {
-          schema: z.object({
-            success: z.boolean(),
-            data: z.any(),
-          }),
+          schema: getTransactionById200Schema,
         },
       },
     },
@@ -205,10 +213,7 @@ export const getReceiptRoute = createRoute({
       description: "Receipt data",
       content: {
         "application/json": {
-          schema: z.object({
-            success: z.literal(true),
-            data: ReceiptDataSchema,
-          }),
+          schema: getReceipt200Schema,
         },
       },
     },
@@ -266,6 +271,24 @@ export const voidHandler: RouteHandler<typeof voidRoute, AppEnv> = async (c) => 
     console.error("Failed to void transaction:", error);
     if (error.message.includes("not found")) return c.json({ success: false, message: error.message }, 404);
     if (error.message.includes("already voided")) return c.json({ success: false, message: error.message }, 400);
+    return c.json({ success: false, message: "Internal server error" }, 500);
+  }
+};
+
+export const refundHandler: RouteHandler<typeof refundRoute, AppEnv> = async (c) => {
+  try {
+    const id = c.req.param("id");
+    const { reason } = c.req.valid("json");
+    const userId = c.get("userId")!;
+
+    const result = await TransactionService.refundTransaction(c.var.db, id, userId, reason);
+    return c.json({ success: true, message: "Transaction refunded", data: result }, 200);
+  } catch (error: any) {
+    console.error("Failed to refund transaction:", error);
+    if (error.message.includes("not found")) return c.json({ success: false, message: error.message }, 404);
+    if (error.message.includes("already refunded") || error.message.includes("Only completed")) {
+      return c.json({ success: false, message: error.message }, 400);
+    }
     return c.json({ success: false, message: "Internal server error" }, 500);
   }
 };

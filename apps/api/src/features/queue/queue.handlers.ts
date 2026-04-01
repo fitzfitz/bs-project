@@ -5,8 +5,14 @@ import {
   assignStaffToQueueSchema,
   postponeQueueSchema,
   rescheduleSchema,
+  prepayBody,
+  prepayResponseData,
   entryIdParam,
   listQueueQuery,
+  QueueEntryScalarSchema,
+  QueueEntryListItemSchema,
+  QueueEntryDetailSchema,
+  QueueEntryUserViewSchema,
 } from "./queue.schema";
 import { QueueService } from "./queue.service";
 import {
@@ -14,14 +20,13 @@ import {
   ErrorSchema,
 } from "../../utils/openapi";
 import { getPusher } from "../../utils/pusher";
+import { createNotificationService } from "../../utils/notifications";
 import type { AppEnv } from "../../types";
 import type { RouteHandler } from "@hono/zod-openapi";
 
 // ============================================================================
 // Route Definitions
 // ============================================================================
-
-const GenericQueueResponseSchema = createSuccessSchema(z.any());
 
 export const listQueueRoute = createRoute({
   method: "get",
@@ -32,7 +37,9 @@ export const listQueueRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: createSuccessSchema(z.array(z.any())) },
+        "application/json": {
+          schema: createSuccessSchema(z.array(QueueEntryListItemSchema)),
+        },
       },
       description: "Array of queue entries",
     },
@@ -47,7 +54,9 @@ export const getEntryRoute = createRoute({
   request: { params: entryIdParam },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericQueueResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(QueueEntryDetailSchema) },
+      },
       description: "Queue entry details",
     },
     404: {
@@ -70,7 +79,9 @@ export const createEntryRoute = createRoute({
   },
   responses: {
     201: {
-      content: { "application/json": { schema: GenericQueueResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(QueueEntryScalarSchema) },
+      },
       description: "Entry created",
     },
   },
@@ -90,7 +101,9 @@ export const updateStatusRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericQueueResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(QueueEntryScalarSchema) },
+      },
       description: "Status updated",
     },
   },
@@ -110,7 +123,9 @@ export const assignStaffRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericQueueResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(QueueEntryScalarSchema) },
+      },
       description: "Staff assigned",
     },
   },
@@ -130,7 +145,9 @@ export const postponeEntryRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericQueueResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(QueueEntryScalarSchema) },
+      },
       description: "Entry postponed",
     },
   },
@@ -145,7 +162,9 @@ export const cancelEntryRoute = createRoute({
   request: { params: entryIdParam },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericQueueResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(QueueEntryScalarSchema) },
+      },
       description: "Entry cancelled",
     },
   },
@@ -160,12 +179,39 @@ export const customerCancelRoute = createRoute({
   request: { params: entryIdParam },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericQueueResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(QueueEntryScalarSchema) },
+      },
       description: "Entry cancelled",
     },
     400: { content: { "application/json": { schema: ErrorSchema } }, description: "Invalid status" },
     403: { content: { "application/json": { schema: ErrorSchema } }, description: "Not your booking" },
     404: { content: { "application/json": { schema: ErrorSchema } }, description: "Entry not found" },
+  },
+});
+
+export const prepayRoute = createRoute({
+  method: "post",
+  path: "/{id}/prepay",
+  tags: ["Queue & Booking (Customer)"],
+  summary: "Create Xendit prepayment invoice for a waiting queue entry",
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: entryIdParam,
+    body: {
+      content: { "application/json": { schema: prepayBody } },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": { schema: createSuccessSchema(prepayResponseData) },
+      },
+      description: "Invoice created",
+    },
+    400: { content: { "application/json": { schema: ErrorSchema } }, description: "Prepay not available" },
+    403: { content: { "application/json": { schema: ErrorSchema } }, description: "Forbidden" },
+    404: { content: { "application/json": { schema: ErrorSchema } }, description: "Not found" },
   },
 });
 
@@ -183,7 +229,9 @@ export const rescheduleRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericQueueResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(QueueEntryUserViewSchema) },
+      },
       description: "Entry rescheduled",
     },
     400: { content: { "application/json": { schema: ErrorSchema } }, description: "Invalid status" },
@@ -202,7 +250,9 @@ export const meQueueRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: createSuccessSchema(z.array(z.any())) },
+        "application/json": {
+          schema: createSuccessSchema(z.array(QueueEntryUserViewSchema)),
+        },
       },
       description: "User's queue entries",
     },
@@ -256,7 +306,8 @@ export const createEntryHandler: RouteHandler<
 
   const organizationId = c.get("organizationId")!;
   const pusher = getPusher(c);
-  const entry = await QueueService.createEntry(c.var.db, data, organizationId, pusher);
+  const ns = createNotificationService(c.env);
+  const entry = await QueueService.createEntry(c.var.db, data, organizationId, pusher, ns);
   return c.json({ success: true as const, data: entry }, 201);
 };
 
@@ -268,7 +319,8 @@ export const updateStatusHandler: RouteHandler<
   const data = c.req.valid("json");
   const organizationId = c.get("organizationId")!;
   const pusher = getPusher(c);
-  const entry = await QueueService.updateStatus(c.var.db, id, data, organizationId, pusher);
+  const ns = createNotificationService(c.env);
+  const entry = await QueueService.updateStatus(c.var.db, id, data, organizationId, pusher, ns);
   return c.json({ success: true as const, data: entry }, 200);
 };
 
@@ -317,8 +369,26 @@ export const customerCancelHandler: RouteHandler<typeof customerCancelRoute, App
   const { id } = c.req.valid("param");
   const userId = c.get("userId") as string;
   const pusher = getPusher(c);
-  const entry = await QueueService.customerCancelEntry(c.var.db, id, userId, pusher);
+  const ns = createNotificationService(c.env);
+  const entry = await QueueService.customerCancelEntry(c.var.db, id, userId, pusher, ns);
   return c.json({ success: true as const, data: entry }, 200);
+};
+
+export const prepayHandler: RouteHandler<typeof prepayRoute, AppEnv> = async (c) => {
+  const { id } = c.req.valid("param");
+  const { successRedirectUrl, failureRedirectUrl } = c.req.valid("json");
+  const secretKey = c.env.XENDIT_SECRET_KEY;
+  if (!secretKey) {
+    return c.json({ success: false as const, message: "Payment gateway not configured" }, 400);
+  }
+  const userId = c.get("userId") as string;
+  const organizationId = c.get("organizationId") as string;
+  const result = await QueueService.prepayEntry(c.var.db, id, userId, organizationId, {
+    successRedirectUrl,
+    failureRedirectUrl,
+    secretKey,
+  });
+  return c.json({ success: true as const, data: result }, 200);
 };
 
 export const rescheduleHandler: RouteHandler<typeof rescheduleRoute, AppEnv> = async (c) => {

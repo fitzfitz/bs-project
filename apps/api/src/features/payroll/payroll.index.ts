@@ -20,6 +20,10 @@ import {
   resolveHandler,
   disburseRoute,
   disburseHandler,
+  bulkApproveRoute,
+  bulkApproveHandler,
+  bulkDisburseRoute,
+  bulkDisburseHandler,
 } from "./payroll.handlers";
 
 const payrollApp = new OpenAPIHono<AppEnv>();
@@ -51,5 +55,12 @@ payrollApp.openapi(disputeRoute, disputeHandler);
 // Disburse
 payrollApp.use("/:id/disburse", authMiddleware(), orgScopeMiddleware(), requirePermission("PAYROLL", "update"));
 payrollApp.openapi(disburseRoute, disburseHandler);
+
+// Bulk operations
+payrollApp.use("/bulk-approve", authMiddleware(), orgScopeMiddleware(), requirePermission("PAYROLL", "update"));
+payrollApp.openapi(bulkApproveRoute, bulkApproveHandler);
+
+payrollApp.use("/bulk-disburse", authMiddleware(), orgScopeMiddleware(), requirePermission("PAYROLL", "update"));
+payrollApp.openapi(bulkDisburseRoute, bulkDisburseHandler);
 
 export default payrollApp;

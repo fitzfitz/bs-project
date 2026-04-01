@@ -1,0 +1,20 @@
+{
+  "save": "Simpan",
+  "cancel": "Batal",
+  "submit": "Kirim",
+  "back": "Kembali",
+  "continue": "Lanjutkan",
+  "close": "Tutup",
+  "confirm": "Konfirmasi",
+  "delete": "Hapus",
+  "edit": "Ubah",
+  "loading": "Memuat...",
+  "error": "Terjadi kesalahan",
+  "retry": "Coba Lagi",
+  "noData": "Tidak ada data",
+  "success": "Berhasil",
+  "required": "Kolom ini wajib diisi",
+  "viewAll": "Lihat Semua",
+  "seeMore": "Lihat Selengkapnya",
+  "done": "Selesai"
+}

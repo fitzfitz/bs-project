@@ -1,5 +1,13 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { auditLogQuery, anomalyQuery, resolveAnomalySchema } from "./audit.schema";
+import {
+  anomalyQuery,
+  AnomalyFlagResponseSchema,
+  AnomalyResolvedSchema,
+  AnomalyStatsSchema,
+  auditLogQuery,
+  AuditLogResponseSchema,
+  resolveAnomalySchema,
+} from "./audit.schema";
 import { AuditService } from "./audit.service";
 import {
   createPaginatedSuccessSchema,
@@ -22,7 +30,7 @@ export const listLogsRoute = createRoute({
     200: {
       content: {
         "application/json": {
-          schema: createPaginatedSuccessSchema(z.any()),
+          schema: createPaginatedSuccessSchema(AuditLogResponseSchema),
         },
       },
       description: "Paginated audit logs",
@@ -41,7 +49,7 @@ export const listAnomaliesRoute = createRoute({
     200: {
       content: {
         "application/json": {
-          schema: createPaginatedSuccessSchema(z.any()),
+          schema: createPaginatedSuccessSchema(AnomalyFlagResponseSchema),
         },
       },
       description: "Paginated anomalies",
@@ -61,7 +69,7 @@ export const anomalyStatsRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: createSuccessSchema(z.any()) },
+        "application/json": { schema: createSuccessSchema(AnomalyStatsSchema) },
       },
       description: "Anomaly statistics",
     },
@@ -81,7 +89,7 @@ export const resolveAnomalyRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: createSuccessSchema(z.any()) },
+        "application/json": { schema: createSuccessSchema(AnomalyResolvedSchema) },
       },
       description: "Anomaly resolved",
     },

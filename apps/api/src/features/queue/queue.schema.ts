@@ -1,24 +1,27 @@
 import { z } from "zod";
+import {
+  QueueSourceEnum,
+  QueueStatusEnum,
+  BookingStatusEnum,
+  ServiceTypeEnum,
+  TransactionStatusEnum,
+} from "../../utils/zod-prisma";
+import {
+  BranchResponseSchema,
+  StaffProfileWithUserSchema,
+} from "../staff/staff.schema";
 
 // ============================================================================
-// Enums
+// Enums (aligned with Prisma)
 // ============================================================================
 
-export const QueueStatusEnum = z.enum([
-  "WAITING",
-  "CALLED",
-  "IN_SERVICE",
-  "COMPLETED",
-  "NO_SHOW",
-  "CANCELLED",
-  "AT_CHECKOUT",
-  "PAID",
-]);
+/** Same values as Prisma `QueueSource` — used on booking/queue create body. */
+export const BookingSourceEnum = QueueSourceEnum;
 
-export const BookingSourceEnum = z.enum(["APP", "WEB", "WALK_IN"]);
+export { QueueStatusEnum, QueueSourceEnum };
 
 // ============================================================================
-// Queue / Booking Schemas
+// Queue / Booking request schemas
 // ============================================================================
 
 export const createBookingSchema = z.object({
@@ -64,8 +67,156 @@ export const rescheduleSchema = z.object({
   startTime: z.string().datetime(),
 });
 
+export const prepayBody = z.object({
+  successRedirectUrl: z.string().url(),
+  failureRedirectUrl: z.string().url(),
+});
+
+export const prepayResponseData = z.object({
+  invoiceId: z.string(),
+  invoiceUrl: z.string(),
+  amount: z.number(),
+});
+
 // ============================================================================
-// Types
+// Response schemas (OpenAPI)
+// ============================================================================
+
+const dateWire = z.union([z.string(), z.coerce.date()]);
+
+export const QueueEntryScalarSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  branchId: z.string(),
+  staffProfileId: z.string().nullable().optional(),
+  bookingId: z.string().nullable().optional(),
+  source: QueueSourceEnum,
+  status: QueueStatusEnum,
+  position: z.number().int(),
+  customerName: z.string().nullable().optional(),
+  customerId: z.string().nullable().optional(),
+  estimatedWait: z.number().int().nullable().optional(),
+  calledAt: dateWire.nullable().optional(),
+  startedAt: dateWire.nullable().optional(),
+  completedAt: dateWire.nullable().optional(),
+  createdAt: dateWire,
+  updatedAt: dateWire,
+});
+
+export const QueueStaffListSchema = z.object({
+  id: z.string(),
+  user: z.object({
+    firstName: z.string(),
+    lastName: z.string(),
+  }),
+});
+
+export const QueueBookingServiceTrimSchema = z.object({
+  name: z.string(),
+  durationMinutes: z.number().int(),
+  basePrice: z.number(),
+});
+
+export const QueueBookingListItemSchema = z.object({
+  id: z.string(),
+  scheduledAt: dateWire,
+  note: z.string().nullable(),
+  totalDuration: z.number().int(),
+  items: z.array(
+    z.object({
+      service: QueueBookingServiceTrimSchema,
+    }),
+  ),
+});
+
+/** `listQueue` rows: scalars + trimmed staff + trimmed booking */
+export const QueueEntryListItemSchema = QueueEntryScalarSchema.extend({
+  staff: QueueStaffListSchema.nullable(),
+  booking: QueueBookingListItemSchema.nullable(),
+});
+
+export const QueueServiceFullSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  category: z.string(),
+  type: ServiceTypeEnum,
+  basePrice: z.number(),
+  durationMinutes: z.number().int(),
+  bufferMinutes: z.number().int(),
+  isCommissionable: z.boolean(),
+  loyaltyEligible: z.boolean(),
+  isActive: z.boolean(),
+  sortOrder: z.number().int(),
+  createdAt: dateWire,
+  updatedAt: dateWire,
+});
+
+export const QueueBookingItemSchema = z.object({
+  id: z.string(),
+  bookingId: z.string(),
+  serviceId: z.string(),
+  organizationId: z.string(),
+  price: z.number(),
+  isAddOn: z.boolean(),
+  service: QueueServiceFullSchema,
+});
+
+export const QueueBookingDetailSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  customerId: z.string(),
+  branchId: z.string(),
+  staffProfileId: z.string().nullable().optional(),
+  status: BookingStatusEnum,
+  scheduledAt: dateWire,
+  totalDuration: z.number().int(),
+  note: z.string().nullable().optional(),
+  cancelledAt: dateWire.nullable().optional(),
+  createdAt: dateWire,
+  updatedAt: dateWire,
+  items: z.array(QueueBookingItemSchema),
+});
+
+export const QueueTransactionSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  branchId: z.string(),
+  queueEntryId: z.string().nullable().optional(),
+  staffProfileId: z.string().nullable().optional(),
+  customerId: z.string().nullable().optional(),
+  grossAmount: z.number(),
+  discountAmount: z.number(),
+  taxAmount: z.number(),
+  tipAmount: z.number(),
+  netAmount: z.number(),
+  totalDue: z.number(),
+  loyaltyPointsUsed: z.number().int(),
+  loyaltyPointsEarned: z.number().int(),
+  promoCode: z.string().nullable().optional(),
+  status: TransactionStatusEnum,
+  clientUuid: z.string().nullable().optional(),
+  createdAt: dateWire,
+  updatedAt: dateWire,
+});
+
+/** `GET /queue/me` — full branch, staff+user, booking+items+service, optional transaction */
+export const QueueEntryUserViewSchema = QueueEntryScalarSchema.extend({
+  branch: BranchResponseSchema,
+  staff: StaffProfileWithUserSchema.nullable(),
+  booking: QueueBookingDetailSchema.nullable(),
+  transaction: QueueTransactionSchema.nullable().optional(),
+});
+
+/** `GET /queue/:id` — scalars + full staff+user + full booking */
+export const QueueEntryDetailSchema = QueueEntryScalarSchema.extend({
+  staff: StaffProfileWithUserSchema.nullable(),
+  booking: QueueBookingDetailSchema.nullable(),
+});
+
+// ============================================================================
+// Types (requests)
 // ============================================================================
 
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;

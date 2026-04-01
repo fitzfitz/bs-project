@@ -1,0 +1,21 @@
+{
+  "title": "Analytics",
+  "overview": "Overview",
+  "comparison": "Comparison",
+  "peakHours": "Peak Hours",
+  "retention": "Retention",
+  "utilization": "Utilization",
+  "branchStatus": "Branch Status",
+  "totalRevenue": "Total Revenue",
+  "totalTransactions": "Total Transactions",
+  "avgRating": "Average Rating",
+  "alerts": "Alerts",
+  "lowInventory": "Low Inventory",
+  "attendanceIssues": "Attendance Issues",
+  "heatmapTitle": "Peak Hours Heatmap",
+  "cohortTable": "Cohort Retention",
+  "staffUtilization": "Staff Utilization",
+  "cuttingTime": "Cutting Time",
+  "idleTime": "Idle Time",
+  "utilizationRate": "Utilization Rate"
+}

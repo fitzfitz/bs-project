@@ -1,0 +1,13 @@
+{
+  "title": "Manajemen Pengguna",
+  "searchUsers": "Cari pengguna...",
+  "role": "Peran",
+  "changeRole": "Ubah Peran",
+  "assignBranch": "Tugaskan Cabang",
+  "removeBranch": "Lepas Cabang",
+  "deactivate": "Nonaktifkan",
+  "reactivate": "Aktifkan Kembali",
+  "noUsers": "Tidak ada pengguna ditemukan",
+  "lastLogin": "Login Terakhir",
+  "memberSince": "Anggota Sejak"
+}

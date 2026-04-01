@@ -1,6 +1,8 @@
 # Database Schema — Complete Prisma Reference
 
-> Full multi-tenant schema for @tmng/saas-api. This is the target state after the SaaS platform refactor.
+> Full multi-tenant schema for @tmng/saas-api. 56 models across 17 categories.
+>
+> For seed data documentation, see [business_logic.md §23](business_logic.md) (platform seed) and [templates/barbershop.md §5](templates/barbershop.md) (barbershop tenant seed).
 
 ---
 
@@ -20,7 +22,56 @@
 | NEW | `IndustryType` | BARBERSHOP, VET_CLINIC, MASSAGE, etc. |
 | NEW | `FeatureModule` | CORE, OPS, FINANCE, INTEL, ENGAGE, ADMIN |
 | NEW | `RoleScope` | HQ, BRANCH, CUSTOMER |
-| NEW | `AuthProvider` | EMAIL, GOOGLE, APPLE |
+| NEW | `AuthProvider` | EMAIL, GOOGLE |
+
+### Models (Sprint 3 additions)
+
+| Action | Name | Details |
+|--------|------|---------|
+| NEW | `Notification` | In-app notifications (push + inbox), org-scoped per user |
+| NEW | `SavedPaymentMethod` | Tokenized payment cards via Xendit, org-scoped per user |
+
+### Models (Sprint 7 additions)
+
+| Action | Name | Details |
+|--------|------|---------|
+| NEW | `NotificationChannelConfig` | Per notification type push/WhatsApp toggle, org-scoped |
+| NEW | `NotificationPreference` | Per user push/WhatsApp opt-out, org-scoped |
+
+### Models (Sprint 9 additions)
+
+| Action | Name | Details |
+|--------|------|---------|
+| NEW | `ReportSchedule` | Scheduled report email: `ReportFrequency` (DAILY/WEEKLY/MONTHLY), recipients, filters JSON, `nextRunAt` / `lastSentAt` |
+| NEW | `SavedReportTemplate` | Named saved filter set per org for report generation |
+| NEW | `WaitlistEntry` | Customer waitlist for preferred slot; `WaitlistStatus`; linked to org, branch, user |
+
+### Enums (Sprint 9)
+
+| Action | Name | Values |
+|--------|------|--------|
+| NEW | `ReportFrequency` | DAILY, WEEKLY, MONTHLY |
+| NEW | `WaitlistStatus` | WAITING, NOTIFIED, CONVERTED, EXPIRED, CANCELLED |
+
+### Field Changes (Sprint 9)
+
+| Action | Model | Field | Details |
+|--------|-------|-------|---------|
+| ADDED | `QueueEntry` | `prepaidAmount Decimal?`, `prepaymentReference String?`, `refundAmount Decimal?` | Optional online prepayment + cancellation refund tracking |
+
+### Models (Sprint 10 additions)
+
+| Action | Name | Details |
+|--------|------|---------|
+| NEW | `DemandForecast` | 14-day demand predictions per branch per day; seasonal index, trend, predicted/actual demand |
+| NEW | `ScheduleSuggestion` | Smart scheduling suggestions; demand-capacity gap analysis; status: PENDING/ACCEPTED/REJECTED |
+| NEW | `ChurnScore` | Customer churn risk scores; weighted RFM scoring; risk level HIGH/MEDIUM/LOW |
+
+### Field Changes (Sprint 4)
+
+| Action | Model | Field | Details |
+|--------|-------|-------|---------|
+| ADDED | `Referral` | `expiresAt DateTime?` | Config-driven referral expiry; backfilled for existing PENDING referrals |
 
 ### Models
 
@@ -119,7 +170,6 @@ enum RoleScope {
 enum AuthProvider {
   EMAIL
   GOOGLE
-  APPLE
 }
 
 // ============================================================================
@@ -158,6 +208,14 @@ enum QueueStatus {
   AT_CHECKOUT
   PAID
   NO_SHOW
+  CANCELLED
+}
+
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  CONVERTED
+  EXPIRED
   CANCELLED
 }
 
@@ -233,6 +291,16 @@ enum CampaignStatus {
   ACTIVE
   COMPLETED
   CANCELLED
+}
+
+// ============================================================================
+// REPORTING ENUMS (Sprint 9)
+// ============================================================================
+
+enum ReportFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
 }
 
 // ============================================================================
@@ -490,6 +558,11 @@ model Organization {
   loyaltyTransactions  LoyaltyTransaction[]
   stockMovements       StockMovement[]
   tenantRoleServices   TenantRoleService[]
+  notifications        Notification[]
+  paymentMethods       SavedPaymentMethod[]
+  reportSchedules      ReportSchedule[]
+  savedReportTemplates SavedReportTemplate[]
+  waitlistEntries      WaitlistEntry[]
 
   @@map("organizations")
 }
@@ -618,6 +691,9 @@ model User {
   referralsReceived  Referral[]            @relation("referrals_received")
   segmentMemberships CustomerSegmentMember[]
   anomalyFlags       AnomalyFlag[]         @relation("anomaly_flags")
+  notifications      Notification[]
+  paymentMethods     SavedPaymentMethod[]
+  waitlistEntries    WaitlistEntry[]
 
   @@unique([organizationId, email])
   @@unique([organizationId, phone])
@@ -692,6 +768,7 @@ model Branch {
   holidays           BranchHoliday[]
   dailySnapshots     BranchDailySnapshot[]
   anomalyFlags       AnomalyFlag[]
+  waitlistEntries    WaitlistEntry[]
 
   @@index([organizationId])
   @@map("branches")
@@ -1019,6 +1096,9 @@ model QueueEntry {
   calledAt       DateTime?
   startedAt      DateTime?   // IN_SERVICE time (renamed concept from IN_CHAIR)
   completedAt    DateTime?
+  prepaidAmount        Decimal?  // Sprint 9: optional online prepayment
+  prepaymentReference  String?   // e.g. Xendit invoice id
+  refundAmount         Decimal?  // Sprint 9: partial/full refund on penalized cancel
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -1033,6 +1113,30 @@ model QueueEntry {
   @@index([staffProfileId, status])
   @@index([organizationId])
   @@map("queue_entries")
+}
+
+model WaitlistEntry {
+  id                String         @id @default(cuid())
+  organizationId    String
+  branchId          String
+  userId            String
+  customerName      String
+  preferredDate     DateTime
+  preferredTimeSlot String
+  serviceIds        String[]
+  staffProfileId    String?
+  status            WaitlistStatus @default(WAITING)
+  notifiedAt        DateTime?
+  expiresAt         DateTime
+  createdAt         DateTime       @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([branchId, preferredDate])
+  @@index([organizationId])
+  @@map("waitlist_entries")
 }
 ```
 
@@ -1310,6 +1414,7 @@ model Referral {
   refereeId      String
   bonusPoints    Int            @default(10)
   status         ReferralStatus @default(PENDING)
+  expiresAt      DateTime?
   completedAt    DateTime?
   createdAt      DateTime       @default(now())
 
@@ -1621,6 +1726,218 @@ model AnomalyFlag {
 
 ---
 
+### Payment Methods
+
+```prisma
+// ============================================================================
+// SAVED PAYMENT METHODS (Xendit tokenization)
+// ============================================================================
+
+model SavedPaymentMethod {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  tokenId        String
+  type           String   @default("CARD")
+  last4          String
+  expiryMonth    Int
+  expiryYear     Int
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@map("payment_methods")
+}
+```
+
+---
+
+### Notifications
+
+```prisma
+// ============================================================================
+// NOTIFICATIONS (In-app notification inbox)
+// ============================================================================
+
+model Notification {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  title          String
+  body           String
+  type           String
+  data           Json?
+  read           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([organizationId])
+  @@map("notifications")
+}
+```
+
+### Notification Channel Config (Sprint 7)
+
+```prisma
+model NotificationChannelConfig {
+  id               String   @id @default(cuid())
+  organizationId   String
+  notificationType String
+  pushEnabled      Boolean  @default(true)
+  whatsappEnabled  Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, notificationType])
+  @@map("notification_channel_configs")
+}
+
+model NotificationPreference {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String   @unique
+  pushOptOut     Boolean  @default(false)
+  whatsappOptOut Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+```
+
+### Report schedules & saved templates (Sprint 9)
+
+```prisma
+model ReportSchedule {
+  id             String          @id @default(cuid())
+  organizationId String
+  branchId       String?
+  reportType     String
+  frequency      ReportFrequency
+  recipients     String[]
+  filters        Json            @default("{}")
+  isActive       Boolean         @default(true)
+  lastSentAt     DateTime?
+  nextRunAt      DateTime
+  createdBy      String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([organizationId, isActive, nextRunAt])
+}
+
+model SavedReportTemplate {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  reportType     String
+  filters        Json         @default("{}")
+  createdBy      String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([organizationId])
+}
+```
+
+### Demand Forecasting, Smart Scheduling & Churn (Sprint 10)
+
+```prisma
+enum SuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ChurnRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model DemandForecast {
+  id                    String   @id @default(cuid())
+  branchId              String
+  organizationId        String
+  date                  DateTime @db.Date
+  predictedTransactions Float    @default(0)
+  predictedRevenue      Float    @default(0)
+  confidenceLow         Float    @default(0)
+  confidenceHigh        Float    @default(0)
+  dayOfWeek             Int
+  isHoliday             Boolean  @default(false)
+  createdAt             DateTime @default(now())
+
+  organization Organization @relation(...)
+  branch       Branch       @relation(...)
+
+  @@unique([branchId, date])
+  @@index([organizationId])
+  @@map("demand_forecasts")
+}
+
+model ScheduleSuggestion {
+  id              String           @id @default(cuid())
+  branchId        String
+  organizationId  String
+  staffProfileId  String?
+  date            DateTime         @db.Date
+  suggestedStart  String
+  suggestedEnd    String
+  reason          String
+  demandScore     Float            @default(0)
+  status          SuggestionStatus @default(PENDING)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization Organization @relation(...)
+  branch       Branch       @relation(...)
+
+  @@index([branchId, date])
+  @@index([organizationId])
+  @@map("schedule_suggestions")
+}
+
+model ChurnScore {
+  id             String         @id @default(cuid())
+  customerId     String
+  branchId       String
+  organizationId String
+  score          Float
+  riskLevel      ChurnRiskLevel
+  features       Json
+  computedAt     DateTime       @default(now())
+
+  organization Organization @relation(...)
+  branch       Branch       @relation(...)
+  customer     User         @relation(...)
+
+  @@unique([customerId, branchId])
+  @@index([branchId, riskLevel])
+  @@index([organizationId])
+  @@map("churn_scores")
+}
+```
+
+---
+
 ## Entity Relationship Diagram
 
 ### Core Multi-Tenancy & RBAC
@@ -1681,6 +1998,8 @@ erDiagram
     User ||--o{ Review : writes
     User ||--o{ Referral : "refers others"
     User ||--o{ CustomerSegmentMember : "belongs to segments"
+    User ||--o{ Notification : "receives"
+    User ||--o{ SavedPaymentMethod : "owns"
     CustomerSegment ||--o{ CustomerSegmentMember : contains
     Campaign }o--o| PromoCode : promotes
 ```
@@ -1706,7 +2025,12 @@ erDiagram
 | Cash Drawer | CashDrawerSession, CashDrawerEntry | 2 |
 | CRM & Campaigns | CustomerSegment, CustomerSegmentMember, Campaign | 3 |
 | Audit & Analytics | AuditLog, BranchDailySnapshot, AnomalyFlag | 3 |
-| **Total** | | **46** |
+| Notifications | Notification, NotificationChannelConfig, NotificationPreference | 3 |
+| Payment Methods | SavedPaymentMethod | 1 |
+| Waitlist (Sprint 9) | WaitlistEntry | 1 |
+| Reporting (Sprint 9) | ReportSchedule, SavedReportTemplate | 2 |
+| Forecasting & Scheduling (Sprint 10) | DemandForecast, ScheduleSuggestion, ChurnScore | 3 |
+| **Total** | | **56** |
 
 ---
 
@@ -1729,6 +2053,9 @@ erDiagram
 | `PromoCode` | `[organizationId, code]` | Promo code unique per org |
 | `StaffEarning` | `[staffProfileId, date]` | One earning record per staff per day |
 | `BranchDailySnapshot` | `[branchId, date]` | One snapshot per branch per day |
+| `SavedPaymentMethod` | — | No unique constraint (user may have multiple cards) |
+| `NotificationChannelConfig` | `[organizationId, notificationType]` | One config per notification type per org |
+| `NotificationPreference` | `userId` | One preference record per user |
 
 ---
 
@@ -1756,3 +2083,7 @@ Additional performance indexes:
 | `LoyaltyTransaction` | `[customerMembershipId, createdAt]` | Points history |
 | `Campaign` | `[branchId, status]` | Active campaigns |
 | `BranchDailySnapshot` | `[date]` | Cross-branch date queries |
+| `Notification` | `[userId, read]` | Unread notifications per user |
+| `Notification` | `[organizationId]` | Org-scoped notification queries |
+| `SavedPaymentMethod` | `[userId]` | User's saved payment methods |
+| `SavedPaymentMethod` | `[organizationId]` | Org-scoped payment method queries |

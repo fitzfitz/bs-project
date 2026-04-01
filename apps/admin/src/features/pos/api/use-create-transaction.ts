@@ -10,12 +10,14 @@ type CreatePayload = {
   items: Item[];
   tipAmount: number;
   discountAmount: number;
+  promoCode?: string;
+  loyaltyPointsUsed?: number;
   clientUuid?: string;
 };
 
 export function useCreateTransaction() {
   return useMutation({
     mutationFn: (payload: CreatePayload) =>
-      api.post<ApiResponse<{ id: string }>>("/transactions", payload),
+      api.post<ApiResponse<{ id: string; totalDue: number }>>("/transactions", payload),
   });
 }

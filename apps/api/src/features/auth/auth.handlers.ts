@@ -1,5 +1,18 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { registerSchema, loginSchema, refreshSchema, updateProfileSchema, deleteAccountSchema, forgotPasswordSchema, googleAuthSchema } from "./auth.schema";
+import {
+  registerSchema,
+  loginSchema,
+  refreshSchema,
+  updateProfileSchema,
+  deleteAccountSchema,
+  forgotPasswordSchema,
+  googleAuthSchema,
+  AuthUserResponseSchema,
+  UpdateProfileResponseSchema,
+  UserSearchResultSchema,
+  notificationPreferencesSchema,
+  NotificationPreferencesResponseSchema,
+} from "./auth.schema";
 import { AuthService, getPermissionsForRole } from "./auth.service";
 import { createSuccessSchema, ErrorSchema } from "../../utils/openapi";
 import type { AppEnv } from "../../types";
@@ -11,7 +24,7 @@ import type { RouteHandler } from "@hono/zod-openapi";
 
 const AuthResponseSchema = createSuccessSchema(
   z.object({
-    user: z.any().optional(), // Should be strictly typed in production
+    user: AuthUserResponseSchema,
     accessToken: z.string(),
     refreshToken: z.string(),
   })
@@ -113,11 +126,17 @@ export const meRoute = createRoute({
               branchId: z.string().nullable().optional(),
               isCustomer: z.boolean(),
               organizationId: z.string(),
+              emailOptIn: z.boolean().optional(),
               tenantRole: z.object({
                 id: z.string(),
                 name: z.string(),
                 scope: z.string(),
               }).nullable().optional(),
+              organization: z.object({
+                currency: z.string(),
+                currencySymbol: z.string(),
+                locale: z.string(),
+              }).optional(),
             })
           ),
         },
@@ -144,7 +163,9 @@ export const updateProfileRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: createSuccessSchema(z.any()) } },
+      content: {
+        "application/json": { schema: createSuccessSchema(UpdateProfileResponseSchema) },
+      },
       description: "User profile updated successfully",
     },
     401: {
@@ -190,7 +211,11 @@ export const searchUsersRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: createSuccessSchema(z.array(z.any())) } },
+      content: {
+        "application/json": {
+          schema: createSuccessSchema(z.array(UserSearchResultSchema)),
+        },
+      },
       description: "List of matching users",
     },
   },
@@ -241,6 +266,37 @@ export const deleteAccountRoute = createRoute({
     400: {
       content: { "application/json": { schema: ErrorSchema } },
       description: "Missing or invalid confirmation",
+    },
+    401: {
+      content: { "application/json": { schema: ErrorSchema } },
+      description: "Unauthorized",
+    },
+  },
+});
+
+export const notificationPreferencesRoute = createRoute({
+  method: "patch",
+  path: "/me/notification-preferences",
+  tags: ["Auth"],
+  summary: "Update notification preferences",
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: { "application/json": { schema: notificationPreferencesSchema } },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: createSuccessSchema(NotificationPreferencesResponseSchema),
+        },
+      },
+      description: "Notification preferences updated",
+    },
+    400: {
+      content: { "application/json": { schema: ErrorSchema } },
+      description: "Validation error",
     },
     401: {
       content: { "application/json": { schema: ErrorSchema } },
@@ -470,6 +526,22 @@ export const searchUsersHandler: RouteHandler<typeof searchUsersRoute, AppEnv> =
   return c.json({ success: true as const, data: users }, 200);
 };
 
+export const notificationPreferencesHandler: RouteHandler<typeof notificationPreferencesRoute, AppEnv> = async (c) => {
+  const userId = c.get("userId");
+  if (!userId) {
+    return c.json({ success: false as const, message: "Unauthorized" }, 401);
+  }
+
+  const { emailOptIn } = c.req.valid("json");
+  const updated = await c.var.db.user.update({
+    where: { id: userId as string },
+    data: { emailOptIn },
+    select: { emailOptIn: true },
+  });
+
+  return c.json({ success: true as const, data: updated }, 200);
+};
+
 function buildJwtPayload(user: { id: string; organizationId: string; tenantRoleId: string; branchId?: string | null; isCustomer: boolean; tenantRole?: { scope: string } | null }, expDate: Date) {
   return {
     sub: user.id,
@@ -490,7 +562,8 @@ export const googleAuthHandler: RouteHandler<typeof googleAuthRoute, AppEnv> = a
   }
 
   try {
-    const user = await AuthService.googleAuth(c.var.db, { ...data, orgSlug });
+    const googleClientId = c.env.GOOGLE_CLIENT_ID;
+    const user = await AuthService.googleAuth(c.var.db, { ...data, orgSlug, googleClientId });
 
     const expDate = new Date(Date.now() + 15 * 60 * 1000);
     const accessToken = await sign(

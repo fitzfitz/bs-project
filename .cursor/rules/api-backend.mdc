@@ -1,0 +1,203 @@
+---
+description: Backend API rules — Hono.js + OpenAPI on Node.js 22, 4-file feature pattern, middleware, Prisma
+globs: apps/api/**
+alwaysApply: false
+---
+
+# Backend Rules — Hono.js + OpenAPI on Node.js 22
+
+## API Pre-Flight (Enforced on Every Change)
+
+**Before writing ANY implementation code in this app, you MUST complete these steps in order. See `workflow-gate.mdc` for the full rationale.**
+
+1. **Read/update the spec:** `openspec/specs/api/<feature>/spec.md` — endpoints, request/response shapes, business rules, success/failure scenarios, HTTP status coverage.
+2. **Read the Prisma schema:** `prisma/schema.prisma` — confirm model names, field names, relations, and enum values.
+3. **Write/update tests:** `src/features/<name>/[name].test.ts` — schema validation, success cases, auth/RBAC (401/403), not-found (404), business rule violations, edge cases. Tests WILL fail — that is expected.
+4. **THEN implement:** schema.ts -> handlers.ts -> service.ts -> index.ts (in that order).
+5. **Verify:** `pnpm --filter @tmng/saas-api lint && pnpm --filter @tmng/saas-api typecheck && pnpm --filter @tmng/saas-api test` — all three must pass.
+
+**Implementation code without a matching spec update and failing tests is a rule violation. If a plan has code-first tasks, reorder execution to match this checklist.**
+
+---
+
+## Strict API Contract (Zero Tolerance)
+
+- **Framework:** Hono.js on Node.js 22 LTS, served via `@hono/node-server`.
+- **FORBIDDEN:** `app.get()`, `app.post()`, or any standard Hono route method. Manual Swagger JSON is forbidden.
+- **MANDATORY:** All routes MUST use `createRoute()` + `app.openapi()` from `@hono/zod-openapi` for 100% RPC type safety and auto-generated OpenAPI docs.
+- **Exception:** The `health` module may use plain `Hono` since it has no request/response schemas.
+- **Zod version:** v4 (`^4.3.6`). Import `z` from `@hono/zod-openapi` in schema files, or from `zod` elsewhere.
+
+## Project Structure
+
+```
+src/
+├── index.ts            # Composition root: middleware chain + route mounting on /api
+├── server.ts           # Node.js entry: dotenv, dynamic import, @hono/node-server
+├── scheduler.ts        # Background cron jobs (node-cron)
+├── types.ts            # AppEnv type (Bindings + Variables)
+├── features/           # 30 domain modules (4-file pattern)
+│   └── <name>/
+│       ├── [name].schema.ts     # Zod schemas + createRoute() definitions
+│       ├── [name].index.ts      # OpenAPIHono router, middleware wiring
+│       ├── [name].handlers.ts   # HTTP controllers (extract params → call service → return response)
+│       └── [name].service.ts    # Business logic + Prisma queries
+├── middlewares/         # auth, rbac, scope, rate-limit, cache, platform-auth
+└── utils/               # db, env, s3, pusher, notifications, openapi, xendit-adapter, email, logger
+```
+
+## The 4-File Feature Module Pattern
+
+All domain logic lives in `src/features/<name>/`. Never mix responsibilities:
+
+1. **`[name].schema.ts`** — Zod request/response schemas and `createRoute()` OpenAPI definitions. No business logic.
+2. **`[name].index.ts`** — `OpenAPIHono<AppEnv>` router. Mounts routes via `app.openapi(route, handler)`. Applies middleware (auth, RBAC, scope). This is the only file imported by the composition root.
+3. **`[name].handlers.ts`** — HTTP controller functions. Extract validated params (`c.req.valid("json")`), call service functions, return `c.json({ success: true, data })`. Exports both the route definition and its handler together.
+4. **`[name].service.ts`** — Pure business logic. Receives `db: PrismaClient` and context as parameters. No global singletons. Never import `c` (Hono context) here.
+
+**Acceptable deviations:** Some minimal modules omit files — `health` (index only), `media`/`payments` (no service), `retention` (no schema). Do not force the 4-file pattern on trivial endpoints.
+
+## AppEnv Type (`types.ts`)
+
+Every handler and middleware accesses context through this type:
+
+```typescript
+type AppEnv = {
+  Bindings: Env & {
+    DATABASE_URL: string;
+    JWT_SECRET: string;
+    JWT_REFRESH_SECRET: string;
+    // ... other env vars
+    PUSHER_APP_ID: string;
+    PUSHER_KEY: string;
+    PUSHER_SECRET: string;
+    PUSHER_HOST: string;
+    PUSHER_PORT: string;
+  };
+  Variables: {
+    db: PrismaClient;
+    userId?: string;
+    organizationId?: string;
+    tenantRoleId?: string;
+    branchId?: string;
+    isCustomer?: boolean;
+    scope?: RoleScope;       // HQ | BRANCH | CUSTOMER
+  };
+};
+```
+
+Access via `c.get("db")`, `c.get("userId")`, `c.get("organizationId")`, etc.
+
+## Middleware Stack
+
+| Middleware | File | Purpose |
+|---|---|---|
+| `authMiddleware()` | `middlewares/auth.ts` | JWT verification; sets userId, organizationId, tenantRoleId, scope, branchId |
+| `orgScopeMiddleware()` | `middlewares/scope.ts` | Injects org-scoped Prisma into context |
+| `requirePermission(feature, action)` | `middlewares/rbac.ts` | Database-driven RBAC (25 features, CRUD actions) |
+| `requireCustomer()` | `middlewares/rbac.ts` | Verifies user is a customer role |
+| `requireStaff()` | `middlewares/rbac.ts` | Verifies user is a service provider role |
+| `platformAuthMiddleware()` | `middlewares/platform-auth.ts` | Platform admin JWT verification |
+| `rateLimitMiddleware()` | `middlewares/rate-limit.ts` | Sliding-window rate limiting |
+| `cacheMiddleware()` | `middlewares/cache.ts` | LRU GET cache (auto-invalidated on mutations) |
+
+**CRITICAL:** `requireRole()` is DEPRECATED. Always use `requirePermission(feature, action)` for access control.
+
+## Middleware Wiring Patterns (from `docs/hono-setup.md`)
+
+### Pattern A — Sub-App with Wildcard Middleware
+
+Use when ALL routes in a group share the same permission. Safe because only one `use("*")` exists per sub-app.
+
+```typescript
+const writeApp = new OpenAPIHono<AppEnv>();
+writeApp.use("*", authMiddleware(), orgScopeMiddleware(), requirePermission("TRANSACTION", "create"));
+writeApp.openapi(createRoute, createHandler);
+writeApp.openapi(voidRoute, voidHandler);
+app.route("/", writeApp);
+```
+
+### Pattern B — Flat Path-Specific Middleware
+
+Use when routes under the same prefix need DIFFERENT permissions. Mounting multiple sub-apps at `"/"` with `use("*")` causes all middlewares to run on every request, producing spurious 403 errors.
+
+```typescript
+app.use("/:id/status", authMiddleware(), orgScopeMiddleware(), requirePermission("QUEUE_MANAGEMENT", "update"));
+app.openapi(updateStatusRoute, updateStatusHandler);
+
+app.use("/:id/customer-cancel", authMiddleware(), requireCustomer());
+app.openapi(customerCancelRoute, customerCancelHandler);
+```
+
+**Rule:** If a feature has routes with conflicting permission requirements under the same prefix, use Pattern B.
+
+## Multi-Tenancy
+
+- Every query MUST be scoped to the current `organizationId` from context.
+- `orgScopeMiddleware()` injects scoped helpers. Use it on all non-public, non-platform routes.
+- Platform admin routes use `platformAuthMiddleware()` instead and operate across orgs.
+
+## Infrastructure & Shared Logic
+
+- **Database:** PostgreSQL via Prisma ORM (`prisma/schema.prisma`). Never write raw SQL.
+- **Environment:** `.dev.vars` file for local dev (loaded by `server.ts` when `DATABASE_URL` is missing). Zod-validated via `utils/env.ts`.
+- **Scheduler:** `src/scheduler.ts` runs `node-cron` jobs (no-show marking, grace period, auto clock-out, loyalty/retention, analytics snapshots).
+- **Real-time:** Pusher HTTP API via `utils/pusher.ts` for broadcasting queue/booking events to frontend clients connected to Soketi.
+- **Media:** S3-compatible uploads via `utils/s3.ts` (MinIO on VPS).
+- **Payments:** Xendit adapter in `utils/xendit-adapter.ts`.
+- **Error format:** Always return `{ success: false, message: string }` on errors.
+
+## Composition Root (`index.ts`)
+
+The app is assembled as:
+1. `new OpenAPIHono<AppEnv>()` at root
+2. Global middleware: logger, CORS, Prisma DB injection
+3. `app.basePath("/api")` for the API sub-app with rate limiting and selective caching
+4. Mount all 30 feature sub-apps: `apiApp.route("/auth", authApp)`, etc.
+5. OpenAPI UI at `/api/docs`, spec at `/api/openapi.json`
+6. Global `onError` and `notFound` handlers
+
+The server entry (`server.ts`) imports the composed app and starts `@hono/node-server` on port 8787.
+
+## Spec-First Development Flow
+
+**The mandatory workflow order (spec -> tests -> code -> verify) is defined in `workflow-gate.mdc`. This section provides the detailed implementation file order for step 4.**
+
+When implementing (after spec and tests are written):
+
+1. Define Zod schemas + `createRoute()` in `[name].schema.ts`.
+2. Write the handler in `[name].handlers.ts`.
+3. Write the service in `[name].service.ts`.
+4. Wire routes in `[name].index.ts` using the correct middleware pattern (A or B).
+5. Run tests to verify all scenarios pass.
+
+## Prisma Schema Awareness
+
+Before writing ANY Prisma query, read `prisma/schema.prisma` to confirm:
+
+- **Model name** — exact casing matters (`StaffProfile`, not `BarberProfile`; `TenantRole`, not `Role`).
+- **Field names and types** — e.g. `organizationId`, not `orgId`; `tenantRoleId`, not `roleId`.
+- **Relations** — valid `include` / `select` paths. Do not guess nested relations.
+- **Enum values** — `RoleScope`, `QueueStatus`, `PaymentMethod`, etc. Use exact values from the schema.
+
+Never assume a field or relation exists. If `schema.prisma` doesn't have it, it doesn't exist.
+
+## Test Requirements
+
+Every API feature module MUST have a `[name].test.ts` file covering:
+
+- **Schema validation:** Valid input accepted, each invalid field rejected with correct error.
+- **Success cases:** Correct response shape and status for each endpoint.
+- **Auth/RBAC:** Unauthenticated returns 401, wrong permission returns 403.
+- **Not found:** Requesting non-existent resources returns 404.
+- **Business rule violations:** Duplicate entries, invalid state transitions, constraint violations.
+- **Edge cases:** Empty lists, pagination boundaries, concurrent operations.
+
+Test infrastructure: Vitest + Hono `testClient`. Mock Prisma via `src/test/helpers.ts`.
+
+## Response Schema Discipline
+
+- Every API endpoint MUST define a concrete Zod response schema (not `z.any()`).
+- Response schemas must match the actual Prisma `select`/`include` return shape from the service.
+- When modifying a response shape, update the corresponding OpenSpec `spec.md` first.
+- Sensitive fields (`passwordHash`, internal IDs not needed by clients) must be explicitly excluded via `.omit()` or a dedicated response schema.

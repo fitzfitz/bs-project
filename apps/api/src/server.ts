@@ -7,10 +7,11 @@ if (!process.env.DATABASE_URL) {
 
 const { default: app } = await import("./index.js");
 const { startScheduler } = await import("./scheduler.js");
+const { logger } = await import("./utils/logger.js");
 
 const port = Number(process.env.PORT ?? 8787);
 
 serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`API running on http://localhost:${info.port}`);
+  logger.info({ port: info.port }, `API running on http://localhost:${info.port}`);
   startScheduler();
 });

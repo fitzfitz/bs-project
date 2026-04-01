@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { ReferralStatusEnum } from "../../utils/zod-prisma";
 
 export const referralSchema = z
   .object({
@@ -6,7 +7,7 @@ export const referralSchema = z
     referrerId: z.string(),
     refereeId: z.string(),
     bonusPoints: z.number().int(),
-    status: z.enum(["PENDING", "COMPLETED", "EXPIRED"]),
+    status: ReferralStatusEnum,
     completedAt: z.string().datetime().nullable(),
     createdAt: z.string().datetime(),
   })

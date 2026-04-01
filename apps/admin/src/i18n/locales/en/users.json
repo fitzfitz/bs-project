@@ -1,0 +1,13 @@
+{
+  "title": "User Management",
+  "searchUsers": "Search users...",
+  "role": "Role",
+  "changeRole": "Change Role",
+  "assignBranch": "Assign Branch",
+  "removeBranch": "Remove Branch",
+  "deactivate": "Deactivate",
+  "reactivate": "Reactivate",
+  "noUsers": "No users found",
+  "lastLogin": "Last Login",
+  "memberSince": "Member Since"
+}

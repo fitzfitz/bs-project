@@ -4,16 +4,24 @@ import { api, type ApiResponse } from "@/lib/api";
 export type StaffProfile = {
   id: string;
   userId: string;
+  organizationId?: string;
+  averageRating?: number;
+  totalReviews?: number;
   bio: string | null;
   tier: "JUNIOR" | "SENIOR" | "MASTER";
   status: "AVAILABLE" | "BUSY" | "ON_BREAK" | "RESERVED" | "OFF_DUTY";
   specialties: string[];
   commissionModel: string;
   commissionRate: number;
-  baseSalary: number;
-  isActive: boolean;
-  avatarUrl: string | null;
-  user: { id: string; firstName: string; lastName: string; email: string };
+  baseSalary: number | null;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+    isActive?: boolean;
+    avatar?: string | null;
+  };
   branch?: { id: string; name: string };
 };
 
@@ -100,6 +108,24 @@ export function useUpdateBarberStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       api.patch<ApiResponse<StaffProfile>>(`/staff/${id}/status`, { status }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["barbers"] }),
+  });
+}
+
+export function useResetCommission() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      api.post<ApiResponse<StaffProfile>>(`/staff/${userId}/reset-commission`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["barbers"] }),
+  });
+}
+
+export function useUpdateAvatar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, avatar }: { userId: string; avatar: string | null }) =>
+      api.patch<ApiResponse<{ id: string; avatar: string | null }>>(`/staff/${userId}/avatar`, { avatar }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["barbers"] }),
   });
 }

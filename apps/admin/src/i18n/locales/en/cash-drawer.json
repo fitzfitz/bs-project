@@ -1,0 +1,15 @@
+{
+  "title": "Cash Drawer",
+  "openDrawer": "Open Drawer",
+  "closeDrawer": "Close Drawer",
+  "drawerOpen": "Drawer Open",
+  "drawerClosed": "Drawer Closed",
+  "openingBalance": "Opening Balance",
+  "currentBalance": "Current Balance",
+  "closingBalance": "Closing Balance",
+  "addEntry": "Add Entry",
+  "entries": "Entries",
+  "discrepancy": "Discrepancy",
+  "endOfDay": "End of Day Summary",
+  "noEntries": "No entries"
+}

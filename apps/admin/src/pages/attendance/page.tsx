@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { BranchSelector } from "@/components/branch-selector";
 import { useBranchStore } from "@/store/use-branch-store";
 import {
@@ -10,10 +11,13 @@ import {
   type ShiftBlock,
 } from "@/features/attendance/api/use-attendance";
 import { useBarbers } from "@/features/barbers/api/use-barbers";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
 
 type Tab = "attendance" | "shifts" | "calendar";
 
 export default function AttendancePage() {
+  const { t } = useTranslation();
   const selectedBranchId = useBranchStore((s) => s.selectedBranchId) ?? "";
   const [tab, setTab] = useState<Tab>("attendance");
   const [page, setPage] = useState(1);
@@ -67,22 +71,25 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-2xl font-semibold">Attendance & Shifts</h1>
-        <BranchSelector />
-      </div>
+    <PageContainer>
+      <PageHeader title={t("attendance:title")} actions={<BranchSelector />} />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
-        {([["attendance", "Attendance Log"], ["shifts", "Shift Schedule"], ["calendar", "Calendar"]] as const).map(([t, label]) => (
+        {(
+          [
+            ["attendance", "attendance:attendanceLog"],
+            ["shifts", "attendance:shiftSchedule"],
+            ["calendar", "attendance:calendar"],
+          ] as const
+        ).map(([tabKey, labelKey]) => (
           <button
-            key={t}
+            key={tabKey}
             type="button"
-            onClick={() => setTab(t as Tab)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            onClick={() => setTab(tabKey as Tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === tabKey ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
           >
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </div>
@@ -100,12 +107,11 @@ export default function AttendancePage() {
                     <th className="px-3 py-2 text-left font-medium">Clock In</th>
                     <th className="px-3 py-2 text-left font-medium">Clock Out</th>
                     <th className="px-3 py-2 text-left font-medium">Hours</th>
-                    <th className="px-3 py-2 text-left font-medium">Notes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {attendance.length === 0 ? (
-                    <tr><td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">No attendance records.</td></tr>
+                    <tr><td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">No attendance records.</td></tr>
                   ) : attendance.map((r: AttendanceRecord) => (
                     <tr key={r.id} className="hover:bg-muted/30">
                       <td className="px-3 py-2 font-medium">{r.staff?.user?.firstName ?? ""} {r.staff?.user?.lastName ?? ""}</td>
@@ -116,7 +122,6 @@ export default function AttendancePage() {
                           {hoursWorked(r.clockIn, r.clockOut)}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{r.notes || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -238,7 +243,7 @@ export default function AttendancePage() {
           barbers={barbers}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
 

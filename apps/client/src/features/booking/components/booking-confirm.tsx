@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AlertCircle, CalendarClock, Scissors } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { AlertCircle, CalendarClock, Scissors, Wallet } from 'lucide-react';
 import { useBookingStore } from '@/features/booking/store';
 import { useSessionStore } from '@/features/auth/store';
 import { useCreateBooking } from '../api/use-create-booking';
@@ -7,13 +9,21 @@ import { useServices } from '../api/use-services';
 import type { ServiceResponse } from '../types';
 import { useProfile } from '@/features/profile/api/use-profile';
 import { Button } from '@/components/ui/button';
+import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
+import type { ApiResponse } from '@/lib/api';
+import type { QueueEntryCreateResponse } from '../types';
 
 export default function BookingConfirm() {
+  const { t } = useTranslation('booking');
   const { branchId } = useParams();
   const navigate = useNavigate();
   const { user } = useSessionStore();
+  const org = useSessionStore((s) => s.user?.organization);
   const { selectedServiceIds, selectedBarberId, selectedDate, selectedTimeSlot, resetBooking } = useBookingStore();
+  const [prepaymentAfterBook, setPrepaymentAfterBook] = useState<{
+    depositAmount?: number;
+  } | null>(null);
 
   const { data: userProfile } = useProfile();
 
@@ -45,20 +55,77 @@ export default function BookingConfirm() {
       estimatedDuration: totalDuration,
       source: 'APP',
     }, {
-      onSuccess: () => {
+      onSuccess: (res) => {
+        const payload = res as ApiResponse<QueueEntryCreateResponse>;
+        const entry = payload.data;
+        if (entry?.prepaymentAvailable) {
+          setPrepaymentAfterBook({
+            depositAmount: entry.depositAmount,
+          });
+          return;
+        }
         resetBooking();
         navigate('/history', { replace: true });
       }
     });
   };
 
+  function handleContinueAfterPrepayment() {
+    resetBooking();
+    setPrepaymentAfterBook(null);
+    navigate('/history', { replace: true });
+  }
+
+  if (prepaymentAfterBook) {
+    const depositFmt =
+      prepaymentAfterBook.depositAmount != null
+        ? formatCurrency(
+            prepaymentAfterBook.depositAmount,
+            org?.currency,
+            org?.locale,
+          )
+        : null;
+    return (
+      <div className="pb-10 space-y-6">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t('bookingConfirmed')}</h2>
+          <p className="text-slate-500 mt-1.5 text-sm leading-relaxed">{t('appointmentSaved')}</p>
+        </div>
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-3">
+          <div className="flex items-center gap-2 text-primary font-bold text-sm uppercase tracking-wide">
+            <Wallet className="w-5 h-5" />
+            {t('prepaymentAvailable')}
+          </div>
+          <p className="text-sm text-slate-600 leading-relaxed">{t('prepaymentDescription')}</p>
+          {depositFmt && (
+            <p className="text-sm font-semibold text-slate-900">{t('depositAmount', { amount: depositFmt })}</p>
+          )}
+          <div className="flex flex-col gap-2 pt-2">
+            <Button type="button" variant="outline" className="w-full h-12 rounded-xl" disabled>
+              {t('payDeposit')}
+            </Button>
+            <p className="text-xs text-center text-slate-500">{t('noPrepayment')}</p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="lg"
+          className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20"
+          onClick={handleContinueAfterPrepayment}
+        >
+          {t('continueToAppointments')}
+        </Button>
+      </div>
+    );
+  }
+
   if (!selectedDate || !selectedTimeSlot || selectedServiceIds.length === 0) {
     return (
       <div className="text-center p-8 mt-10">
         <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-        <h3 className="text-lg font-bold text-slate-900">Incomplete Booking</h3>
-        <p className="text-slate-500 text-sm mt-2">Please go back and ensure you've selected a service, date, and time.</p>
-        <Button className="mt-6" onClick={() => navigate(`/book/${branchId}`)}>Restart Booking</Button>
+        <h3 className="text-lg font-bold text-slate-900">{t('incompleteBooking')}</h3>
+        <p className="text-slate-500 text-sm mt-2">{t('incompleteSubtitle')}</p>
+        <Button className="mt-6" onClick={() => navigate(`/book/${branchId}`)}>{t('restartBooking')}</Button>
       </div>
     );
   }
@@ -66,9 +133,9 @@ export default function BookingConfirm() {
   return (
     <div className="pb-10">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Review & Confirm</h2>
+        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t('confirmBooking')}</h2>
         <p className="text-slate-500 mt-1.5 text-sm leading-relaxed">
-          Almost there. Review your appointment details below before confirming.
+          {t('reviewSubtitle')}
         </p>
       </div>
 
@@ -76,7 +143,7 @@ export default function BookingConfirm() {
         {/* Date & Time Ticket */}
         <div className="bg-primary text-primary-foreground p-6 rounded-2xl shadow-lg shadow-primary/20 flex items-center justify-between">
           <div>
-            <div className="text-primary-foreground/80 text-sm font-semibold uppercase tracking-wider mb-1">Appointment Time</div>
+            <div className="text-primary-foreground/80 text-sm font-semibold uppercase tracking-wider mb-1">{t('appointmentTime')}</div>
             <div className="text-2xl font-bold">{format(selectedDate, 'EEEE, MMM d')}</div>
             <div className="text-3xl font-black mt-1">{selectedTimeSlot}</div>
           </div>
@@ -86,7 +153,7 @@ export default function BookingConfirm() {
         {/* Services Summary */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
           <h3 className="font-bold text-slate-900 flex items-center gap-2 mb-4 text-sm uppercase tracking-wide">
-            <Scissors className="w-4 h-4 text-primary" /> Services
+            <Scissors className="w-4 h-4 text-primary" /> {t('bookingSummary')}
           </h3>
           <div className="space-y-3">
             {selectedServicesData.map(svc => (
@@ -96,7 +163,7 @@ export default function BookingConfirm() {
                   <div className="text-slate-400 text-xs">{svc.durationMinutes} mins</div>
                 </div>
                 <div className="font-semibold text-slate-700">
-                  {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(svc.basePrice)}
+                  {formatCurrency(svc.basePrice, org?.currency, org?.locale)}
                 </div>
               </div>
             ))}
@@ -104,10 +171,13 @@ export default function BookingConfirm() {
           <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-lg">
             <span className="font-bold text-slate-900">Total (~{totalDuration}m)</span>
             <span className="font-bold text-primary">
-              {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(totalPrice)}
+              {formatCurrency(totalPrice, org?.currency, org?.locale)}
             </span>
           </div>
-          <div className="mt-2 text-xs text-center text-slate-400 font-medium">Payment is handled at the branch after your service.</div>
+          <div className="mt-2 text-xs text-center text-slate-400 font-medium">{t('paymentNotice')}</div>
+          <p className="mt-3 text-[11px] text-center text-slate-500 leading-relaxed px-1">
+            {t('prepaymentHint')}
+          </p>
         </div>
 
         {error && (
@@ -122,7 +192,7 @@ export default function BookingConfirm() {
           onClick={handleConfirm}
           className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20"
         >
-          {isPending ? 'Confirming...' : 'Confirm Appointment'}
+          {isPending ? t('confirming') : t('confirmAndBook')}
         </Button>
       </div>
     </div>

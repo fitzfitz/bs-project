@@ -1,0 +1,21 @@
+{
+  "title": "Inventaris",
+  "stock": "Stok",
+  "products": "Produk",
+  "addProduct": "Tambah Produk",
+  "editProduct": "Ubah Produk",
+  "productName": "Nama Produk",
+  "sku": "SKU",
+  "costPrice": "Harga Beli",
+  "sellPrice": "Harga Jual",
+  "currentStock": "Stok Saat Ini",
+  "lowStockAlert": "Peringatan Stok Rendah",
+  "stockIn": "Stok Masuk",
+  "stockOut": "Stok Keluar",
+  "adjustStock": "Sesuaikan Stok",
+  "quantity": "Jumlah",
+  "reason": "Alasan",
+  "stockMovements": "Riwayat Pergerakan Stok",
+  "noProducts": "Tidak ada produk ditemukan",
+  "lowStock": "Stok Rendah"
+}

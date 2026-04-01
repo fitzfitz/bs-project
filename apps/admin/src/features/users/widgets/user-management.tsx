@@ -26,9 +26,24 @@ const SCOPE_COLORS: Record<string, string> = {
   CUSTOMER: "bg-slate-100 text-slate-700",
 };
 
-function buildRoleOptions(users: UserRow[], selectedUser?: UserRow | null, includeAll = true): { value: string; label: string }[] {
+/** List filter: API accepts `role` as tenant role name. */
+function buildRoleFilterOptions(users: UserRow[]): { value: string; label: string }[] {
   const seen = new Set<string>();
-  const opts: { value: string; label: string }[] = includeAll ? [{ value: "", label: "All Roles" }] : [];
+  const opts: { value: string; label: string }[] = [{ value: "", label: "All Roles" }];
+  for (const u of users) {
+    const name = u.tenantRole?.name;
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      opts.push({ value: name, label: name });
+    }
+  }
+  return opts;
+}
+
+/** Role change dialog: PATCH body still uses `tenantRoleId`. */
+function buildRoleAssignmentOptions(users: UserRow[], selectedUser?: UserRow | null): { value: string; label: string }[] {
+  const seen = new Set<string>();
+  const opts: { value: string; label: string }[] = [];
   for (const u of users) {
     if (u.tenantRoleId && !seen.has(u.tenantRoleId)) {
       seen.add(u.tenantRoleId);
@@ -55,7 +70,7 @@ export function UserManagement() {
 
   const { data, isLoading } = useUsers({
     search: search || undefined,
-    tenantRoleId: roleFilter || undefined,
+    role: roleFilter || undefined,
     isActive: activeFilter,
     page,
     limit: 20,
@@ -127,7 +142,7 @@ export function UserManagement() {
           }}
           className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
-          {buildRoleOptions(users).map((r) => (
+          {buildRoleFilterOptions(users).map((r) => (
             <option key={r.value} value={r.value}>
               {r.label}
             </option>
@@ -329,7 +344,7 @@ export function UserManagement() {
               onChange={(e) => setNewRole(e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
-              {buildRoleOptions(users, selectedUser, false).map((r) => (
+              {buildRoleAssignmentOptions(users, selectedUser).map((r) => (
                 <option key={r.value} value={r.value}>
                   {r.label}
                 </option>

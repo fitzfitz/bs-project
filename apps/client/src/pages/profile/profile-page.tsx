@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { User as UserIcon, Gift, ChevronRight, CreditCard, Settings, LogOut, ShieldAlert } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { User as UserIcon, Gift, ChevronRight, CreditCard, Settings, LogOut, ShieldAlert, FileText, Shield } from 'lucide-react';
+import { LanguageSwitcher } from '@/components/layout/language-switcher';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSessionStore } from '@/features/auth/store';
 import { useProfile, useDeleteAccount } from '@/features/profile/api/use-profile';
@@ -8,6 +10,7 @@ import { useConfirmation } from '@/components/ui/confirmation';
 import { Button } from '@/components/ui/button';
 
 export default function ProfilePage() {
+  const { t } = useTranslation(['profile', 'home']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, clearSession } = useSessionStore();
@@ -20,16 +23,16 @@ export default function ProfilePage() {
 
   const handleDeleteAccount = async () => {
     const ok = await confirm({
-      title: 'Delete Your Account?',
-      description: 'This action is permanent and cannot be undone. All your data will be anonymized and your account deactivated.',
-      confirmLabel: 'Delete Account',
-      cancelLabel: 'Keep Account',
+      title: t('deleteAccountTitle'),
+      description: t('deleteAccountDescription'),
+      confirmLabel: t('deleteAccountConfirm'),
+      cancelLabel: t('keepAccount'),
       variant: 'danger',
     });
     if (!ok) return;
     deleteAccount.mutate(undefined, {
       onSuccess: () => navigate('/login'),
-      onError: (err: Error) => alert(err.message || 'Failed to delete account'),
+      onError: (err: Error) => alert(err.message || t('deleteAccountFailed')),
     });
   };
 
@@ -45,10 +48,10 @@ export default function ProfilePage() {
         <div className="w-20 h-20 bg-slate-200 rounded-full mx-auto mb-6 flex items-center justify-center">
           <UserIcon className="w-10 h-10 text-slate-400" />
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Your Profile</h1>
-        <p className="text-slate-500 mt-2">Sign in to manage your account, view history, and collect loyalty points.</p>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('title')}</h1>
+        <p className="text-slate-500 mt-2">{t('guestPrompt')}</p>
         <Button className="mt-8 rounded-xl h-12 text-md font-semibold" onClick={() => navigate('/login')}>
-          Sign In / Register
+          {t('signInRegister')}
         </Button>
       </div>
     );
@@ -77,7 +80,7 @@ export default function ProfilePage() {
                 <h1 className="text-2xl font-bold tracking-tight">{profile?.firstName} {profile?.lastName}</h1>
                 <p className="text-primary-foreground/80 text-sm mt-0.5">{profile?.email}</p>
                 <div className="inline-flex mt-2 bg-white/20 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-widest uppercase">
-                  {loyalty?.tier ?? "Member"} Tier
+                  {t('home:tierMember', { tier: loyalty?.tier ?? t('home:member') })}
                 </div>
               </>
             )}
@@ -95,9 +98,9 @@ export default function ProfilePage() {
         >
           <div>
             <div className="flex items-center gap-2 text-slate-500 text-sm font-semibold mb-1">
-              <Gift className="w-4 h-4 text-amber-500" /> Loyalty Points
+              <Gift className="w-4 h-4 text-amber-500" /> {t('loyaltyProgram')}
             </div>
-            <div className="text-2xl font-black text-slate-900">{loyalty?.pointsBalance?.toLocaleString() ?? "—"} <span className="text-sm font-medium text-slate-400">pts</span></div>
+            <div className="text-2xl font-black text-slate-900">{loyalty?.pointsBalance?.toLocaleString() ?? "—"} <span className="text-sm font-medium text-slate-400">{t('pointsAbbr')}</span></div>
           </div>
           <div className="rounded-xl h-10 w-10 p-0 flex items-center justify-center">
             <ChevronRight className="w-5 h-5 text-slate-400" />
@@ -113,18 +116,19 @@ export default function ProfilePage() {
             <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
               <UserIcon className="w-5 h-5" />
             </div>
-            <div className="flex-1 px-4 font-semibold text-slate-700">Personal Details</div>
+            <div className="flex-1 px-4 font-semibold text-slate-700">{t('personalDetails')}</div>
             <ChevronRight className="w-5 h-5 text-slate-300" />
           </button>
-          <div className="w-full flex items-center p-4 opacity-60 cursor-default">
-            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
+          <button
+            onClick={() => navigate('/payment-methods')}
+            className="w-full flex items-center p-4 hover:bg-slate-50 transition-colors text-left"
+          >
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
               <CreditCard className="w-5 h-5" />
             </div>
-            <div className="flex-1 px-4">
-              <span className="font-semibold text-slate-500">Payment Methods</span>
-              <span className="ml-2 text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded">Coming Soon</span>
-            </div>
-          </div>
+            <div className="flex-1 px-4 font-semibold text-slate-700">Payment Methods</div>
+            <ChevronRight className="w-5 h-5 text-slate-300" />
+          </button>
           <button 
             onClick={() => navigate('/settings/notifications')}
             className="w-full flex items-center p-4 hover:bg-slate-50 transition-colors text-left"
@@ -132,7 +136,31 @@ export default function ProfilePage() {
             <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
               <Settings className="w-5 h-5" />
             </div>
-            <div className="flex-1 px-4 font-semibold text-slate-700">Notification Settings</div>
+            <div className="flex-1 px-4 font-semibold text-slate-700">{t('notificationSettings')}</div>
+            <ChevronRight className="w-5 h-5 text-slate-300" />
+          </button>
+        </div>
+
+        {/* Legal */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-100">
+          <button
+            onClick={() => navigate('/legal/terms')}
+            className="w-full flex items-center p-4 hover:bg-slate-50 transition-colors text-left"
+          >
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div className="flex-1 px-4 font-semibold text-slate-700">{t('termsOfService')}</div>
+            <ChevronRight className="w-5 h-5 text-slate-300" />
+          </button>
+          <button
+            onClick={() => navigate('/legal/privacy')}
+            className="w-full flex items-center p-4 hover:bg-slate-50 transition-colors text-left"
+          >
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div className="flex-1 px-4 font-semibold text-slate-700">{t('privacyPolicy')}</div>
             <ChevronRight className="w-5 h-5 text-slate-300" />
           </button>
         </div>
@@ -143,7 +171,7 @@ export default function ProfilePage() {
             <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-500 shrink-0">
               <LogOut className="w-5 h-5" />
             </div>
-            <div className="flex-1 px-4 font-semibold text-red-600">Sign Out</div>
+            <div className="flex-1 px-4 font-semibold text-red-600">{t('logout')}</div>
           </button>
           
           <button
@@ -156,10 +184,15 @@ export default function ProfilePage() {
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div className="flex-1 px-4 font-semibold text-slate-500">
-              {deleteAccount.isPending ? 'Deleting…' : 'Delete Account'}
+              {deleteAccount.isPending ? t('deleting') : t('deleteAccount')}
             </div>
             <ChevronRight className="w-5 h-5 text-slate-300" />
           </button>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-2 flex items-center justify-between">
+          <span className="px-2 text-sm font-semibold text-slate-600">{t('language')}</span>
+          <LanguageSwitcher />
         </div>
 
       </div>

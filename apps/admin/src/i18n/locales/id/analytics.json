@@ -1,0 +1,21 @@
+{
+  "title": "Analitik",
+  "overview": "Ringkasan",
+  "comparison": "Perbandingan",
+  "peakHours": "Jam Sibuk",
+  "retention": "Retensi",
+  "utilization": "Utilisasi",
+  "branchStatus": "Status Cabang",
+  "totalRevenue": "Total Pendapatan",
+  "totalTransactions": "Total Transaksi",
+  "avgRating": "Rating Rata-rata",
+  "alerts": "Peringatan",
+  "lowInventory": "Inventaris Rendah",
+  "attendanceIssues": "Masalah Kehadiran",
+  "heatmapTitle": "Peta Panas Jam Sibuk",
+  "cohortTable": "Retensi Kohort",
+  "staffUtilization": "Utilisasi Staf",
+  "cuttingTime": "Waktu Potong",
+  "idleTime": "Waktu Luang",
+  "utilizationRate": "Tingkat Utilisasi"
+}

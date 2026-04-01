@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import { type PrismaClient, type Prisma, type DayOfWeek, type AuditAction, type AnomalyType, type AnomSeverity } from "@prisma/client";
 
 export class AuditService {
   static async listLogs(
@@ -16,9 +16,9 @@ export class AuditService {
       callerBranchId?: string;
     }
   ) {
-    const where: Record<string, unknown> = {};
+    const where: Prisma.AuditLogWhereInput = {};
 
-    if (opts.action) where.action = opts.action;
+    if (opts.action) where.action = opts.action as AuditAction;
     if (opts.entityType) where.entityType = opts.entityType;
     if (opts.userId) where.userId = opts.userId;
 
@@ -29,7 +29,7 @@ export class AuditService {
     }
 
     if (opts.dateFrom || opts.dateTo) {
-      const createdAt: Record<string, Date> = {};
+      const createdAt: Prisma.DateTimeFilter = {};
       if (opts.dateFrom) createdAt.gte = new Date(opts.dateFrom);
       if (opts.dateTo) createdAt.lte = new Date(opts.dateTo);
       where.createdAt = createdAt;
@@ -37,7 +37,7 @@ export class AuditService {
 
     const [logs, total] = await Promise.all([
       db.auditLog.findMany({
-        where: where as any,
+        where,
         include: {
           user: { select: { id: true, firstName: true, lastName: true, email: true, tenantRole: { select: { name: true, scope: true } } } },
           branch: { select: { id: true, name: true } },
@@ -46,7 +46,7 @@ export class AuditService {
         skip: (opts.page - 1) * opts.limit,
         take: opts.limit,
       }),
-      db.auditLog.count({ where: where as any }),
+      db.auditLog.count({ where }),
     ]);
 
     return {
@@ -73,10 +73,10 @@ export class AuditService {
       callerBranchId?: string;
     }
   ) {
-    const where: Record<string, unknown> = {};
+    const where: Prisma.AnomalyFlagWhereInput = {};
 
-    if (opts.type) where.type = opts.type;
-    if (opts.severity) where.severity = opts.severity;
+    if (opts.type) where.type = opts.type as AnomalyType;
+    if (opts.severity) where.severity = opts.severity as AnomSeverity;
     if (opts.isResolved !== undefined) where.isResolved = opts.isResolved === "true";
 
     if (opts.branchId) {
@@ -87,7 +87,7 @@ export class AuditService {
 
     const [anomalies, total] = await Promise.all([
       db.anomalyFlag.findMany({
-        where: where as any,
+        where,
         include: {
           branch: { select: { id: true, name: true } },
           user: { select: { id: true, firstName: true, lastName: true, email: true } },
@@ -96,7 +96,7 @@ export class AuditService {
         skip: (opts.page - 1) * opts.limit,
         take: opts.limit,
       }),
-      db.anomalyFlag.count({ where: where as any }),
+      db.anomalyFlag.count({ where }),
     ]);
 
     return {
@@ -142,19 +142,20 @@ export class AuditService {
     db: PrismaClient,
     branchId?: string
   ) {
-    const where: Record<string, unknown> = branchId ? { branchId } : {};
+    const where: Prisma.AnomalyFlagWhereInput = branchId ? { branchId } : {};
+    const unresolvedWhere: Prisma.AnomalyFlagWhereInput = { ...where, isResolved: false };
 
     const [total, unresolved, bySeverity, byType] = await Promise.all([
-      db.anomalyFlag.count({ where: where as any }),
-      db.anomalyFlag.count({ where: { ...where, isResolved: false } as any }),
+      db.anomalyFlag.count({ where }),
+      db.anomalyFlag.count({ where: unresolvedWhere }),
       db.anomalyFlag.groupBy({
         by: ["severity"],
-        where: { ...where, isResolved: false } as any,
+        where: unresolvedWhere,
         _count: true,
       }),
       db.anomalyFlag.groupBy({
         by: ["type"],
-        where: { ...where, isResolved: false } as any,
+        where: unresolvedWhere,
         _count: true,
       }),
     ]);
@@ -269,7 +270,7 @@ export class AuditService {
       const dow = dayMap[wibTime.getUTCDay()];
 
       const hours = await db.operatingHour.findFirst({
-        where: { branchId: ci.branchId, dayOfWeek: dow as any },
+        where: { branchId: ci.branchId, dayOfWeek: dow as DayOfWeek },
       });
 
       if (hours && !hours.isClosed) {

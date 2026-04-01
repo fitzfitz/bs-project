@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import { useAuth } from '@/features/auth/api/use-auth';
 import { RegisterSchema, type RegisterFormValues } from '@/features/auth/types';
 
 export default function RegisterPage() {
+  const { t } = useTranslation('auth');
   const { register, isRegistering, registerError } = useAuth();
 
   const form = useForm<RegisterFormValues>({
@@ -37,15 +39,15 @@ export default function RegisterPage() {
       
       <div className="flex-1 flex flex-col justify-center">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold font-sans text-slate-900 tracking-tight">Create Account</h1>
-          <p className="text-slate-500 mt-2">Join us to start booking and earning loyalty points.</p>
+          <h1 className="text-3xl font-bold font-sans text-slate-900 tracking-tight">{t('register')}</h1>
+          <p className="text-slate-500 mt-2">{t('registerSubtitle')}</p>
         </div>
 
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
             {registerError && (
               <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg font-medium border border-red-100">
-                {registerError.message || "Failed to create account. Please try again."}
+                {registerError.message || t('registerFailed')}
               </div>
             )}
 
@@ -73,7 +75,7 @@ export default function RegisterPage() {
                 name="lastName"
                 render={({ field }) => (
                   <FormItem className="space-y-1.5">
-                    <FormLabel>Last Name</FormLabel>
+                    <FormLabel>{t('lastName')}</FormLabel>
                     <FormControl>
                       <Input 
                         {...field}
@@ -112,7 +114,7 @@ export default function RegisterPage() {
               name="phone"
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
-                  <FormLabel>Phone Number (Optional)</FormLabel>
+                  <FormLabel>{t('phoneOptional')}</FormLabel>
                   <FormControl>
                     <Input 
                       {...field}
@@ -146,15 +148,15 @@ export default function RegisterPage() {
             />
 
             <Button type="submit" disabled={isRegistering} size="lg" className="w-full h-12 text-md font-semibold rounded-xl shadow-md mt-6">
-              {isRegistering ? 'Creating Account...' : 'Create Account'}
+              {isRegistering ? t('creatingAccount') : t('signUp')}
             </Button>
           </form>
         </Form>
 
         <div className="mt-8 flex items-center justify-center gap-2 text-sm text-slate-600">
-          <span>Already have an account?</span>
+          <span>{t('haveAccount')}</span>
           <Link to="/login" className="font-semibold text-primary hover:underline">
-            Sign In
+            {t('signIn')}
           </Link>
         </div>
       </div>

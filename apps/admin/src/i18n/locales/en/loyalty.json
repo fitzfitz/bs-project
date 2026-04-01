@@ -1,0 +1,16 @@
+{
+  "title": "Loyalty Management",
+  "lookupCustomer": "Lookup Customer",
+  "userId": "User ID",
+  "points": "Points",
+  "tier": "Tier",
+  "addPoints": "Add Points",
+  "deductPoints": "Deduct Points",
+  "runExpiry": "Run Point Expiry",
+  "referralStats": "Referral Stats",
+  "totalReferrals": "Total Referrals",
+  "completedReferrals": "Completed",
+  "pendingReferrals": "Pending",
+  "noCustomerFound": "No customer found",
+  "pointHistory": "Point History"
+}

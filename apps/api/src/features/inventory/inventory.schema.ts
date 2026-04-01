@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { StockMovementTypeEnum } from "../../utils/zod-prisma";
 
 export const createProductSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -76,7 +77,7 @@ export const StockMovementSchema = z.object({
   id: z.string(),
   productId: z.string(),
   branchId: z.string(),
-  type: z.enum(["IN", "OUT", "ADJUSTMENT", "VOID_REVERSAL"]),
+  type: StockMovementTypeEnum,
   quantity: z.number(),
   costPerUnit: z.number().nullable(),
   note: z.string().nullable(),

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bell, MapPin, ChevronRight, ArrowRight, User, AlertCircle, Scissors, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,15 +7,19 @@ import { useSessionStore } from '@/features/auth/store';
 import { useHistory } from '@/features/profile/api/use-history';
 import { useLoyalty } from '@/features/profile/api/use-loyalty';
 import { useBranches } from '@/features/branches/api/use-branches';
+import { useUnreadCount } from '@/features/notifications/api/use-notifications';
 import { usePusherChannel } from '@/hooks/use-pusher';
 
 export default function HomePage() {
+  const { t } = useTranslation(['home', 'common', 'history']);
   const { user } = useSessionStore();
   const navigate = useNavigate();
   const { data: history, isLoading, error: historyError } = useHistory();
   const { data: loyaltyData, error: loyaltyError } = useLoyalty();
   const loyalty = loyaltyData?.data;
   const { data: branches, error: branchesError } = useBranches();
+  const { data: unreadData } = useUnreadCount();
+  const unreadCount = unreadData?.count ?? 0;
 
   const activeBranchId = branches?.[0]?.id ?? null;
   const historyKeys = useMemo(() => [["my-bookings"]], []);
@@ -30,7 +35,7 @@ export default function HomePage() {
   const activeApt = history?.find(h => {
     const isActiveStatus = h.status === 'WAITING' || h.status === 'CALLED';
     if (!isActiveStatus) return false;
-    const dateStr = h.booking?.scheduledAt ?? h.scheduledFor ?? h.createdAt;
+    const dateStr = h.booking?.scheduledAt ?? h.createdAt;
     return new Date(dateStr) >= todayStart;
   });
 
@@ -49,21 +54,30 @@ export default function HomePage() {
         <div className="flex justify-between items-start relative z-10">
           <div>
             <h1 className="text-2xl font-bold font-sans tracking-tight">
-              Hi, {user ? (user.firstName || 'Customer') : 'Guest'}!
+              {user
+                ? t('home:greeting', { name: user.firstName || t('home:defaultName') })
+                : t('home:guestGreeting')}
             </h1>
             <button
               onClick={() => navigate('/book')}
               className="flex items-center gap-1 text-primary-foreground/80 mt-1 text-sm hover:text-primary-foreground transition-colors"
             >
               <MapPin className="w-4 h-4" />
-              <span>{branches?.[0]?.name ?? 'Select branch'}</span>
+              <span>{branches?.[0]?.name ?? t('home:selectBranch')}</span>
               <ChevronRight className="w-4 h-4 ml-1 opacity-50" />
             </button>
           </div>
           
-          <button className="relative p-2 bg-white/20 rounded-full backdrop-blur-sm transition-transform active:scale-95">
+          <button
+            onClick={() => navigate('/notifications')}
+            className="relative p-2 bg-white/20 rounded-full backdrop-blur-sm transition-transform active:scale-95"
+          >
             <Bell className="w-5 h-5 text-white" />
-            <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-primary" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 rounded-full border-2 border-primary text-[10px] font-bold text-white leading-none px-1">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
         </div>
 
@@ -71,7 +85,7 @@ export default function HomePage() {
           loyaltyError ? (
             <div className="mt-8 bg-red-500/20 backdrop-blur-md rounded-2xl p-3 border border-red-400/30 flex items-center gap-2 text-sm text-white/90">
               <AlertCircle className="w-4 h-4 shrink-0" />
-              Could not load loyalty info
+              {t('home:loyaltyLoadError')}
             </div>
           ) : (
             <button
@@ -79,13 +93,13 @@ export default function HomePage() {
               className="mt-8 w-full bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 flex justify-between items-center shadow-lg hover:bg-white/15 transition-colors text-left"
             >
               <div>
-                <div className="text-xs font-medium text-white/80 uppercase tracking-wider mb-1">Your Status</div>
+                <div className="text-xs font-medium text-white/80 uppercase tracking-wider mb-1">{t('home:yourStatus')}</div>
                 <div className="text-lg font-bold flex items-center gap-2">
-                  <span>{loyalty?.tier ?? "Member"}</span>
+                  <span>{loyalty?.tier ?? t('home:member')}</span>
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-xs font-medium text-white/80 uppercase tracking-wider mb-1">Points</div>
+                <div className="text-xs font-medium text-white/80 uppercase tracking-wider mb-1">{t('home:points')}</div>
                 <div className="text-xl font-bold">{loyalty?.pointsBalance?.toLocaleString() ?? "—"}</div>
               </div>
             </button>
@@ -104,7 +118,7 @@ export default function HomePage() {
               className="h-16 text-md font-semibold rounded-xl shadow-md border border-primary/10"
               onClick={() => navigate('/book')}
             >
-              Book New Cut
+              {t('home:bookNewCut')}
             </Button>
             <Button 
               variant="outline" 
@@ -112,7 +126,7 @@ export default function HomePage() {
               className="h-16 text-md font-semibold rounded-xl shadow-sm text-primary border-primary/20"
               onClick={() => navigate('/book')}
             >
-              Browse Branches
+              {t('home:viewBranches')}
             </Button>
           </div>
         </section>
@@ -120,8 +134,8 @@ export default function HomePage() {
         {/* Upcoming Appointment Widget */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-800">Your Appointment</h2>
-            <button className="text-sm font-medium text-primary hover:underline" onClick={() => navigate('/history')}>See all</button>
+            <h2 className="text-lg font-bold text-slate-800">{t('home:upcomingAppointment')}</h2>
+            <button className="text-sm font-medium text-primary hover:underline" onClick={() => navigate('/history')}>{t('home:seeAll')}</button>
           </div>
           
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col gap-4">
@@ -136,16 +150,18 @@ export default function HomePage() {
               <>
                 <div className="flex items-center gap-2">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${STATUS_COLORS[activeApt.status] ?? 'bg-slate-100 text-slate-600'}`}>
-                    {activeApt.status === 'CALLED' ? 'Called' : 'Waiting'}
+                    {activeApt.status === 'CALLED' ? t('home:called') : t('home:waiting')}
                   </span>
                 </div>
 
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-slate-900">
-                      {activeApt.booking?.items?.map(i => i.service.name).join(', ') || 'Service'}
+                      {activeApt.booking?.items?.map(i => i.service.name).join(', ') || t('home:defaultService')}
                     </h3>
-                    <p className="text-sm text-slate-500 mt-0.5">at {activeApt.branch?.name || 'Barber Shop'}</p>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      {t('home:atVenue', { name: activeApt.branch?.name || t('history:barberShop') })}
+                    </p>
                     {activeApt.staff && (
                       <div className="flex items-center gap-1.5 text-sm text-primary mt-1.5">
                         <Scissors className="w-3.5 h-3.5" />
@@ -155,14 +171,14 @@ export default function HomePage() {
                   </div>
                   <div className="text-right shrink-0 ml-4">
                     <div className="text-sm font-semibold text-slate-900">
-                      {new Date(activeApt.booking?.scheduledAt ?? activeApt.scheduledFor ?? activeApt.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(activeApt.booking?.scheduledAt ?? activeApt.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
                     <div className="text-sm text-primary font-bold">
-                      {new Date(activeApt.booking?.scheduledAt ?? activeApt.scheduledFor ?? activeApt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(activeApt.booking?.scheduledAt ?? activeApt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                     <div className="flex items-center justify-end gap-1 text-xs text-slate-400 mt-1">
                       <Clock className="w-3 h-3" />
-                      ~{activeApt.estimatedDuration}min
+                      ~{activeApt.booking?.totalDuration ?? 0}min
                     </div>
                   </div>
                 </div>
@@ -170,7 +186,7 @@ export default function HomePage() {
                 <div className="h-px w-full bg-slate-100" />
 
                 <Button variant="ghost" className="w-full text-primary bg-primary/10 hover:bg-primary/20 font-semibold gap-2 transition-colors" onClick={() => navigate('/history')}>
-                  Track Live Queue Status <ArrowRight className="w-4 h-4" />
+                  {t('home:trackQueueStatus')} <ArrowRight className="w-4 h-4" />
                 </Button>
               </>
             ) : (
@@ -178,9 +194,9 @@ export default function HomePage() {
                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
                      <User className="w-6 h-6 text-slate-300" />
                    </div>
-                   <p className="text-slate-500 text-sm font-medium">No upcoming appointments</p>
+                   <p className="text-slate-500 text-sm font-medium">{t('home:noUpcoming')}</p>
                    <Button variant="link" className="mt-1 text-primary" onClick={() => navigate('/book')}>
-                     Book one now
+                     {t('home:bookNow')}
                    </Button>
                 </div>
             )}
@@ -197,7 +213,7 @@ export default function HomePage() {
             {branchesError ? (
               <div className="flex items-center gap-2 text-sm text-red-500 py-4 justify-center">
                 <AlertCircle className="w-4 h-4" />
-                Failed to load branches
+                {t('home:failedLoadBranches')}
               </div>
             ) : branches?.length ? (
               branches.map((branch) => (
@@ -212,7 +228,7 @@ export default function HomePage() {
                 </button>
               ))
             ) : (
-              <div className="text-center py-6 text-slate-500 text-sm">No branches loaded.</div>
+              <div className="text-center py-6 text-slate-500 text-sm">{t('home:noBranchesLoaded')}</div>
             )}
           </div>
         </section>

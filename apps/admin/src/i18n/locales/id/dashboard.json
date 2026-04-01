@@ -1,0 +1,16 @@
+{
+  "title": "Dasbor",
+  "todaysSummary": "Ringkasan Hari Ini",
+  "revenue": "Pendapatan",
+  "tips": "Tips",
+  "transactionCount": "Transaksi",
+  "avgTransaction": "Rata-rata Transaksi",
+  "revenueTrend": "Tren Pendapatan",
+  "paymentMethods": "Metode Pembayaran",
+  "transactionVolume": "Volume Transaksi",
+  "last7Days": "7 Hari",
+  "last14Days": "14 Hari",
+  "last30Days": "30 Hari",
+  "noDataForPeriod": "Tidak ada data untuk periode ini",
+  "selectDateRange": "Pilih rentang tanggal"
+}

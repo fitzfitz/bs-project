@@ -1,0 +1,18 @@
+{
+  "title": "Staff Management",
+  "addStaff": "Add Staff",
+  "editStaff": "Edit Staff",
+  "searchUser": "Search user...",
+  "tier": "Tier",
+  "junior": "Junior",
+  "senior": "Senior",
+  "master": "Master",
+  "assignBranch": "Assign Branch",
+  "unassignBranch": "Unassign Branch",
+  "deactivate": "Deactivate",
+  "activate": "Activate",
+  "resetCommission": "Reset to Template",
+  "noStaff": "No staff members found",
+  "specialties": "Specialties",
+  "bio": "Bio"
+}

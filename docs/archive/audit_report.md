@@ -1,0 +1,328 @@
+# System Audit Report (Phases 1–7)
+
+This report documents the current state of the application as of March 2026, covering all implemented features across the API backend, client app, and admin app.
+
+**Last updated:** Mar 24, 2026 — Sprint 10 complete: **Multi-Currency** (dynamic org currency propagation through auth session, Xendit adapter, PDF/CSV reports, loyalty config-driven rates, shared `formatCurrency` utility replacing ~20 hardcoded IDR files across admin/client); **Demand Forecasting** (time-series decomposition with day-of-week seasonality, `DemandForecast` model, nightly cron, admin Forecast tab with MAPE accuracy, `simple-statistics` library); **Smart Scheduling** (`ScheduleSuggestion` model, demand-capacity matching, accept/reject workflow, admin Smart Schedule tab); **Churn Prediction** (weighted RFM scoring, `ChurnScore` model, weekly cron, admin Churn Risk tab with risk distribution and customer table). Vitest: **830** tests (553 API / 167 admin / 110 client); Prisma **~56** models.
+
+---
+
+## 1. Visual UI Walkthrough & UX Audit
+
+### Client App (Mobile-First PWA — `apps/client`)
+
+
+| Screen                    | Status     | Notes                                                                                                    |
+| ------------------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
+| **Login**                 | ✅ Working  | React Hook Form + Zod validation. Redirects to home on success.                                          |
+| **Register**              | ✅ Working  | Creates customer account.                                                                                |
+| **Forgot Password**       | ✅ Working  | Email form + success state. Backend returns generic message (no actual email sent).                      |
+| **Home Page**             | ✅ Working  | Greeting, loyalty tier/points from API, upcoming appointment (real-time via Pusher), branch list from API. |
+| **Branch Discovery**      | ✅ Working  | List + map toggle (Leaflet), search by city, favorite branch heart toggle.                               |
+| **Booking Flow**          | ✅ Working  | 4 steps: service selection, barber selection, time slot picker (real-time availability API), confirm.    |
+| **Profile**               | ✅ Working  | View profile, loyalty display, edit (PATCH /auth/me), delete account (DELETE /auth/me). **Sprint 9:** Language switcher (en/id) via i18n. |
+| **Booking History**       | ✅ Working  | Upcoming/past/waitlist tabs (date + status logic), cancel/reschedule actions, "View Receipt" link. **Waitlist tab** shows active entries with leave action. |
+| **Notification Settings** | ✅ Working  | Push toggle via OneSignal; WhatsApp opt-out preference (`GET/PUT /preferences`). Backend-driven channel config. |
+| **Legal Pages**           | ✅ Working  | Terms of Service and Privacy Policy (static content).                                                    |
+
+
+### Admin App (Desktop-First — `apps/admin`)
+
+
+| Screen                | Status    | Notes                                                                                                                |
+| --------------------- | --------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Login**             | ✅ Working | Role-gated via database-driven RBAC (tenant roles). ProtectedRoute guard. orgSlug required. **Sprint 9:** i18n (en/id). |
+| **Dashboard**         | ✅ Working | Daily summary (revenue, tips, transaction count) with branch selector and date picker. Revenue trend line chart (7/14/30d toggle), payment method donut chart, transaction volume bar chart via Recharts. |
+| **Queue Management**  | ✅ Working | DnD Kanban board (dnd-kit) with droppable lanes, richer cards (time, duration, status/source badges). Assign staff, status transitions, real-time via Pusher/Soketi. |
+| **Waitlist Management** | ✅ Working | Branch-filtered table of all waitlist entries (customer, date, time slot, status, notified/expires timestamps). Sidebar nav under Queue. RBAC: QUEUE_MANAGEMENT permission. |
+| **POS Checkout**      | ✅ Working | Services + Products tabs, cart, discount (flat/%), tip, payment (CASH/QRIS/CARD/E-Wallet). Dynamic tax from config. Branch selector. Offline fallback to IndexedDB + sync UI (pending/failed counts, retry, 7-day cleanup). |
+| **Transactions**      | ✅ Working | List with filters (branch, date, status), pagination, detail modal, void action.                                     |
+| **Barber Management** | ✅ Working | Table, create barber with searchable user combobox, update status, assign/unassign branch, deactivate. Avatar upload + "Reset to Template" commission button. |
+| **Attendance**        | ✅ Working | Attendance log + shift schedule + weekly calendar view. Date picker, add shift modal.                                |
+| **Commissions**       | ✅ Working | Earnings table with date/staff filters.                                                                             |
+| **Payroll**           | ✅ Working | Period list with status badges, generate/submit/approve/dispute/disburse actions.                                    |
+| **Inventory**         | ✅ Working | Product table with branch selector, stock-in/stock-out/adjust action dialogs per product row, low-stock alerts.      |
+| **Branch Settings**   | ✅ Working | Tabs: Details (name, address, tip distribution, branch image upload), Operating Hours (day-of-week), Surge Pricing (rules CRUD). |
+| **Cash Drawer**       | ✅ Working | Open/close drawer, running total, entries list, end-of-day discrepancy summary.                                      |
+| **Reviews Moderation**| ✅ Working | Review table with rating filter, branch selector, show/hide toggle, moderation notes. Pagination.                    |
+| **Loyalty Management**| ✅ Working | Referral stats dashboard, customer loyalty lookup by user ID, manual point add/deduct, run point expiry.             |
+| **Staff Portal**     | ✅ Working | Service-provider role: My Schedule (today's queue), My Commissions (earnings), My Attendance (clock-in/out history).            |
+| **User Management**        | ✅ Working  | Searchable user table, role change dialog, branch assignment, activate/reactivate. RBAC: SUPER_ADMIN only for mutations. |
+| **Audit Log**              | ✅ Working  | Filterable log table (branch, user, action, date range), expandable detail rows, anomaly dashboard with severity cards, resolve dialog. |
+| **Analytics**              | ✅ Working  | 5 tabs: Overview (branch status cards, totals, alerts), Comparison (bar chart), Peak Hours (7x24 heatmap), Retention (cohort table), Utilization (per-barber utilization rates). |
+| **Reports**                | ✅ Working  | 5 report types (daily revenue, service popularity, staff leaderboard, customer visits, booking source), CSV + **PDF** export, **scheduled email** reports (`ReportSchedule`), **saved templates** (`SavedReportTemplate`), tabs: Generate / Schedules / Templates. |
+| **Financial Oversight**    | ✅ Working  | P&L summary cards (revenue, costs, gross profit, margins), revenue/cost breakdown bars, void/discount cards. |
+| **Platform Settings**      | ✅ Working  | Grouped config form (Loyalty, Referrals, POS & Tax, Commission Templates, **Customer Self-Service**: prepayment, deposit %, cancellation policy hours/penalty %, waitlist flags/limits) with per-key save, last-updated-by info. |
+| **Notification Management** | ✅ Working | Org-wide notification list with type filter, stats cards (total/unread/read rate/common type), test-send dialog. |
+| **Retention Management**    | ✅ Working | Retention stats cards, trigger policy info, manual "Run Retention Triggers" with confirmation dialog. |
+
+
+---
+
+## 2. API Feature Coverage
+
+
+| Feature Module   | Routes                                                              | Status                                                 |
+| ---------------- | ------------------------------------------------------------------- | ------------------------------------------------------ |
+| **auth**         | register, login, refresh, forgot-password, google, GET/PATCH/DELETE /me, user search | ✅ Complete                                    |
+| **health**       | GET /                                                               | ✅ Complete                                             |
+| **services**     | CRUD, tier surcharges, combos, branch overrides                     | ✅ Complete                                             |
+| **branches**     | CRUD, operating hours, surge rules, emergency close/reopen, holidays CRUD | ✅ Complete                                      |
+| **staff**        | CRUD, branch assign/unassign, status update, avatar upload, reset-commission | ✅ Complete (Sprint 4: avatar + commission wiring)    |
+| **attendance**   | clock-in/out, shift CRUD                                            | ✅ Complete                                             |
+| **queue**        | list, create, status update, assign, postpone, cancel, customer-cancel, reschedule, availability, /me, prepayment create, enhanced cancel with penalty/refund | ✅ Complete (Sprint 9: optional prepayment + cancellation policy) |
+| **transactions** | CRUD, pay, void, daily summary, receipt                             | ✅ Complete                                             |
+| **promotions**   | promo code CRUD, validate, loyalty redemption validate              | ✅ Complete                                             |
+| **commissions**  | calculate, recalculate, list earnings, barber own earnings          | ✅ Complete                                             |
+| **inventory**    | product CRUD, stock-in/out/adjust, alerts, valuation                | ✅ Complete                                             |
+| **cash-drawer**  | open, close, current, add entry                                     | ✅ Complete                                             |
+| **payments**     | Xendit webhook, charge creation, saved payment methods               | ✅ Complete (Sprint 1 + Sprint 3)                      |
+| **payroll**      | generate, submit, approve, dispute, resolve, disburse, bulk-approve, bulk-disburse | ✅ Complete (Sprint 6: bulk operations)         |
+| **loyalty**      | GET /me, GET /me/history, POST /redeem, POST /admin/expire, PATCH /admin/adjust, GET /:userId | ✅ Complete (Phase 5 — tier multipliers, upgrades, expiry) |
+| **media**        | POST /upload (multipart, S3/MinIO)                                  | ✅ Complete (GAP-04)                                    |
+| **referrals**    | GET /me/code, POST /apply, GET /me/history, GET /stats              | ✅ Complete (Phase 5)                                   |
+| **reviews**      | POST, GET (public), GET /:id, PATCH /:id/moderate, DELETE /:id      | ✅ Complete (Phase 5)                                   |
+| **platform**     | Auth, org CRUD, templates, features                                 | ✅ Complete (Phase 7)                                   |
+| **roles**        | Tenant role CRUD, permission matrix, service assignment             | ✅ Complete (Phase 7)                                   |
+| **crm**          | GET /customers, GET /customers/:id, GET /segments, POST /segments/recompute | ✅ Complete (Phase 5)                             |
+| **campaigns**    | CRUD, POST /:id/send, lifecycle management                          | ✅ Complete (Phase 5)                                   |
+| **retention**    | POST /trigger (manual), GET /stats, daily cron                      | ✅ Complete (Phase 5)                                   |
+| **users**        | list, get, update role, assign/remove branch, deactivate/reactivate | ✅ Complete (Phase 6)                                   |
+| **audit**        | logs, anomalies, anomaly stats, resolve anomaly                     | ✅ Complete (Phase 6)                                   |
+| **analytics**    | dashboard, branch comparison, peak heatmap, retention, forecast, utilization, snapshots, revenue-trend | ✅ Complete (Phase 6 + utilization + Sprint 4 charts) |
+| **reports**      | generate report, export CSV/PDF, report schedules CRUD, saved templates CRUD, SMTP delivery | ✅ Complete (Phase 6 + Sprint 9)                        |
+| **finance**      | P&L summary, payroll oversight, tax summary, void/discount audit    | ✅ Complete (Phase 6)                                   |
+| **config**       | list org settings, update org settings (incl. self-service keys)   | ✅ Complete (Phase 6 + Sprint 9)                        |
+| **waitlist**     | customer join/list, admin list/manage, expiry (cron)               | ✅ Complete (Sprint 9)                                  |
+
+
+---
+
+## 3. Architecture & Code Quality
+
+
+| Area                     | Status              | Notes                                                                                         |
+| ------------------------ | ------------------- | --------------------------------------------------------------------------------------------- |
+| **API Client (Axios)**   | ✅                   | Both apps use Axios with request/response interceptors, silent token refresh, ApiError class. |
+| **RBAC**                 | ✅                   | All routes guarded via database-driven RBAC. `requirePermission()` middleware replaces static `requireRole()`. LRU permission cache with 5-minute TTL. |
+| **Rate Limiting**        | ✅                   | Auth-specific (login 5/min, register 3/min, refresh 10/min) + global 100/min.                 |
+| **CORS**                 | ✅                   | Configured on all routes including error responses.                                           |
+| **Database**             | ✅                   | Singleton Prisma + pg.Pool (Node.js). No per-request overhead. Connection error handling.     |
+| **Query Caching**        | ✅                   | Global staleTime (5min) + gcTime (10min) on client QueryClient.                               |
+| **Feature Architecture** | ✅                   | All queries in `features/*/api/` hooks. No inline useQuery in page files.                     |
+| **Real-time**            | ✅                   | Both apps use `usePusherChannel` hook. Client subscribes on home + history pages. Admin on queue page. |
+| **Route Protection**     | ✅                   | Both apps have ProtectedRoute guards. Client wraps booking, history, profile, receipt routes. |
+| **PWA**                  | ✅                   | vite-plugin-pwa with Workbox, manifest, SVG icons. Installable as standalone app.             |
+| **Type Safety**          | ✅                   | Zero `as any` casts in API source. All replaced with proper Prisma `WhereInput` types, typed enum casts, and typed response assertions. |
+| **i18n (admin + client)** | ✅                | **Sprint 9:** `react-i18next` + `i18next` + browser language detector; en/id JSON namespaces; no server-side translation layer. |
+| **Dockerfiles**          | ✅                   | All 3 apps containerized. API: Node.js multi-stage. Client + Admin: Node build + Nginx serve with SPA fallback. |
+| **API Versioning**       | ✅                   | `/api/v2` mount point scaffolded with separate OpenAPI docs. `X-API-Version` header on all responses. |
+
+
+---
+
+## 4. Known Limitations (Admin App UX)
+
+These are functional but unpolished areas in the admin app:
+
+
+| Area                          | Limitation                                                                                                                          |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Commission/Payroll tables** | ✅ Resolved — `payroll.getById` now includes `barber.user` for barber names. List endpoint already had it.                           |
+| **BranchSelector**            | ✅ Resolved — Always visible (even single branch), shows loading skeleton while fetching.                                            |
+| **Inventory page**            | ✅ Resolved — Branch selector with stock-in/out/adjust action dialogs per product row.                                               |
+| **POS**                       | ✅ Resolved — Services + Products tabs, DIGITAL_WALLET payment, dynamic TAX_RATE from config.                                        |
+| **Add Barber**                | ✅ Resolved — Searchable user combobox replaces UUID pasting.                                                                       |
+| **Forgot Password**           | Backend returns generic message; no actual email is sent.                                                                           |
+| **Digital Receipt**           | ✅ Complete — receipt page with print CSS, linked from booking history.                                                              |
+| **Scheduled Jobs**            | ✅ Complete — `node-cron` runs NO_SHOW timeout (5 min), auto clock-out (15 min), loyalty point expiry (daily 03:00 UTC), retention triggers (daily 03:05 UTC), referral expiry (daily 03:10 UTC), **report schedule processor (hourly)**, **waitlist expiry (every 5 min)**. |
+| **Seed Data**                 | ✅ Cleaned — transactional data removed; reference data + PlatformConfig defaults (17 keys) seeded.                                |
+
+
+---
+
+## 5. E2E Flow Testing
+
+
+| Use Case                      | Status | Notes                                                                                      |
+| ----------------------------- | ------ | ------------------------------------------------------------------------------------------ |
+| **Customer Register + Login** | ✅      | Token stored, refresh works, session persists.                                             |
+| **Online Booking (Client)**   | ✅      | Select branch → services → barber → time slot → confirm. Queue entry created with booking. |
+| **Walk-in Queue (Admin)**     | ✅      | Create entry via admin POS or API. Appears on Kanban board.                                |
+| **Queue Status Transitions**  | ✅      | WAITING → CALLED → IN_SERVICE → COMPLETED → AT_CHECKOUT → PAID. Real-time updates on admin.  |
+| **POS Checkout**              | ✅      | Service selection → discount → tip → CASH payment → transaction completed.                 |
+| **Queue-to-Checkout**         | ✅      | AT_CHECKOUT auto-creates draft transaction from booking items.                             |
+| **Void Transaction**          | ✅      | SUPERVISOR+ can void. Inventory reversed. Audit log created.                               |
+| **Commission Calculation**    | ✅      | Auto-triggered on PAID. FLAT_PERCENTAGE, SLIDING_SCALE, BASE_PLUS_BONUS models work.       |
+| **Payroll Workflow**          | ✅      | Generate → Submit → Approve → Disburse (or Dispute → Resolve path).                        |
+| **Offline POS**               | ✅      | Offline transactions saved to IndexedDB, synced on reconnect.                              |
+| **Overbooking Prevention**    | ✅      | 409 returned when time slot conflicts with existing booking.                               |
+| **Surge Pricing**             | ✅      | Prices adjusted by surge rules matching day/hour in booking flow.                          |
+
+
+---
+
+## 6. Recently Completed Items
+
+| Item                                     | Reference      | Sprint                    |
+| ---------------------------------------- | -------------- | ------------------------- |
+| ~~Client route protection (ProtectedRoute)~~ | GAP-26     | Client Hardening Sprint   |
+| ~~PWA service worker + manifest~~            | GAP-28     | Client Hardening Sprint   |
+| ~~Digital receipt frontend UI~~              | Phase 4 Task 6 | Client Hardening Sprint |
+| ~~Customer booking cancel/reschedule~~       | GAP-16     | Client Hardening Sprint   |
+| ~~Admin Queue DnD Kanban + richer cards~~    | —          | UI Layout Polish Sprint   |
+| ~~Client history upcoming/past logic fix~~   | —          | UI Layout Polish Sprint   |
+| ~~Branch page Scissors icon~~                | —          | UI Layout Polish Sprint   |
+| ~~Home page brand gold color~~               | —          | UI Layout Polish Sprint   |
+| ~~Light-only template + Dark Gold branding~~ | —          | UI Layout Polish Sprint   |
+| ~~Backend: Workers → Node.js + Docker~~      | —          | Backend Migration         |
+| ~~CI/CD: GitHub Actions → GHCR → VPS~~       | —          | Backend Migration         |
+| ~~Auth middleware: removed per-request DB query~~ | —      | Backend Migration         |
+| ~~Payroll getById barber name resolution~~       | —          | Tier 1 Polish Sprint      |
+| ~~BranchSelector always visible + loading~~      | —          | Tier 1 Polish Sprint      |
+| ~~Scheduled jobs: NO_SHOW timeout (node-cron)~~  | GAP-08     | Tier 1 Polish Sprint      |
+| ~~Scheduled jobs: Auto clock-out at branch close~~ | GAP-19  | Tier 1 Polish Sprint      |
+| ~~Seed cleanup: removed transactional data~~     | —          | Tier 1 Polish Sprint      |
+| ~~LRU in-memory response cache (30s TTL)~~       | —          | API Performance Sprint    |
+| ~~Pusher util: WebCrypto → Node.js crypto~~      | —          | API Performance Sprint    |
+| ~~Scheduler intervals tuned (5min/15min)~~        | —          | API Performance Sprint    |
+| ~~DB pool hardened (20s timeout, error handler)~~ | —          | API Performance Sprint    |
+| ~~Queue card: relative date labels + position~~   | —          | API Performance Sprint    |
+| ~~Queue query slimmed with select~~               | —          | API Performance Sprint    |
+| ~~Added [branchId, createdAt] index~~             | —          | API Performance Sprint    |
+| ~~Kanban DnD: droppable lanes + status update~~   | —          | Tier 2+4 Sprint           |
+| ~~Favorite Branch (heart toggle, API, schema)~~   | GAP-17     | Tier 2+4 Sprint           |
+| ~~Barber Portal (My Schedule/Commissions/Attendance)~~ | GAP-10 | Tier 2+4 Sprint           |
+| ~~Cash Drawer Reconciliation (open/close/entries)~~ | GAP-11   | Tier 2+4 Sprint           |
+| ~~Tips Distribution (PER_BARBER / POOLED)~~        | GAP-20     | Tier 2+4 Sprint           |
+| ~~Add Barber UX: user search combobox~~            | —          | Tier 2+4 Sprint           |
+| ~~DB Backup scripts (pg_dump + restore + cron)~~   | GAP-22     | Tier 2+4 Sprint           |
+| ~~Type safety: 42 `as any` → proper Prisma types~~ | —         | Tier 2+4 Sprint           |
+| ~~Client api.ts erasableSyntaxOnly fix~~           | —          | Tier 2+4 Sprint           |
+| ~~Branches page lint errors fixed (setState in effect)~~ | —   | Tier 2+4 Sprint           |
+| ~~Kanban DnD optimistic update (onDragOver + cache)~~    | —   | Kanban DnD Optimistic Update |
+| ~~MinIO media upload service (S3 client + endpoint)~~    | GAP-04 | Phase 5 Backend Sprint    |
+| ~~OneSignal server-side push (NotificationService)~~     | GAP-13 | Phase 5 Backend Sprint    |
+| ~~Prisma schema: Referral, Segment, Campaign models~~    | Phase 5 Task 0 | Phase 5 Backend Sprint |
+| ~~Loyalty Engine: tier multipliers, upgrades, expiry~~   | Phase 5 Task 1 | Phase 5 Backend Sprint |
+| ~~Referral Program: code gen, apply, complete~~          | Phase 5 Task 2 | Phase 5 Backend Sprint |
+| ~~Ratings & Reviews: CRUD, moderation, aggregates~~      | Phase 5 Task 3 | Phase 5 Backend Sprint |
+| ~~Branch CRM: customer insights, segmentation~~          | Phase 5 Task 4 | Phase 5 Backend Sprint |
+| ~~Campaign Engine: CRUD, send, lifecycle~~               | Phase 5 Task 5 | Phase 5 Backend Sprint |
+| ~~Retention Triggers: at-risk nudge, expiry warning~~    | Phase 5 Task 6 | Phase 5 Backend Sprint |
+| ~~TransactionService refactored to use LoyaltyService~~  | —              | Phase 5 Backend Sprint |
+| ~~Referral completion hook in addPayments()~~            | —              | Phase 5 Backend Sprint |
+| ~~Queue middleware: flat routing to fix customer-cancel 403~~ | —         | Bug Fix Sprint          |
+| ~~Global ConfirmationDialog component (danger/warning/info)~~ | —        | Bug Fix Sprint          |
+| ~~Cancel booking confirmation UX~~                            | —        | Bug Fix Sprint          |
+| ~~Client Pusher hook: home + history real-time~~              | GAP-27   | Phase 5 Completion      |
+| ~~Client Loyalty UI (dashboard, tiers, referrals, history)~~  | Phase 5 Task 7 | Phase 5 Completion |
+| ~~Client Reviews UI (feed, form, star rating, photo upload)~~ | Phase 5 Task 8 | Phase 5 Completion |
+| ~~Admin Reviews Moderation page (filter, show/hide, delete)~~ | —        | Phase 5 Completion      |
+| ~~Admin Loyalty Management page (lookup, adjust, stats)~~     | —        | Phase 5 Completion      |
+| ~~Referral expiry cron (30d PENDING → EXPIRED)~~              | Phase 5 Task 2 | Phase 5 Completion |
+| ~~Reviews API: includeHidden query param for admin~~          | —        | Phase 5 Completion      |
+| ~~Phase 6 Task 0: Schema additions (BranchDailySnapshot, AnomalyFlag, PlatformConfig)~~ | Phase 6 Task 0 | Phase 6 Sprint |
+| ~~Phase 6 Task 1: Super Admin scaffold (sidebar, routes, page shells)~~ | Phase 6 Task 1 | Phase 6 Sprint |
+| ~~Phase 6 Task 2: Global Dashboard + nightly snapshot cron~~ | Phase 6 Task 2 | Phase 6 Sprint |
+| ~~Phase 6 Task 3: Analytics Engine (comparison, heatmap, retention, forecast)~~ | Phase 6 Task 3 | Phase 6 Sprint |
+| ~~Phase 6 Task 4: Reports + CSV export (5 report types)~~ | Phase 6 Task 4 | Phase 6 Sprint |
+| ~~Phase 6 Task 5: User & Role Management API + UI~~ | Phase 6 Task 5 | Phase 6 Sprint |
+| ~~Phase 6 Task 6: Audit Log + Anomaly Detection~~ | Phase 6 Task 6 | Phase 6 Sprint |
+| ~~Phase 6 Task 7: Financial Oversight (P&L, void/discount audit)~~ | Phase 6 Task 7 | Phase 6 Sprint |
+| ~~Phase 6 Task 9: Global Config (PlatformConfig CRUD + caching)~~ | Phase 6 Task 9 | Phase 6 Sprint |
+| ~~Type fixes: reports customer query, users loyaltyAccount select, deactivate route~~ | — | Phase 6 Sprint |
+| ~~Phase 7: Multi-tenant schema (organizationId on 35+ tables)~~ | Phase 7A | Phase 7 Sprint |
+| ~~Phase 7: RBAC middleware (requirePermission replaces requireRole)~~ | Phase 7B-1 | Phase 7 Sprint |
+| ~~Phase 7: 26 feature files refactored (generic naming + org-scoping)~~ | Phase 7B-2 | Phase 7 Sprint |
+| ~~Phase 7: Auth refactor (orgSlug login, new JWT claims, Google OAuth)~~ | Phase 7B-3 | Phase 7 Sprint |
+| ~~Phase 7: Platform admin endpoints (org CRUD, templates, features)~~ | Phase 7B-4 | Phase 7 Sprint |
+| ~~Phase 7: Tenant role management (CRUD, permission matrix, service assignment)~~ | Phase 7B-5 | Phase 7 Sprint |
+| ~~Phase 7: Seed data rewrite (25 features, 4 templates, barbershop tenant)~~ | Phase 7C | Phase 7 Sprint |
+| ~~Phase 7: Frontend type updates (admin + client)~~ | Phase 7D | Phase 7 Sprint |
+| ~~Phase 7: Package rename (@tmng/* namespace)~~ | Phase 7E | Phase 7 Sprint |
+| ~~Phase 7: Documentation update~~ | Phase 7F | Phase 7 Sprint |
+| ~~POS product sales tab (Services/Products)~~                      | —              | Admin UI & Offline POS Sprint |
+| ~~Dynamic TAX_RATE from org config (API + admin)~~                 | —              | Admin UI & Offline POS Sprint |
+| ~~Inventory stock-in/stock-out/adjust dialogs~~                    | —              | Admin UI & Offline POS Sprint |
+| ~~User branch assignment dropdown (replaced free-text)~~           | —              | Admin UI & Offline POS Sprint |
+| ~~DIGITAL_WALLET payment method in POS~~                           | —              | Admin UI & Offline POS Sprint |
+| ~~Offline POS sync UI (pending/failed counts, retry, cleanup)~~    | —              | Admin UI & Offline POS Sprint |
+| ~~Admin PWA via vite-plugin-pwa~~                                  | —              | Admin UI & Offline POS Sprint |
+| ~~GET /analytics/utilization + admin utilization tab~~             | GAP-18         | Admin UI & Offline POS Sprint |
+| ~~Weekly calendar view on attendance page~~                        | —              | Admin UI & Offline POS Sprint |
+| ~~Commission template config (COMMISSION_RATE_MASTER/SENIOR/JUNIOR)~~ | GAP-24     | Admin UI & Offline POS Sprint |
+| ~~Notification Management admin page (list, stats, test-send)~~    | Sprint 4 Task 1 | Sprint 4: Admin Polish        |
+| ~~Retention Management admin page (stats, manual trigger)~~        | Sprint 4 Task 2 | Sprint 4: Admin Polish        |
+| ~~Commission template wiring (config defaults, reset endpoint)~~   | Sprint 4 Task 3 | Sprint 4: Admin Polish        |
+| ~~GAP-31: Referral expiry (`expiresAt`, config-driven, scheduler)~~ | Sprint 4 Task 4 | Sprint 4: Admin Polish       |
+| ~~Staff/branch photo upload (ImageUpload, avatar endpoint)~~       | Sprint 4 Task 5 | Sprint 4: Admin Polish        |
+| ~~Dashboard Recharts (revenue trend, payment donut, volume bars)~~ | Sprint 4 Task 6 | Sprint 4: Admin Polish        |
+| ~~E2E Playwright tests (6 admin + 3 client specs, CI workflow)~~   | Sprint 4 Task 7 | Sprint 4: Admin Polish        |
+| ~~`as any` casts cleanup (40 instances across 10 files)~~          | Sprint 6 Item 1 | Sprint 6: Type Safety         |
+| ~~Client Dockerfile (multi-stage Node + Nginx)~~                   | Sprint 6 Item 2 | Sprint 6: Deployment          |
+| ~~Admin Dockerfile (multi-stage Node + Nginx)~~                    | Sprint 6 Item 3 | Sprint 6: Deployment          |
+| ~~API versioning (`/api/v2` mount + `X-API-Version` header)~~      | Sprint 6 Item 4 | Sprint 6: Type Safety         |
+| ~~Bulk payroll operations (`bulk-approve`, `bulk-disburse`)~~       | Sprint 6 Item 5 | Sprint 6: Type Safety         |
+| ~~Deep service tests: transactions.service.ts (16 tests)~~         | Sprint 7 Item 1 | Sprint 7: Test Coverage       |
+| ~~Deep service tests: commissions.service.ts (18 tests)~~          | Sprint 7 Item 1 | Sprint 7: Test Coverage       |
+| ~~Deep service tests: queue.service.ts (13 tests)~~                | Sprint 7 Item 1 | Sprint 7: Test Coverage       |
+| ~~WhatsApp notification provider (Twilio adapter, graceful fallback)~~ | Sprint 7 Item 2 | Sprint 7: WhatsApp        |
+| ~~NotificationChannelConfig + NotificationPreference models~~       | Sprint 7 Item 2 | Sprint 7: WhatsApp           |
+| ~~Admin channel config endpoints (`GET/PUT /channels`)~~            | Sprint 7 Item 2 | Sprint 7: WhatsApp           |
+| ~~Client notification preferences (`GET/PUT /preferences`)~~        | Sprint 7 Item 2 | Sprint 7: WhatsApp           |
+| ~~i18n admin + client (react-i18next, en/id, switchers)~~           | Sprint 9        | Sprint 9: i18n               |
+| ~~PDF reports + nodemailer SMTP + ReportSchedule / SavedReportTemplate~~ | Sprint 9   | Sprint 9: Advanced Reporting |
+| ~~Prepayment, cancellation penalties, WaitlistEntry + APIs~~        | Sprint 9        | Sprint 9: Customer Self-Service |
+| ~~Admin waitlist management page (table view, sidebar nav)~~        | —               | Sprint 9: Gap Fix               |
+| ~~Client waitlist tab in booking history (upcoming/past/waitlist)~~  | —               | Sprint 9: Gap Fix               |
+| ~~PlatformConfig seeding (17 default business keys)~~               | —               | Sprint 9: Gap Fix               |
+| ~~SMTP env vars in .env.example, .dev.vars.example, .env.staging.example~~ | —         | Sprint 9: Gap Fix               |
+
+
+## 7. Phase 7: SaaS Platform Refactor
+
+| Item | Status | Sprint |
+|------|--------|--------|
+| Multi-tenant schema (organizationId on 35+ tables) | ✅ Complete | Phase 7A |
+| RBAC middleware (`requirePermission()` replaces `requireRole()`) | ✅ Complete | Phase 7B-1 |
+| 26 feature files refactored for generic naming + org-scoping | ✅ Complete | Phase 7B-2 |
+| Auth refactor (orgSlug login, new JWT claims, Google OAuth) | ✅ Complete | Phase 7B-3 |
+| Platform admin endpoints (org CRUD, templates, features) | ✅ Complete | Phase 7B-4 |
+| Tenant role management (CRUD, permission matrix, service assignment) | ✅ Complete | Phase 7B-5 |
+| Seed data rewrite (25 features, 4 templates, barbershop tenant) | ✅ Complete | Phase 7C |
+| Frontend type updates (admin + client) | ✅ Complete | Phase 7D |
+| Package rename (`@tmng/*` namespace) | ✅ Complete | Phase 7E |
+| Documentation update | ✅ Complete | Phase 7F |
+
+---
+
+## 8. Previously High-Priority Items (All Resolved)
+
+All previously tracked high-priority and Sprint 9 MEDIUM items have been resolved. No outstanding product gaps remain; future work is LOW-priority (see [next_phase_plan.md](next_phase_plan.md)).
+
+| Priority | Item                                     | Reference      | Resolution |
+| -------- | ---------------------------------------- | -------------- | ---------- |
+| P1       | Xendit payment adapter (charge creation) | Phase 4 Task 5 | ✅ Resolved (Sprint 1) |
+| LOW      | WhatsApp notification provider           | Sprint 7       | ✅ Resolved (Sprint 7) |
+| HIGH     | Production Hardening (logging, health, pool) | Sprint 8    | ✅ Resolved (Sprint 8) |
+| HIGH     | SMS Notification Provider                | Sprint 8       | ✅ Resolved (Sprint 8) |
+| LOW      | Multi-Currency Support                    | Sprint 10      | ✅ Resolved (Sprint 10A) |
+| LOW      | Demand Forecasting                        | Sprint 10      | ✅ Resolved (Sprint 10B) |
+| LOW      | Smart Scheduling Suggestions              | Sprint 10      | ✅ Resolved (Sprint 10B) |
+| LOW      | Churn Prediction                          | Sprint 10      | ✅ Resolved (Sprint 10C) |
+
+
+## 9. Resolved Items (Phase 6 Completion)
+
+| Item                                     | Reference      | Sprint                    |
+| ---------------------------------------- | -------------- | ------------------------- |
+| ~~Phase 6 Task 0: Schema additions (BranchDailySnapshot, AnomalyFlag, PlatformConfig)~~ | Phase 6 Task 0 | Phase 6 Sprint |
+| ~~Phase 6 Task 1: Super Admin scaffold (sidebar, routes, page shells)~~ | Phase 6 Task 1 | Phase 6 Sprint |
+| ~~Phase 6 Task 2: Global Dashboard + nightly snapshot cron~~ | Phase 6 Task 2 | Phase 6 Sprint |
+| ~~Phase 6 Task 3: Analytics Engine (comparison, heatmap, retention, forecast)~~ | Phase 6 Task 3 | Phase 6 Sprint |
+| ~~Phase 6 Task 4: Reports + CSV export (5 report types)~~ | Phase 6 Task 4 | Phase 6 Sprint |
+| ~~Phase 6 Task 5: User & Role Management API + UI~~ | Phase 6 Task 5 | Phase 6 Sprint |
+| ~~Phase 6 Task 6: Audit Log + Anomaly Detection~~ | Phase 6 Task 6 | Phase 6 Sprint |
+| ~~Phase 6 Task 7: Financial Oversight (P&L, void/discount audit)~~ | Phase 6 Task 7 | Phase 6 Sprint |
+| ~~Phase 6 Task 9: Global Config (PlatformConfig CRUD + caching)~~ | Phase 6 Task 9 | Phase 6 Sprint |
+| ~~Type fixes: reports customer query, users loyaltyAccount select, deactivate route~~ | — | Phase 6 Sprint |

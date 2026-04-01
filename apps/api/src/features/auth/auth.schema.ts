@@ -1,4 +1,57 @@
-import { z } from "zod";
+import { z } from "@hono/zod-openapi";
+import {
+  AuthProviderEnum,
+  RoleScopeEnum,
+  BranchSummarySchema,
+  PermissionActionsSchema,
+} from "../../utils/zod-prisma";
+
+const TenantRoleInUserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  scope: RoleScopeEnum,
+});
+
+export const AuthUserResponseSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  tenantRoleId: z.string(),
+  branchId: z.string().nullable().optional(),
+  email: z.string(),
+  phone: z.string().nullable().optional(),
+  firstName: z.string(),
+  lastName: z.string(),
+  avatar: z.string().nullable().optional(),
+  isCustomer: z.boolean(),
+  isActive: z.boolean(),
+  authProvider: AuthProviderEnum,
+  emailVerified: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  tenantRole: TenantRoleInUserSchema.nullable(),
+  branch: BranchSummarySchema.nullable().optional(),
+  permissions: z.record(z.string(), PermissionActionsSchema).optional(),
+});
+
+export const UpdateProfileResponseSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  tenantRoleId: z.string(),
+  email: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  phone: z.string().nullable().optional(),
+  isCustomer: z.boolean(),
+});
+
+export const UserSearchResultSchema = z.object({
+  id: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  email: z.string(),
+  phone: z.string().nullable().optional(),
+  avatar: z.string().nullable().optional(),
+});
 
 export const registerSchema = z.object({
   orgSlug: z.string().optional(),
@@ -36,6 +89,14 @@ export const deleteAccountSchema = z.object({
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email("Valid email is required"),
+});
+
+export const notificationPreferencesSchema = z.object({
+  emailOptIn: z.boolean(),
+});
+
+export const NotificationPreferencesResponseSchema = z.object({
+  emailOptIn: z.boolean(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

@@ -1,0 +1,17 @@
+{
+  "title": "Wawasan Pelanggan",
+  "selectBranchToView": "Pilih cabang untuk melihat data pelanggan.",
+  "customers": "Pelanggan",
+  "segments": "Segmen",
+  "recompute": "Hitung Ulang Segmen",
+  "visitFrequency": "Frekuensi Kunjungan",
+  "totalSpend": "Total Belanja",
+  "lastVisit": "Kunjungan Terakhir",
+  "segment": "Segmen",
+  "vip": "VIP",
+  "atRisk": "Berisiko",
+  "new": "Baru",
+  "lapsed": "Berhenti",
+  "regular": "Reguler",
+  "noCustomers": "Tidak ada pelanggan ditemukan"
+}

@@ -4,6 +4,22 @@ import type {
   CreateStaffProfileInput,
   UpdateStaffProfileInput,
 } from "./staff.schema";
+import { ConfigService } from "../config/config.service";
+
+const TIER_CONFIG_MAP: Record<string, string> = {
+  MASTER: "COMMISSION_RATE_MASTER",
+  SENIOR: "COMMISSION_RATE_SENIOR",
+  JUNIOR: "COMMISSION_RATE_JUNIOR",
+};
+
+async function getCommissionRateFromConfig(
+  db: PrismaClient,
+  tier: string,
+): Promise<number> {
+  const key = TIER_CONFIG_MAP[tier] ?? "COMMISSION_RATE_JUNIOR";
+  const pct = await ConfigService.getNumericConfig(db, key, 30);
+  return pct / 100;
+}
 
 export const StaffService = {
   async list(
@@ -58,15 +74,21 @@ export const StaffService = {
   },
 
   async create(db: PrismaClient, organizationId: string, data: CreateStaffProfileInput) {
+    const tier = (data.tier ?? "JUNIOR") as StaffTier;
+    const rate =
+      data.commissionRate !== undefined
+        ? data.commissionRate
+        : await getCommissionRateFromConfig(db, tier);
+
     const profile = await db.staffProfile.create({
       data: {
         userId: data.userId,
         organizationId,
         bio: data.bio ?? null,
-        tier: data.tier as StaffTier,
+        tier,
         specialties: data.specialties ?? [],
-        commissionModel: data.commissionModel as CommissionModel,
-        commissionRate: data.commissionRate,
+        commissionModel: (data.commissionModel ?? "FLAT_PERCENTAGE") as CommissionModel,
+        commissionRate: rate,
         baseSalary: data.baseSalary,
         status: "OFF_DUTY",
       },
@@ -131,5 +153,27 @@ export const StaffService = {
       data: { status: status as StaffStatus },
     });
     return profile;
+  },
+
+  async updateAvatar(db: PrismaClient, userId: string, avatar: string | null) {
+    const user = await db.user.update({
+      where: { id: userId },
+      data: { avatar },
+      select: { id: true, avatar: true },
+    });
+    return user;
+  },
+
+  async resetCommission(db: PrismaClient, userId: string) {
+    const profile = await db.staffProfile.findUnique({ where: { userId } });
+    if (!profile) return null;
+
+    const rate = await getCommissionRateFromConfig(db, profile.tier);
+    const updated = await db.staffProfile.update({
+      where: { userId },
+      data: { commissionRate: rate },
+      include: { user: true },
+    });
+    return updated;
   },
 };

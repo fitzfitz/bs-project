@@ -1,4 +1,4 @@
-import { createRoute, z } from "@hono/zod-openapi";
+import { createRoute } from "@hono/zod-openapi";
 import {
   createServiceSchema,
   updateServiceSchema,
@@ -7,6 +7,11 @@ import {
   createTierSurchargeSchema,
   addComboChildSchema,
   branchOverrideSchema,
+  ServiceScalarSchema,
+  ServiceWithRelationsSchema,
+  TierSurchargeSchema,
+  ComboServiceScalarSchema,
+  BranchServiceOverrideSchema,
 } from "./services.schema";
 import { ServicesService } from "./services.service";
 import {
@@ -22,8 +27,6 @@ import type { RouteHandler } from "@hono/zod-openapi";
 // Route Definitions
 // ============================================================================
 
-const GenericServiceResponseSchema = createSuccessSchema(z.any());
-
 export const listServicesRoute = createRoute({
   method: "get",
   path: "/",
@@ -33,7 +36,9 @@ export const listServicesRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: createPaginatedSuccessSchema(z.any()) },
+        "application/json": {
+          schema: createPaginatedSuccessSchema(ServiceWithRelationsSchema),
+        },
       },
       description: "Array of services with pagination",
     },
@@ -49,7 +54,9 @@ export const getServiceRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: GenericServiceResponseSchema },
+        "application/json": {
+          schema: createSuccessSchema(ServiceWithRelationsSchema),
+        },
       },
       description: "Service details",
     },
@@ -74,7 +81,7 @@ export const createServiceRoute = createRoute({
   responses: {
     201: {
       content: {
-        "application/json": { schema: GenericServiceResponseSchema },
+        "application/json": { schema: createSuccessSchema(ServiceScalarSchema) },
       },
       description: "Service created",
     },
@@ -96,7 +103,7 @@ export const updateServiceRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: GenericServiceResponseSchema },
+        "application/json": { schema: createSuccessSchema(ServiceScalarSchema) },
       },
       description: "Service updated",
     },
@@ -133,7 +140,7 @@ export const addTierSurchargeRoute = createRoute({
   responses: {
     201: {
       content: {
-        "application/json": { schema: GenericServiceResponseSchema },
+        "application/json": { schema: createSuccessSchema(TierSurchargeSchema) },
       },
       description: "Tier surcharge recorded",
     },
@@ -155,7 +162,9 @@ export const addComboChildRoute = createRoute({
   responses: {
     201: {
       content: {
-        "application/json": { schema: GenericServiceResponseSchema },
+        "application/json": {
+          schema: createSuccessSchema(ComboServiceScalarSchema),
+        },
       },
       description: "Combo link created",
     },
@@ -177,7 +186,9 @@ export const setBranchOverrideRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: GenericServiceResponseSchema },
+        "application/json": {
+          schema: createSuccessSchema(BranchServiceOverrideSchema),
+        },
       },
       description: "Override saved",
     },

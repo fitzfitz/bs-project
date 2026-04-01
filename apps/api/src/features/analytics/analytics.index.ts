@@ -18,6 +18,24 @@ import {
   utilizationHandler,
   computeSnapshotsRoute,
   computeSnapshotsHandler,
+  revenueTrendRoute,
+  revenueTrendHandler,
+  demandForecastRoute,
+  demandForecastHandler,
+  computeForecastRoute,
+  computeForecastHandler,
+  scheduleSuggestionsRoute,
+  scheduleSuggestionsHandler,
+  computeSuggestionsRoute,
+  computeSuggestionsHandler,
+  updateSuggestionRoute,
+  updateSuggestionHandler,
+  churnScoresRoute,
+  churnScoresHandler,
+  computeChurnRoute,
+  computeChurnHandler,
+  customerChurnRoute,
+  customerChurnHandler,
 } from "./analytics.handlers";
 
 const analyticsApp = new OpenAPIHono<AppEnv>();
@@ -31,5 +49,14 @@ analyticsApp.openapi(retentionRoute, retentionHandler);
 analyticsApp.openapi(forecastRoute, forecastHandler);
 analyticsApp.openapi(utilizationRoute, utilizationHandler);
 analyticsApp.openapi(computeSnapshotsRoute, computeSnapshotsHandler);
+analyticsApp.openapi(revenueTrendRoute, revenueTrendHandler);
+analyticsApp.openapi(demandForecastRoute, demandForecastHandler);
+analyticsApp.openapi(computeForecastRoute, computeForecastHandler);
+analyticsApp.openapi(scheduleSuggestionsRoute, scheduleSuggestionsHandler);
+analyticsApp.openapi(computeSuggestionsRoute, computeSuggestionsHandler);
+analyticsApp.openapi(updateSuggestionRoute, updateSuggestionHandler);
+analyticsApp.openapi(churnScoresRoute, churnScoresHandler);
+analyticsApp.openapi(computeChurnRoute, computeChurnHandler);
+analyticsApp.openapi(customerChurnRoute, customerChurnHandler);
 
 export default analyticsApp;

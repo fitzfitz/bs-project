@@ -11,9 +11,17 @@ import {
   createBranchHolidaySchema,
   updateBranchHolidaySchema,
   holidayIdParam,
+  BranchScalarSchema,
+  BranchWithRelationsSchema,
+  BranchDetailSchema,
+  OperatingHourResponseSchema,
+  SurgeRuleResponseSchema,
+  EmergencyCloseResultSchema,
+  BranchHolidaySchema,
 } from "./branches.schema";
 import { BranchesService } from "./branches.service";
 import { getPusher } from "../../utils/pusher";
+import { createNotificationService } from "../../utils/notifications";
 import {
   createSuccessSchema,
   MessageSuccessSchema,
@@ -26,8 +34,6 @@ import type { RouteHandler } from "@hono/zod-openapi";
 // Route Definitions
 // ============================================================================
 
-const GenericBranchResponseSchema = createSuccessSchema(z.any());
-
 export const listBranchesRoute = createRoute({
   method: "get",
   path: "/",
@@ -36,7 +42,11 @@ export const listBranchesRoute = createRoute({
   request: { query: listBranchesQuery },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": {
+          schema: createSuccessSchema(z.array(BranchWithRelationsSchema)),
+        },
+      },
       description: "Array of branches",
     },
   },
@@ -50,7 +60,9 @@ export const getBranchRoute = createRoute({
   request: { params: branchIdParam },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(BranchDetailSchema) },
+      },
       description: "Branch details",
     },
     404: {
@@ -73,7 +85,9 @@ export const createBranchRoute = createRoute({
   },
   responses: {
     201: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(BranchScalarSchema) },
+      },
       description: "Branch created",
     },
   },
@@ -93,7 +107,9 @@ export const updateBranchRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(BranchScalarSchema) },
+      },
       description: "Branch updated",
     },
   },
@@ -128,7 +144,11 @@ export const setOperatingHoursRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": {
+          schema: createSuccessSchema(z.array(OperatingHourResponseSchema)),
+        },
+      },
       description: "Operating hours updated",
     },
   },
@@ -148,7 +168,11 @@ export const addSurgeRuleRoute = createRoute({
   },
   responses: {
     201: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": {
+          schema: createSuccessSchema(SurgeRuleResponseSchema),
+        },
+      },
       description: "Surge rule created",
     },
   },
@@ -168,7 +192,11 @@ export const updateSurgeRuleRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": {
+          schema: createSuccessSchema(SurgeRuleResponseSchema),
+        },
+      },
       description: "Surge rule updated",
     },
   },
@@ -300,7 +328,11 @@ export const emergencyCloseRoute = createRoute({
   request: { params: branchIdParam },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": {
+          schema: createSuccessSchema(EmergencyCloseResultSchema),
+        },
+      },
       description: "Branch emergency-closed",
     },
   },
@@ -315,7 +347,9 @@ export const reopenBranchRoute = createRoute({
   request: { params: branchIdParam },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(BranchScalarSchema) },
+      },
       description: "Branch reopened",
     },
   },
@@ -329,7 +363,8 @@ export const emergencyCloseHandler: RouteHandler<
   const { id } = c.req.valid("param");
   const userId = c.var.userId!;
   const pusher = getPusher(c);
-  const result = await BranchesService.emergencyClose(c.var.db, id, organizationId, userId, pusher);
+  const ns = createNotificationService(c.env);
+  const result = await BranchesService.emergencyClose(c.var.db, id, organizationId, userId, pusher, ns);
   return c.json({ success: true as const, data: result }, 200);
 };
 
@@ -341,7 +376,8 @@ export const reopenBranchHandler: RouteHandler<
   const { id } = c.req.valid("param");
   const userId = c.var.userId!;
   const pusher = getPusher(c);
-  const result = await BranchesService.reopen(c.var.db, id, organizationId, userId, pusher);
+  const ns = createNotificationService(c.env);
+  const result = await BranchesService.reopen(c.var.db, id, organizationId, userId, pusher, ns);
   return c.json({ success: true as const, data: result }, 200);
 };
 
@@ -357,7 +393,11 @@ export const listHolidaysRoute = createRoute({
   request: { params: branchIdParam },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": {
+          schema: createSuccessSchema(z.array(BranchHolidaySchema)),
+        },
+      },
       description: "Array of holidays",
     },
   },
@@ -375,7 +415,9 @@ export const createHolidayRoute = createRoute({
   },
   responses: {
     201: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(BranchHolidaySchema) },
+      },
       description: "Holiday created",
     },
   },
@@ -393,7 +435,9 @@ export const updateHolidayRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericBranchResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(BranchHolidaySchema) },
+      },
       description: "Holiday updated",
     },
   },

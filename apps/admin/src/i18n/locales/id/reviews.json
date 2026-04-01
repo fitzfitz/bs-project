@@ -1,0 +1,14 @@
+{
+  "title": "Ulasan",
+  "filterByRating": "Filter menurut rating:",
+  "rating": "Rating",
+  "allRatings": "Semua Rating",
+  "stars": "{{count}} Bintang",
+  "showHidden": "Tampilkan Tersembunyi",
+  "hideReview": "Sembunyikan Ulasan",
+  "showReview": "Tampilkan Ulasan",
+  "moderationNotes": "Catatan Moderasi",
+  "noReviews": "Tidak ada ulasan ditemukan",
+  "customer": "Pelanggan",
+  "response": "Tanggapan"
+}

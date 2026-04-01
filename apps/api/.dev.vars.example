@@ -1,10 +1,11 @@
 # =============================================================================
-# Cloudflare Workers local dev vars (used by `wrangler dev`)
+# TMNG SaaS API — Local development environment variables
 # Copy this file to .dev.vars and fill in your values.
+# Loaded by server.ts when DATABASE_URL is not already set in the environment.
 # =============================================================================
 
 # --- Database ---
-DATABASE_URL="postgresql://user:password@localhost:5432/barber_db?schema=public"
+DATABASE_URL="postgresql://user:password@localhost:5432/tmng_saas_db?schema=public"
 
 # --- JWT ---
 # Generate secrets with: openssl rand -base64 48
@@ -44,3 +45,10 @@ PUSHER_USE_TLS="true"
 # S3_SECRET_KEY="your-minio-secret-key"
 # S3_BUCKET="saas-project"
 # S3_PUBLIC_URL="http://57.128.251.45:5555/saas-project"
+
+# --- SMTP Email (optional — scheduled report emails skipped when absent) ---
+# SMTP_HOST="smtp.gmail.com"
+# SMTP_PORT="587"
+# SMTP_USER="your-email@gmail.com"
+# SMTP_PASS="your-app-password"
+# SMTP_FROM="noreply@yourdomain.com"

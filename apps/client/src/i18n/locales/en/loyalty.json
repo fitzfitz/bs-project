@@ -1,0 +1,22 @@
+{
+  "title": "Loyalty",
+  "myPoints": "My Points",
+  "currentTier": "Current Tier",
+  "nextTier": "Next Tier",
+  "pointsToNext": "{{count}} points to next tier",
+  "tierProgress": "Tier Progress",
+  "bronze": "Bronze",
+  "silver": "Silver",
+  "gold": "Gold",
+  "platinum": "Platinum",
+  "pointsHistory": "Points History",
+  "earned": "Earned",
+  "redeemed": "Redeemed",
+  "expired": "Expired",
+  "referFriend": "Refer a Friend",
+  "referralCode": "Your Referral Code",
+  "copyCode": "Copy Code",
+  "codeCopied": "Code copied!",
+  "shareReferral": "Share your code and earn {{points}} bonus points!",
+  "noHistory": "No points history yet"
+}

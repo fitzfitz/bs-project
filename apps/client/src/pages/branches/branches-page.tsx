@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -8,6 +9,7 @@ import { useBranches } from '@/features/branches/api/use-branches';
 import { ReviewFeed } from '@/features/reviews/widgets/review-feed';
 
 export default function BranchDiscoveryPage() {
+  const { t } = useTranslation('branches');
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [searchQuery, setSearchQuery] = useState('');
@@ -17,20 +19,22 @@ export default function BranchDiscoveryPage() {
 
   const centerPos = [-6.200000, 106.816666] as LatLngExpression;
 
+  const isMap = viewMode === 'map';
+
   return (
-    <div className="flex flex-col min-h-full bg-slate-50 pb-20">
+    <div className={`flex flex-col bg-slate-50 ${isMap ? 'h-dvh overflow-hidden' : 'min-h-full pb-20'}`}>
       
       {/* Header & Search */}
-      <div className="bg-white px-6 pt-12 pb-4 shadow-sm sticky top-0 z-10">
-        <h1 className="text-2xl font-bold font-sans text-slate-900 tracking-tight">Our Locations</h1>
-        <p className="text-slate-500 text-sm mt-1">Find the nearest branch and book your spot.</p>
+      <div className="bg-white px-6 pt-12 pb-4 shadow-sm shrink-0 sticky top-0 z-10">
+        <h1 className="text-2xl font-bold font-sans text-slate-900 tracking-tight">{t('title')}</h1>
+        <p className="text-slate-500 text-sm mt-1">{t('pageSubtitle')}</p>
 
         <div className="mt-4 flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search by city or name..."
+              placeholder={t('searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/50 focus:outline-none transition-all"
@@ -38,13 +42,19 @@ export default function BranchDiscoveryPage() {
           </div>
           <div className="flex bg-slate-100 rounded-xl p-1">
             <button 
+              type="button"
               onClick={() => setViewMode('list')}
+              title={t('listView')}
+              aria-label={t('listView')}
               className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <ListIcon className="w-5 h-5" />
             </button>
             <button 
+              type="button"
               onClick={() => setViewMode('map')}
+              title={t('mapView')}
+              aria-label={t('mapView')}
               className={`p-1.5 rounded-lg transition-colors ${viewMode === 'map' ? 'bg-white shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700'}`}
             >
               <MapIcon className="w-5 h-5" />
@@ -54,9 +64,9 @@ export default function BranchDiscoveryPage() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 flex flex-col">
+      <div className={`flex-1 flex flex-col ${isMap ? 'min-h-0' : ''}`}>
         {isLoading ? (
-          <div className="p-6 flex justify-center text-slate-400">Loading locations...</div>
+          <div className="p-6 flex justify-center text-slate-400">{t('loadingLocations')}</div>
         ) : viewMode === 'list' ? (
           <div className="p-4 space-y-4">
             {branches?.length === 0 && (
@@ -72,7 +82,7 @@ export default function BranchDiscoveryPage() {
                       <p className="text-slate-400 text-xs">{branch.city}</p>
                       {branch.isEmergencyClosed && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">
-                          Temporarily Closed
+                          {t('temporarilyClosed')}
                         </span>
                       )}
                       {branch.totalReviews > 0 && (
@@ -103,21 +113,26 @@ export default function BranchDiscoveryPage() {
                         <span>{branch.phone}</span>
                       </div>
                     )}
-                    {branch.operatingHours && (
+                    {branch.operatingHours.length > 0 && (
                       <div className="flex items-center gap-2">
                         <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{branch.operatingHours}</span>
+                        <span>
+                          {branch.operatingHours
+                            .filter((h) => !h.isClosed)
+                            .map((h) => `${h.openTime}-${h.closeTime}`)
+                            .join(", ") || t('closed')}
+                        </span>
                       </div>
                     )}
-                    {!branch.phone && !branch.operatingHours && (
-                      <p className="text-xs text-slate-400">No additional details available</p>
+                    {!branch.phone && branch.operatingHours.length === 0 && (
+                      <p className="text-xs text-slate-400">{t('noAdditionalDetails')}</p>
                     )}
 
                     {/* Reviews section */}
                     <div className="pt-2 border-t border-slate-100">
                       <div className="flex items-center gap-1.5 mb-3">
                         <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Reviews</span>
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">{t('reviews')}</span>
                       </div>
                       <ReviewFeed
                         branchId={branch.id}
@@ -135,13 +150,13 @@ export default function BranchDiscoveryPage() {
                     disabled={!!branch.isEmergencyClosed}
                     className="flex-1 bg-primary text-primary-foreground py-2 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {branch.isEmergencyClosed ? "Temporarily Closed" : "Book Here"}
+                    {branch.isEmergencyClosed ? t('temporarilyClosed') : t('bookHere')}
                   </button>
                   <button
                     onClick={() => setExpandedId(expandedId === branch.id ? null : branch.id)}
                     className="flex items-center justify-center gap-1 flex-1 bg-slate-100 text-slate-700 py-2 rounded-xl text-sm font-semibold hover:bg-slate-200 transition-colors"
                   >
-                    Details
+                    {t('details')}
                     {expandedId === branch.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   </button>
                 </div>
@@ -149,12 +164,12 @@ export default function BranchDiscoveryPage() {
             ))}
           </div>
         ) : (
-          <div className="flex-1 min-h-[400px] z-0">
+          <div className="flex-1 min-h-0 z-0">
             {/* Map View */}
             <MapContainer 
               center={centerPos}
               zoom={11} 
-              scrollWheelZoom={false}
+              scrollWheelZoom
               style={{ height: '100%', width: '100%', zIndex: 0 }}
             >
               <TileLayer

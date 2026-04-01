@@ -1,0 +1,17 @@
+{
+  "title": "Kampanye",
+  "createCampaign": "Buat Kampanye",
+  "editCampaign": "Ubah Kampanye",
+  "campaignName": "Nama Kampanye",
+  "message": "Pesan",
+  "targetBranches": "Cabang Target",
+  "send": "Kirim",
+  "schedule": "Jadwalkan",
+  "status": "Status",
+  "draft": "Draf",
+  "scheduled": "Dijadwalkan",
+  "sent": "Terkirim",
+  "cancelled": "Dibatalkan",
+  "noCampaigns": "Tidak ada kampanye ditemukan",
+  "sendConfirm": "Anda yakin ingin mengirim kampanye ini?"
+}

@@ -263,15 +263,33 @@ When a platform admin creates a new organization, they select an industry type. 
 | Role | Scope | isServiceProvider | Key Permissions |
 |------|-------|-------------------|-----------------|
 | Owner | HQ | false | ALL features, full CRUD |
-| Manager | BRANCH | false | Queue, Booking, Staff(R/U), Inventory, Analytics(R), Reports |
-| Barber | BRANCH | true | Queue(R/U), Attendance(C/R), Commission(R), Payroll(R) |
-| Junior Barber | BRANCH | true | Queue(R/U), Attendance(C/R), Commission(R) |
+| Manager | BRANCH | false | Queue, Booking, Staff(R/U), Inventory, Transaction(CRUD), Commission(CRU), Payroll(CRU), Analytics(R), Reports |
+| Barber | BRANCH | true | Queue(R/U), Attendance(C/R/U), Commission(R), Payroll(R/U) |
+| Junior Barber | BRANCH | true | Queue(R/U), Attendance(C/R/U), Commission(R), Payroll(R/U) |
 | Cashier | BRANCH | false | Queue(C/R/U), Transaction(C/R/U), Cash Drawer(C/R/U), Inventory(R) |
 | Customer | CUSTOMER | false | Booking(C/R/U), Reviews(C/R/U/D), Loyalty(R), Referrals(C/R) |
 
 **Service assignments:**
 - Barber → all services
 - Junior Barber → basic services only (Haircut, Shave)
+
+### BEAUTY_SALON Template
+
+| Role | Scope | isServiceProvider | Key Permissions |
+|------|-------|-------------------|-----------------|
+| Owner | HQ | false | ALL features, full CRUD |
+| Stylist | BRANCH | true | Queue(R/U), Attendance(C/R), Commission(R), Payroll(R) |
+| Receptionist | BRANCH | false | Queue(C/R/U), Transaction(C/R/U), Cash Drawer(C/R/U) |
+| Customer | CUSTOMER | false | Booking(C/R/U), Reviews(C/R/U/D), Loyalty(R) |
+
+### SPA Template
+
+| Role | Scope | isServiceProvider | Key Permissions |
+|------|-------|-------------------|-----------------|
+| Owner | HQ | false | ALL features, full CRUD |
+| Therapist | BRANCH | true | Queue(R/U), Attendance(C/R), Commission(R), Payroll(R) |
+| Receptionist | BRANCH | false | Queue(C/R/U), Transaction(C/R/U), Cash Drawer(C/R/U) |
+| Customer | CUSTOMER | false | Booking(C/R/U), Reviews(C/R/U/D), Loyalty(R) |
 
 ### VET_CLINIC Template
 
@@ -322,12 +340,12 @@ BOOKING              C R U D       C R U D       · · · ·       · · · ·  
 STAFF_MANAGEMENT     C R U D       · R U ·       · · · ·       · · · ·       · · · ·
 BRANCH_MANAGEMENT    C R U D       · R U ·       · · · ·       · · · ·       · · · ·
 SERVICE_CATALOG      C R U D       C R U D       · · · ·       · · · ·       · R · ·
-ATTENDANCE           C R U D       C R U D       C R · ·       · · · ·       · · · ·
-TRANSACTION          C R U D       C R U ·       · · · ·       C R U ·       · · · ·
+ATTENDANCE           C R U D       C R U D       C R U ·       · · · ·       · · · ·
+TRANSACTION          C R U D       C R U D       · · · ·       C R U ·       · · · ·
 CASH_DRAWER          C R U D       C R U ·       · · · ·       C R U ·       · · · ·
 INVENTORY            C R U D       C R U D       · · · ·       · R · ·       · · · ·
-COMMISSION           C R U D       C R · ·       · R · ·       · · · ·       · · · ·
-PAYROLL              C R U D       · R · ·       · R · ·       · · · ·       · · · ·
+COMMISSION           C R U D       C R U ·       · R · ·       · · · ·       · · · ·
+PAYROLL              C R U D       C R U ·       · R U ·       · · · ·       · · · ·
 FINANCE_REPORTS      C R U D       · R · ·       · · · ·       · · · ·       · · · ·
 ANALYTICS            C R U D       · R · ·       · · · ·       · · · ·       · · · ·
 REPORTS              C R U D       C R · ·       · · · ·       · · · ·       · · · ·

@@ -1,0 +1,23 @@
+{
+  "title": "Pengaturan Cabang",
+  "details": "Detail",
+  "operatingHours": "Jam Operasional",
+  "surgePricing": "Harga Dinamis",
+  "branchName": "Nama Cabang",
+  "branchAddress": "Alamat",
+  "tipDistribution": "Distribusi Tips",
+  "perBarber": "Per Staf",
+  "pooled": "Gabungan",
+  "day": "Hari",
+  "openTime": "Jam Buka",
+  "closeTime": "Jam Tutup",
+  "closed": "Tutup",
+  "addRule": "Tambah Aturan",
+  "multiplier": "Pengali",
+  "startHour": "Jam Mulai",
+  "endHour": "Jam Selesai",
+  "dayOfWeek": "Hari dalam Minggu",
+  "noRules": "Tidak ada aturan harga dinamis",
+  "emergencyClosed": "Tutup Darurat",
+  "holidays": "Hari Libur"
+}

@@ -150,13 +150,53 @@ export const getValuationRoute = createRoute({
   request: { params: branchIdParamSchema },
   responses: {
     200: {
-      description: "Total valuation (IDR)",
+      description: "Total valuation",
       content: {
         "application/json": {
           schema: z.object({
             success: z.literal(true),
             data: z.object({ valuation: z.number() }),
           }),
+        },
+      },
+    },
+    500: { description: "Internal server error" },
+  },
+});
+
+export const getStockMovementsRoute = createRoute({
+  method: "get",
+  path: "/branches/{branchId}/movements",
+  tags: ["Inventory"],
+  summary: "Get stock movement history",
+  request: {
+    params: branchIdParamSchema,
+    query: z.object({
+      productId: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Stock movements",
+      content: {
+        "application/json": {
+          schema: createSuccessSchema(
+            z.array(
+              z.object({
+                id: z.string(),
+                productId: z.string(),
+                branchId: z.string(),
+                organizationId: z.string(),
+                type: z.string(),
+                quantity: z.number(),
+                costPerUnit: z.number().nullable(),
+                note: z.string().nullable(),
+                createdAt: z.string(),
+                product: z.object({ name: z.string(), sku: z.string() }),
+              })
+            )
+          ),
         },
       },
     },
@@ -419,6 +459,43 @@ export const getValuationHandler: RouteHandler<typeof getValuationRoute, AppEnv>
     return c.json({ success: true as const, data: { valuation } }, 200);
   } catch (err) {
     console.error("Get valuation:", err);
+    return c.json({ success: false, message: "Internal server error" }, 500);
+  }
+};
+
+export const getStockMovementsHandler: RouteHandler<typeof getStockMovementsRoute, AppEnv> = async (c) => {
+  try {
+    const branchId = c.req.param("branchId");
+    const { productId, limit } = c.req.valid("query");
+    if (!productId) {
+      const movements = await c.var.db.stockMovement.findMany({
+        where: { branchId },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        include: { product: { select: { name: true, sku: true } } },
+      });
+      return c.json({
+        success: true as const,
+        data: movements.map((m) => ({
+          ...m,
+          costPerUnit: m.costPerUnit ?? null,
+          note: m.note ?? null,
+          createdAt: m.createdAt.toISOString(),
+        })),
+      }, 200);
+    }
+    const movements = await InventoryService.getStockMovements(c.var.db, productId, branchId, limit);
+    return c.json({
+      success: true as const,
+      data: movements.map((m) => ({
+        ...m,
+        costPerUnit: m.costPerUnit ?? null,
+        note: m.note ?? null,
+        createdAt: m.createdAt.toISOString(),
+      })),
+    }, 200);
+  } catch (err) {
+    console.error("Get stock movements:", err);
     return c.json({ success: false, message: "Internal server error" }, 500);
   }
 };

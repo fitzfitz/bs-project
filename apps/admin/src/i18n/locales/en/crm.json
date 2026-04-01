@@ -1,0 +1,17 @@
+{
+  "title": "Customer Insights",
+  "selectBranchToView": "Select a branch to view customer data.",
+  "customers": "Customers",
+  "segments": "Segments",
+  "recompute": "Recompute Segments",
+  "visitFrequency": "Visit Frequency",
+  "totalSpend": "Total Spend",
+  "lastVisit": "Last Visit",
+  "segment": "Segment",
+  "vip": "VIP",
+  "atRisk": "At Risk",
+  "new": "New",
+  "lapsed": "Lapsed",
+  "regular": "Regular",
+  "noCustomers": "No customers found"
+}

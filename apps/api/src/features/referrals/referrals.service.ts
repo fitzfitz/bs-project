@@ -1,9 +1,8 @@
 import type { PrismaClient, Prisma } from "@prisma/client";
 import { randomInt } from "node:crypto";
+import { ConfigService } from "../config/config.service";
 
 type TxClient = Prisma.TransactionClient;
-
-const DEFAULT_BONUS_POINTS = 10;
 
 function generateCode(firstName: string): string {
   const prefix = firstName.slice(0, 3).toUpperCase().padEnd(3, "X");
@@ -71,12 +70,19 @@ export const ReferralService = {
     });
     if (existing) throw new Error("Referral already applied");
 
+    const [expiryDays, bonusPoints] = await Promise.all([
+      ConfigService.getNumericConfig(db, "REFERRAL_EXPIRY_DAYS", 30),
+      ConfigService.getNumericConfig(db, "REFERRAL_BONUS_POINTS", 50),
+    ]);
+    const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
+
     const referral = await db.referral.create({
       data: {
         organizationId: referee.organizationId,
         referrerId,
         refereeId: newUserId,
-        bonusPoints: DEFAULT_BONUS_POINTS,
+        bonusPoints,
+        expiresAt,
         status: "PENDING",
       },
     });
@@ -93,6 +99,14 @@ export const ReferralService = {
       where: { refereeId, status: "PENDING" },
     });
     if (!referral) return null;
+
+    if (referral.expiresAt && referral.expiresAt < new Date()) {
+      await tx.referral.update({
+        where: { id: referral.id },
+        data: { status: "EXPIRED" },
+      });
+      return null;
+    }
 
     const { LoyaltyService } = await import("../loyalty/loyalty.service");
     await LoyaltyService.addBonusPoints(

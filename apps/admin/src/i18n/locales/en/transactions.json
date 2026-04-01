@@ -1,0 +1,19 @@
+{
+  "title": "Transactions",
+  "id": "Transaction ID",
+  "customer": "Customer",
+  "staff": "Staff",
+  "items": "Items",
+  "paymentMethod": "Payment Method",
+  "status": "Status",
+  "pending": "Pending",
+  "completed": "Completed",
+  "voided": "Voided",
+  "refunded": "Refunded",
+  "void": "Void",
+  "voidTransaction": "Void Transaction",
+  "voidConfirm": "Are you sure you want to void this transaction?",
+  "viewDetails": "View Details",
+  "receiptNo": "Receipt No.",
+  "noTransactions": "No transactions found"
+}

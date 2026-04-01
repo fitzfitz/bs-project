@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { Button, type ButtonProps } from "./button";
 import { AlertTriangle, Info, X } from "lucide-react";
 
@@ -122,7 +122,7 @@ export function ConfirmationDialog({
             {title}
           </h3>
           {description && (
-            <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+            <p className="text-sm text-slate-500 mt-2 leading-relaxed whitespace-pre-line">
               {description}
             </p>
           )}
@@ -177,6 +177,7 @@ const ConfirmationContext = React.createContext<ConfirmationContextValue | null>
   null,
 );
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useConfirmation() {
   const ctx = React.useContext(ConfirmationContext);
   if (!ctx) {

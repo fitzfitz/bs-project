@@ -1,0 +1,19 @@
+{
+  "title": "Transaksi",
+  "id": "ID Transaksi",
+  "customer": "Pelanggan",
+  "staff": "Staf",
+  "items": "Item",
+  "paymentMethod": "Metode Pembayaran",
+  "status": "Status",
+  "pending": "Tertunda",
+  "completed": "Selesai",
+  "voided": "Dibatalkan",
+  "refunded": "Dikembalikan",
+  "void": "Batalkan",
+  "voidTransaction": "Batalkan Transaksi",
+  "voidConfirm": "Anda yakin ingin membatalkan transaksi ini?",
+  "viewDetails": "Lihat Detail",
+  "receiptNo": "No. Struk",
+  "noTransactions": "Tidak ada transaksi ditemukan"
+}

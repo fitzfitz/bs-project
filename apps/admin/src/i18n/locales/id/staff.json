@@ -1,0 +1,18 @@
+{
+  "title": "Manajemen Staf",
+  "addStaff": "Tambah Staf",
+  "editStaff": "Ubah Staf",
+  "searchUser": "Cari pengguna...",
+  "tier": "Tingkat",
+  "junior": "Junior",
+  "senior": "Senior",
+  "master": "Master",
+  "assignBranch": "Tugaskan Cabang",
+  "unassignBranch": "Lepas Cabang",
+  "deactivate": "Nonaktifkan",
+  "activate": "Aktifkan",
+  "resetCommission": "Reset ke Template",
+  "noStaff": "Tidak ada staf ditemukan",
+  "specialties": "Keahlian",
+  "bio": "Bio"
+}

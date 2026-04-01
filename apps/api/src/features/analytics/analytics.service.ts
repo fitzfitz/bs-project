@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Prisma } from "@prisma/client";
 
 export class AnalyticsService {
   static async getGlobalDashboard(db: PrismaClient, dateStr?: string) {
@@ -145,14 +145,14 @@ export class AnalyticsService {
     db: PrismaClient,
     opts: { branchId?: string; dateFrom: string; dateTo: string }
   ) {
-    const where: Record<string, unknown> = {
+    const where: Prisma.TransactionWhereInput = {
       status: "COMPLETED",
       createdAt: { gte: new Date(opts.dateFrom), lte: new Date(opts.dateTo) },
     };
     if (opts.branchId) where.branchId = opts.branchId;
 
     const transactions = await db.transaction.findMany({
-      where: where as any,
+      where,
       select: { createdAt: true },
     });
 
@@ -190,14 +190,14 @@ export class AnalyticsService {
     const cohortStart = new Date(Date.UTC(year, month - 1, 1));
     const cohortEnd = new Date(Date.UTC(year, month, 1));
 
-    const where: Record<string, unknown> = {
+    const where: Prisma.TransactionWhereInput = {
       status: "COMPLETED",
       createdAt: { gte: cohortStart, lt: cohortEnd },
     };
     if (opts.branchId) where.branchId = opts.branchId;
 
     const cohortTransactions = await db.transaction.findMany({
-      where: where as any,
+      where,
       select: { customerId: true },
       distinct: ["customerId"],
     });
@@ -215,7 +215,7 @@ export class AnalyticsService {
       const mStart = new Date(Date.UTC(year, month - 1 + offset, 1));
       const mEnd = new Date(Date.UTC(year, month + offset, 1));
 
-      const returnedWhere: Record<string, unknown> = {
+      const returnedWhere: Prisma.TransactionWhereInput = {
         status: "COMPLETED",
         createdAt: { gte: mStart, lt: mEnd },
         customerId: { in: cohortCustomerIds },
@@ -223,7 +223,7 @@ export class AnalyticsService {
       if (opts.branchId) returnedWhere.branchId = opts.branchId;
 
       const returned = await db.transaction.findMany({
-        where: returnedWhere as any,
+        where: returnedWhere,
         select: { customerId: true },
         distinct: ["customerId"],
       });
@@ -304,7 +304,7 @@ export class AnalyticsService {
     const to = new Date(opts.dateTo);
     to.setUTCHours(23, 59, 59, 999);
 
-    const attendanceWhere: Record<string, unknown> = {
+    const attendanceWhere: Prisma.StaffAttendanceWhereInput = {
       clockIn: { gte: from, lte: to },
     };
     if (opts.branchId) {
@@ -312,7 +312,7 @@ export class AnalyticsService {
     }
 
     const attendances = await db.staffAttendance.findMany({
-      where: attendanceWhere as any,
+      where: attendanceWhere,
       include: {
         staff: {
           include: { user: { select: { firstName: true, lastName: true, branchId: true } } },
@@ -320,14 +320,14 @@ export class AnalyticsService {
       },
     });
 
-    const queueWhere: Record<string, unknown> = {
+    const queueWhere: Prisma.QueueEntryWhereInput = {
       status: { in: ["COMPLETED", "PAID"] },
       createdAt: { gte: from, lte: to },
     };
     if (opts.branchId) queueWhere.branchId = opts.branchId;
 
     const queueEntries = await db.queueEntry.findMany({
-      where: queueWhere as any,
+      where: queueWhere,
       select: {
         staffProfileId: true,
         startedAt: true,

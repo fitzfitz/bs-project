@@ -5,6 +5,11 @@ const configCache = new Map<string, { value: string; expiresAt: number }>();
 const CACHE_TTL = 5 * 60 * 1000;
 
 export class ConfigService {
+  /** Clears in-memory config cache (e.g. between Vitest cases that mock `platformConfig`). */
+  static clearCache(): void {
+    configCache.clear();
+  }
+
   static async getAll(db: PrismaClient) {
     const rows = await db.platformConfig.findMany();
     const result: Record<string, { value: string; updatedBy: string | null; updatedAt: string }> = {};

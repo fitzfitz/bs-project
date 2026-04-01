@@ -3,25 +3,41 @@ import { api, type ApiResponse } from "@/lib/api";
 
 export type QueueEntry = {
   id: string;
+  organizationId: string;
+  branchId: string;
+  staffProfileId: string | null;
+  bookingId: string | null;
+  customerId: string | null;
   status: "WAITING" | "CALLED" | "IN_SERVICE" | "COMPLETED" | "NO_SHOW" | "CANCELLED" | "AT_CHECKOUT" | "PAID";
   source: "APP" | "WEB" | "WALK_IN";
   position: number;
-  scheduledFor: string | null;
-  startTime: string | null;
-  endTime: string | null;
-  estimatedDuration: number;
-  estimatedWait: number | null;
   customerName: string | null;
-  customerPhone?: string | null;
-  notes: string | null;
+  estimatedWait: number | null;
   calledAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  staff: {
+    id: string;
+    user: { firstName: string; lastName: string };
+  } | null;
+  booking: {
+    id: string;
+    scheduledAt: string;
+    note: string | null;
+    totalDuration: number | null;
+    items: {
+      service: { name: string; durationMinutes: number; basePrice: number };
+    }[];
+  } | null;
   customer?: { firstName: string; lastName: string; phone?: string } | null;
   staffProfile?: { id: string; user: { firstName: string; lastName: string } } | null;
   services?: { service: { name: string; durationMinutes: number; basePrice: number } }[];
-  booking?: { id: string; scheduledAt: string; note?: string; items?: { service: { name: string; basePrice: number } }[] } | null;
-  createdAt: string;
+  scheduledFor?: string | null;
+  estimatedDuration?: number;
+  notes?: string | null;
+  customerPhone?: string | null;
 };
 
 type ListParams = {
@@ -108,6 +124,7 @@ export type CreateEntryInput = {
   branchId: string;
   customerName: string;
   customerPhone?: string;
+  customerId?: string;
   staffProfileId?: string;
   serviceIds: string[];
   startTime: string;

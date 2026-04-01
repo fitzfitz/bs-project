@@ -1,10 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
 import { swaggerUI } from "@hono/swagger-ui";
 
 import type { AppEnv } from "./types";
 import { getPrisma, isConnectionError } from "./utils/db";
+import { logger } from "./utils/logger";
 import { rateLimitMiddleware } from "./middlewares/rate-limit";
 import { cacheMiddleware } from "./middlewares/cache";
 import authApp from "./features/auth/auth.index";
@@ -14,6 +15,7 @@ import branchesApp from "./features/branches/branches.index";
 import staffApp from "./features/staff/staff.index";
 import attendanceApp from "./features/attendance/attendance.index";
 import queueApp from "./features/queue/queue.index";
+import waitlistApp from "./features/waitlist/waitlist.index";
 import transactionsApp from "./features/transactions/transactions.index";
 import promotionsApp from "./features/promotions/promotions.index";
 import commissionsApp from "./features/commissions/commissions.index";
@@ -36,6 +38,7 @@ import financeApp from "./features/finance/finance.index";
 import configApp from "./features/config/config.index";
 import platformApp from "./features/platform/platform.index";
 import rolesApp from "./features/roles/roles.index";
+import notificationsApp from "./features/notifications/notifications.index";
 
 const app = new OpenAPIHono<AppEnv>();
 
@@ -52,7 +55,24 @@ app.use("*", async (c, next) => {
   await next();
 });
 
-app.use("*", logger());
+app.use("*", async (c, next) => {
+  const requestId = c.req.header("X-Request-Id") ?? randomUUID();
+  c.set("requestId", requestId);
+  c.header("X-Request-Id", requestId);
+
+  const start = Date.now();
+  await next();
+  const duration = Date.now() - start;
+
+  logger.info({
+    requestId,
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    duration,
+    userId: c.get("userId"),
+  }, `${c.req.method} ${c.req.path} ${c.res.status} ${duration}ms`);
+});
 app.use(
   "*",
   cors({
@@ -75,7 +95,7 @@ apiApp.use("*", rateLimitMiddleware());
 
 // In-memory GET response cache for read-heavy endpoints (30s TTL).
 // Mutations on the same path automatically invalidate matching entries.
-const cachedPaths = ["/queue", "/branches", "/staff", "/services"];
+const cachedPaths = ["/queue", "/waitlist", "/branches", "/staff", "/services"];
 for (const p of cachedPaths) {
   apiApp.use(p, cacheMiddleware(30_000));
   apiApp.use(`${p}/*`, cacheMiddleware(30_000));
@@ -93,7 +113,34 @@ apiApp.doc("/openapi.json", {
   servers: [{ url: "/api" }],
 });
 
-// Feature routes
+// API version header middleware
+apiApp.use("*", async (c, next) => {
+  await next();
+  c.header("X-API-Version", "v1");
+});
+
+// ─── V2 API (future breaking changes) ──────────────────────────────────────
+const v2App = new OpenAPIHono<AppEnv>();
+
+v2App.use("*", async (c, next) => {
+  await next();
+  c.header("X-API-Version", "v2");
+});
+
+v2App.get("/docs", swaggerUI({ url: "/api/v2/openapi.json" }));
+v2App.doc("/openapi.json", {
+  openapi: "3.1.0",
+  info: {
+    title: "TMNG SaaS API",
+    version: "2.0.0",
+    description: "Multi-tenant SaaS API v2 — breaking changes go here",
+  },
+  servers: [{ url: "/api/v2" }],
+});
+
+apiApp.route("/v2", v2App);
+
+// ─── V1 Feature routes ─────────────────────────────────────────────────────
 apiApp.route("/health", healthApp);
 apiApp.route("/auth", authApp);
 apiApp.route("/services", servicesApp);
@@ -101,6 +148,7 @@ apiApp.route("/branches", branchesApp);
 apiApp.route("/staff", staffApp);
 apiApp.route("/attendance", attendanceApp);
 apiApp.route("/queue", queueApp);
+apiApp.route("/waitlist", waitlistApp);
 apiApp.route("/transactions", transactionsApp);
 apiApp.route("/promotions", promotionsApp);
 apiApp.route("/commissions", commissionsApp);
@@ -123,9 +171,10 @@ apiApp.route("/finance", financeApp);
 apiApp.route("/config", configApp);
 apiApp.route("/platform", platformApp);
 apiApp.route("/roles", rolesApp);
+apiApp.route("/notifications", notificationsApp);
 
 app.onError((err, c) => {
-  console.error(`[SYSTEM_ERROR]: ${err.stack}`);
+  logger.error({ err, requestId: c.get("requestId") }, "Unhandled error");
   const msg = err.message ?? "";
   const connErr = isConnectionError(err);
   const status = connErr ? 503 : 500;
@@ -159,5 +208,4 @@ app.notFound((c) => {
   return c.json({ success: false, message: "Not Found" }, 404);
 });
 
-export type AppType = typeof app;
 export default app;

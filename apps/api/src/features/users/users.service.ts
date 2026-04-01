@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Prisma } from "@prisma/client";
 
 export class UsersService {
   static async listUsers(
@@ -15,7 +15,7 @@ export class UsersService {
       organizationId?: string;
     }
   ) {
-    const where: Record<string, unknown> = {};
+    const where: Prisma.UserWhereInput = {};
 
     if (opts.organizationId) {
       where.organizationId = opts.organizationId;
@@ -41,7 +41,7 @@ export class UsersService {
 
     const [users, total] = await Promise.all([
       db.user.findMany({
-        where: where as any,
+        where,
         select: {
           id: true,
           email: true,
@@ -60,7 +60,7 @@ export class UsersService {
         skip: (opts.page - 1) * opts.limit,
         take: opts.limit,
       }),
-      db.user.count({ where: where as any }),
+      db.user.count({ where }),
     ]);
 
     return {

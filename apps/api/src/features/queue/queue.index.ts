@@ -1,7 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import type { AppEnv } from "../../types";
 import { authMiddleware } from "../../middlewares/auth";
-import { requirePermission } from "../../middlewares/rbac";
+import { requirePermission, requireCustomer } from "../../middlewares/rbac";
 import { orgScopeMiddleware } from "../../middlewares/scope";
 import {
   listQueueRoute,
@@ -20,6 +20,8 @@ import {
   cancelEntryHandler,
   customerCancelRoute,
   customerCancelHandler,
+  prepayRoute,
+  prepayHandler,
   rescheduleRoute,
   rescheduleHandler,
   meQueueRoute,
@@ -39,6 +41,9 @@ queueApp.openapi(meQueueRoute, meQueueHandler);
 
 queueApp.use("/", authMiddleware(), orgScopeMiddleware());
 queueApp.openapi(listQueueRoute, listQueueHandler);
+
+queueApp.use("/:id/prepay", authMiddleware(), requireCustomer());
+queueApp.openapi(prepayRoute, prepayHandler);
 
 queueApp.use("/:id", authMiddleware(), orgScopeMiddleware());
 queueApp.openapi(getEntryRoute, getEntryHandler);

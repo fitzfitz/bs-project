@@ -2,13 +2,16 @@ import type { PrismaClient, Prisma } from "@prisma/client";
 import type { QueueStatus, QueueSource, DayOfWeek } from "@prisma/client";
 import { HTTPException } from "hono/http-exception";
 import type { CloudflarePusher } from "../../utils/pusher";
+import type { NotificationService } from "../../utils/notifications";
 import type {
   CreateBookingInput,
   UpdateQueueStatusInput,
   AssignStaffToQueueInput,
 } from "./queue.schema";
-import type { StaffTier } from "@prisma/client";
 import { TransactionService } from "../transactions/transactions.service";
+import { ConfigService } from "../config/config.service";
+import { createXenditInvoice } from "../../utils/xendit-adapter";
+import { WaitlistService } from "../waitlist/waitlist.service";
 
 export const QueueService = {
   // --- View Queue ---
@@ -97,8 +100,8 @@ export const QueueService = {
 
   // --- Operations ---
 
-  async createEntry(db: PrismaClient, data: CreateBookingInput, organizationId: string, pusher?: CloudflarePusher) {
-    const branch = await db.branch.findUnique({ where: { id: data.branchId }, select: { isEmergencyClosed: true } });
+  async createEntry(db: PrismaClient, data: CreateBookingInput, organizationId: string, pusher?: CloudflarePusher, notificationService?: NotificationService) {
+    const branch = await db.branch.findUnique({ where: { id: data.branchId }, select: { isEmergencyClosed: true, name: true } });
     if (branch?.isEmergencyClosed) {
       throw new HTTPException(403, { message: "Branch is temporarily closed due to an emergency" });
     }
@@ -257,6 +260,29 @@ export const QueueService = {
         console.error("Pusher sync error:", e.message);
       }
     }
+
+    if (notificationService && result.customerId) {
+      const branchName = branch?.name ?? "the branch";
+      const title = "Booking Confirmed";
+      const body = `Your booking at ${branchName} is confirmed!`;
+      const notifData = { type: "BOOKING_CONFIRMED", bookingId: result.bookingId ?? "", branchId: result.branchId };
+
+      notificationService
+        .sendPush(result.customerId, title, body, notifData)
+        .catch((e: any) => console.error("[queue] Booking confirmation push failed:", e.message));
+
+      db.notification.create({
+        data: {
+          organizationId,
+          userId: result.customerId,
+          title,
+          body,
+          type: "BOOKING_CONFIRMED",
+          data: notifData,
+        },
+      }).catch((e: any) => console.error("[queue] Notification record create failed:", e.message));
+    }
+
     return result;
   },
 
@@ -265,9 +291,10 @@ export const QueueService = {
     id: string,
     data: UpdateQueueStatusInput,
     organizationId: string,
-    pusher?: CloudflarePusher
+    pusher?: CloudflarePusher,
+    notificationService?: NotificationService,
   ) {
-    let updateData: Prisma.QueueEntryUpdateInput = {
+    const updateData: Prisma.QueueEntryUpdateInput = {
       status: data.status as QueueStatus,
     };
 
@@ -327,6 +354,45 @@ export const QueueService = {
     }
 
     if (pusher) void pusher.trigger(`branch-${entry.branchId}`, "QUEUE_UPDATED", entry);
+
+    if (notificationService && entry.customerId && (data.status === "CALLED" || data.status === "COMPLETED")) {
+      const branchRow = await db.branch.findUnique({ where: { id: entry.branchId }, select: { name: true } });
+      const branchName = branchRow?.name ?? "the branch";
+
+      const notifMap: Record<string, { title: string; body: string; type: string }> = {
+        CALLED: {
+          title: "Your Turn Is Coming",
+          body: `You've been called — please head to ${branchName}!`,
+          type: "QUEUE_CALLED",
+        },
+        COMPLETED: {
+          title: "Service Complete",
+          body: "Your service is complete. Thank you for visiting!",
+          type: "QUEUE_COMPLETED",
+        },
+      };
+
+      const notif = notifMap[data.status];
+      if (notif) {
+        const notifData = { type: notif.type, queueEntryId: entry.id, branchId: entry.branchId };
+
+        notificationService
+          .sendPush(entry.customerId, notif.title, notif.body, notifData)
+          .catch((e: any) => console.error(`[queue] ${notif.type} push failed:`, e.message));
+
+        db.notification.create({
+          data: {
+            organizationId,
+            userId: entry.customerId,
+            title: notif.title,
+            body: notif.body,
+            type: notif.type,
+            data: notifData,
+          },
+        }).catch((e: any) => console.error(`[queue] ${notif.type} notification record failed:`, e.message));
+      }
+    }
+
     return entry;
   },
 
@@ -370,11 +436,76 @@ export const QueueService = {
     return entry;
   },
 
+  async prepayEntry(
+    db: PrismaClient,
+    entryId: string,
+    userId: string,
+    organizationId: string,
+    opts: {
+      successRedirectUrl: string;
+      failureRedirectUrl: string;
+      secretKey: string;
+    },
+  ) {
+    const entry = await db.queueEntry.findUnique({
+      where: { id: entryId },
+      include: {
+        booking: {
+          include: { items: true },
+        },
+      },
+    });
+
+    if (!entry) throw new HTTPException(404, { message: "Entry not found" });
+    if (entry.organizationId !== organizationId) {
+      throw new HTTPException(403, { message: "Entry not found" });
+    }
+    if (entry.customerId !== userId) {
+      throw new HTTPException(403, { message: "You can only prepay for your own bookings" });
+    }
+    if (entry.status !== "WAITING") {
+      throw new HTTPException(400, { message: "Only WAITING entries can be prepaid" });
+    }
+    if (!entry.booking?.items?.length) {
+      throw new HTTPException(400, { message: "Booking has no line items" });
+    }
+
+    const prepayEnabled = await ConfigService.getValue(db, "PREPAYMENT_ENABLED");
+    if (prepayEnabled !== "true") {
+      throw new HTTPException(400, { message: "Prepayment is not enabled" });
+    }
+
+    const depositPct = await ConfigService.getNumericConfig(db, "DEPOSIT_PERCENTAGE", 100);
+    const totalBookingPrice = entry.booking.items.reduce((sum, i) => sum + i.price, 0);
+    const amount = Math.max(0, Math.round((totalBookingPrice * depositPct) / 100));
+    if (amount <= 0) {
+      throw new HTTPException(400, { message: "Computed prepayment amount is zero" });
+    }
+
+    const externalId = `queue-prepay-${entryId}-${Date.now()}`;
+    const invoice = await createXenditInvoice({
+      secretKey: opts.secretKey,
+      externalId,
+      amount,
+      description: `Prepayment for queue entry ${entryId}`,
+      successRedirectUrl: opts.successRedirectUrl,
+      failureRedirectUrl: opts.failureRedirectUrl,
+    });
+
+    await db.queueEntry.update({
+      where: { id: entryId },
+      data: { prepaymentReference: invoice.id },
+    });
+
+    return { invoiceId: invoice.id, invoiceUrl: invoice.invoice_url, amount };
+  },
+
   async customerCancelEntry(
     db: PrismaClient,
     entryId: string,
     userId: string,
-    pusher?: CloudflarePusher
+    pusher?: CloudflarePusher,
+    notificationService?: NotificationService,
   ) {
     const entry = await db.queueEntry.findUnique({
       where: { id: entryId },
@@ -389,10 +520,36 @@ export const QueueService = {
       throw new HTTPException(400, { message: "Only WAITING or CALLED entries can be cancelled" });
     }
 
+    const prepaidNum =
+      entry.prepaidAmount != null ? Number(entry.prepaidAmount.toString()) : 0;
+    const hasPrepaid = prepaidNum > 0;
+
+    let refundAmount: number | null = null;
+    let penaltyApplied = false;
+    let policyHours = 0;
+    let penaltyPct = 0;
+    let hoursUntilAppointment: number | null = null;
+
+    if (hasPrepaid && entry.booking) {
+      policyHours = await ConfigService.getNumericConfig(db, "CANCELLATION_POLICY_HOURS", 0);
+      penaltyPct = await ConfigService.getNumericConfig(db, "CANCELLATION_PENALTY_PERCENTAGE", 0);
+      hoursUntilAppointment =
+        (entry.booking.scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60);
+      if (hoursUntilAppointment > policyHours) {
+        refundAmount = prepaidNum;
+      } else {
+        penaltyApplied = true;
+        refundAmount = Math.round(prepaidNum * (1 - penaltyPct / 100));
+      }
+    }
+
     const updated = await db.$transaction(async (tx) => {
       const updatedEntry = await tx.queueEntry.update({
         where: { id: entryId },
-        data: { status: "CANCELLED" },
+        data: {
+          status: "CANCELLED",
+          ...(refundAmount != null ? { refundAmount } : {}),
+        },
       });
 
       if (entry.bookingId) {
@@ -402,10 +559,43 @@ export const QueueService = {
         });
       }
 
+      if (hasPrepaid && entry.booking) {
+        await tx.auditLog.create({
+          data: {
+            organizationId: entry.organizationId,
+            userId,
+            action: "UPDATE",
+            entityType: "QueueEntry",
+            entityId: entryId,
+            branchId: entry.branchId,
+            details: {
+              event: "CUSTOMER_CANCEL_WITH_PREPAY",
+              prepaidAmount: prepaidNum,
+              refundAmount,
+              penaltyApplied,
+              cancellationPolicyHours: policyHours,
+              cancellationPenaltyPercentage: penaltyPct,
+              hoursUntilAppointment,
+            },
+          },
+        });
+      }
+
       return updatedEntry;
     });
 
     if (pusher) void pusher.trigger(`branch-${updated.branchId}`, "QUEUE_UPDATED", updated);
+
+    if (entry.booking) {
+      void WaitlistService.notifyNextWaitlisted(
+        db,
+        entry.organizationId,
+        entry.branchId,
+        entry.booking.scheduledAt,
+        notificationService,
+      );
+    }
+
     return updated;
   },
 

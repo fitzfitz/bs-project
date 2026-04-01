@@ -22,6 +22,7 @@ export type AppEnv = {
   };
   Variables: {
     db: PrismaClient;
+    requestId?: string;
     userId?: string;
     organizationId?: string;
     tenantRoleId?: string;

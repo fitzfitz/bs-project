@@ -9,6 +9,12 @@ import {
   currentSessionQuerySchema,
 } from "./cash-drawer.schema";
 import { createSuccessSchema, ErrorSchema } from "../../utils/openapi";
+import {
+  CashDrawerStatusEnum,
+  CashEntryTypeEnum,
+  BranchSummarySchema,
+  UserSummarySchema,
+} from "../../utils/zod-prisma";
 
 // -----------------------------------------------------------------------------
 // Response schemas
@@ -17,7 +23,8 @@ import { createSuccessSchema, ErrorSchema } from "../../utils/openapi";
 const CashDrawerEntrySchema = z.object({
   id: z.string(),
   sessionId: z.string(),
-  type: z.enum(["SALE", "REFUND", "ADJUSTMENT", "FLOAT"]),
+  organizationId: z.string(),
+  type: CashEntryTypeEnum,
   amount: z.number(),
   reference: z.string().nullable(),
   createdAt: z.string(),
@@ -31,19 +38,19 @@ const CashDrawerSessionSchema = z.object({
   closingBalance: z.number().nullable(),
   expectedBalance: z.number().nullable(),
   discrepancy: z.number().nullable(),
-  status: z.enum(["OPEN", "CLOSED"]),
+  status: CashDrawerStatusEnum,
   openedAt: z.string(),
   closedAt: z.string().nullable(),
   notes: z.string().nullable(),
-  branch: z.any().optional(),
-  openedBy: z.any().optional(),
+  branch: BranchSummarySchema.optional(),
+  openedBy: UserSummarySchema.optional(),
   entries: z.array(CashDrawerEntrySchema).optional(),
 });
 
 const SessionSuccessSchema = createSuccessSchema(
   CashDrawerSessionSchema.nullable()
 );
-const EntrySuccessSchema = createSuccessSchema(z.any());
+const EntrySuccessSchema = createSuccessSchema(CashDrawerEntrySchema);
 
 // -----------------------------------------------------------------------------
 // ROUTES

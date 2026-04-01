@@ -6,8 +6,8 @@ import {
   ALLOWED_MIME_TYPES,
   MAX_FILE_SIZE,
   UPLOAD_PREFIXES,
+  uploadMultipartFormSchema,
   uploadResponseSchema,
-  type UploadPrefix,
 } from "./media.schema";
 import { randomUUID } from "node:crypto";
 
@@ -52,7 +52,7 @@ export const uploadRoute = createRoute({
       entityId: z.string().optional(),
     }),
     body: {
-      content: { "multipart/form-data": { schema: z.any() } },
+      content: { "multipart/form-data": { schema: uploadMultipartFormSchema } },
       required: true,
     },
   },
@@ -102,7 +102,7 @@ export const uploadHandler: RouteHandler<typeof uploadRoute, AppEnv> = async (
     );
   }
 
-  if (!ALLOWED_MIME_TYPES.includes(file.type as any)) {
+  if (!(ALLOWED_MIME_TYPES as readonly string[]).includes(file.type)) {
     return c.json(
       {
         success: false as const,

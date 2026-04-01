@@ -5,10 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   verify:
-    name: Lint → Typecheck
+    name: Lint / Typecheck / Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,5 +32,115 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      # - name: Test
-      #   run: pnpm test
+      - name: Test
+        run: pnpm test
+
+  e2e:
+    name: E2E Tests (Playwright)
+    needs: verify
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Build apps
+        run: pnpm build
+
+      - name: Run E2E tests (admin)
+        run: pnpm --filter @tmng/barber-admin test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:4173
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/*/test-results/
+          retention-days: 7
+
+  build-and-push:
+    name: Build & Push Docker Images
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/saas-api:latest
+            ghcr.io/${{ github.repository_owner }}/saas-api:${{ github.sha }}
+
+      - name: Build and push Client image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/client/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_URL=${{ vars.VITE_API_URL }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/barber-client:latest
+            ghcr.io/${{ github.repository_owner }}/barber-client:${{ github.sha }}
+
+      - name: Build and push Admin image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/admin/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_URL=${{ vars.VITE_API_URL }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/barber-admin:latest
+            ghcr.io/${{ github.repository_owner }}/barber-admin:${{ github.sha }}
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/tmng
+            docker compose pull saas-api barber-client barber-admin
+            docker compose up -d saas-api barber-client barber-admin
+            docker image prune -f

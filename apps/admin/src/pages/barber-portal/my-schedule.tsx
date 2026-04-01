@@ -1,6 +1,9 @@
+import { useTranslation } from "react-i18next";
 import { useSessionStore } from "@/features/auth/store";
 import { useBranchStore } from "@/store/use-branch-store";
 import { BranchSelector } from "@/components/branch-selector";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
 import { useQueue, type QueueEntry } from "@/features/queue/api/use-queue";
 import { User, Clock, Scissors } from "lucide-react";
 
@@ -70,6 +73,7 @@ function EntryCard({ entry }: { entry: QueueEntry }) {
 }
 
 export default function MySchedulePage() {
+  const { t } = useTranslation();
   const staffProfileId = useSessionStore((s) => s.user?.staffProfile?.id);
   const selectedBranchId = useBranchStore((s) => s.selectedBranchId) ?? "";
   const today = new Date().toISOString().slice(0, 10);
@@ -84,21 +88,18 @@ export default function MySchedulePage() {
 
   if (!staffProfileId) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">My Schedule</h1>
+      <PageContainer>
+        <PageHeader title={t("barber-portal:mySchedule")} />
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Barber profile not found. Please contact support.
+          {t("barber-portal:staffProfileNotFound")}
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-2xl font-semibold">My Schedule</h1>
-        <BranchSelector />
-      </div>
+    <PageContainer>
+      <PageHeader title={t("barber-portal:mySchedule")} actions={<BranchSelector />} />
 
       {!selectedBranchId ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600">
@@ -112,7 +113,7 @@ export default function MySchedulePage() {
         </div>
       ) : entries.length === 0 ? (
         <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-slate-500">
-          No appointments scheduled for today.
+          {t("barber-portal:noAppointments")}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -121,6 +122,6 @@ export default function MySchedulePage() {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -20,11 +20,12 @@ export type UserRow = {
 export type UserDetail = UserRow & {
   updatedAt: string;
   staffProfile?: { id: string; tier: string; bio: string | null } | null;
-  customerMembership?: { id: string; points: number; tier: string } | null;
+  customerMembership?: { id: string; pointsBalance: number; tier: string } | null;
 };
 
 type ListParams = {
-  tenantRoleId?: string;
+  /** Filters by tenant role name (matches API `listUsersQuery.role`). */
+  role?: string;
   branchId?: string;
   search?: string;
   isActive?: string;
@@ -34,7 +35,7 @@ type ListParams = {
 
 export function useUsers(params: ListParams = {}) {
   const search = new URLSearchParams();
-  if (params.tenantRoleId) search.set("tenantRoleId", params.tenantRoleId);
+  if (params.role) search.set("role", params.role);
   if (params.branchId) search.set("branchId", params.branchId);
   if (params.search) search.set("search", params.search);
   if (params.isActive !== undefined) search.set("isActive", params.isActive);

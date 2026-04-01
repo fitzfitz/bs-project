@@ -1,5 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
-import { api, type ApiResponse } from "@/lib/api";
+import { api, type ApiResponse, type PaginationResponse } from "@/lib/api";
+
+export type StaffEarning = {
+  id: string;
+  staffProfileId: string;
+  date: string;
+  commissionBase: number;
+  commission: number;
+  tips: number;
+  total: number;
+  createdAt: string;
+  staff: {
+    id: string;
+    user: { firstName: string; lastName: string };
+  };
+};
+
+type PaginatedEarningsResponse = ApiResponse<StaffEarning[]> & {
+  pagination: PaginationResponse;
+};
 
 export function useEarnings(params: { staffProfileId?: string; dateFrom?: string; dateTo?: string; page?: number }) {
   const search = new URLSearchParams();
@@ -9,7 +28,7 @@ export function useEarnings(params: { staffProfileId?: string; dateFrom?: string
   if (params.page) search.set("page", String(params.page));
   return useQuery({
     queryKey: ["commissions", params],
-    queryFn: () => api.get<ApiResponse<unknown[]>>(`/commissions?${search}`),
+    queryFn: () => api.get<PaginatedEarningsResponse>(`/commissions?${search}`),
   });
 }
 
@@ -21,6 +40,6 @@ export function useMyEarnings(params: { dateFrom?: string; dateTo?: string; page
   if (params.page) search.set("page", String(params.page));
   return useQuery({
     queryKey: ["commissions", "me", params],
-    queryFn: () => api.get<ApiResponse<unknown[]>>(`/commissions/me?${search}`),
+    queryFn: () => api.get<PaginatedEarningsResponse>(`/commissions/me?${search}`),
   });
 }

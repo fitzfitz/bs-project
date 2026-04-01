@@ -1,20 +1,22 @@
 import { Crown, Sparkles } from "lucide-react";
+import { useSessionStore } from "@/features/auth/store";
+import { formatCurrency } from "@/lib/utils";
 import type { CustomerMembership } from "../types";
-import { TIER_COLORS, POINTS_VALUE_IDR } from "../types";
+import { TIER_COLORS, POINTS_VALUE } from "../types";
 
 type Props = {
   account: CustomerMembership;
 };
 
 export function LoyaltyCard({ account }: Props) {
+  const org = useSessionStore((s) => s.user?.organization);
   const tierColor = TIER_COLORS[account.tier];
   const expiryDate = account.pointsExpiringAt
     ? new Date(account.pointsExpiringAt)
     : null;
-  const pointsValueIdr = account.pointsBalance * POINTS_VALUE_IDR;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white shadow-lg">
+    <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-slate-900 to-slate-800 p-6 text-white shadow-lg">
       {/* Decorative glow */}
       <div
         className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-20 blur-2xl"
@@ -38,10 +40,7 @@ export function LoyaltyCard({ account }: Props) {
             <div className="text-xs font-medium uppercase tracking-wider text-white/60">
               Member Tier
             </div>
-            <div
-              className="text-lg font-bold"
-              style={{ color: tierColor }}
-            >
+            <div className="text-lg font-bold" style={{ color: tierColor }}>
               {account.tier}
             </div>
           </div>
@@ -64,7 +63,12 @@ export function LoyaltyCard({ account }: Props) {
           <span className="text-sm font-medium text-white/40">pts</span>
         </div>
         <div className="mt-1 text-xs text-white/40">
-          Worth Rp {pointsValueIdr.toLocaleString("id-ID")}
+          Worth{" "}
+          {formatCurrency(
+            account.pointsBalance * POINTS_VALUE,
+            org?.currency,
+            org?.locale
+          )}
         </div>
       </div>
 

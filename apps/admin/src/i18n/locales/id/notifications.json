@@ -1,0 +1,15 @@
+{
+  "title": "Manajemen Notifikasi",
+  "totalNotifications": "Total Notifikasi",
+  "unread": "Belum Dibaca",
+  "readRate": "Tingkat Baca",
+  "commonType": "Tipe Paling Umum",
+  "testSend": "Kirim Tes",
+  "sendTestNotification": "Kirim Notifikasi Tes",
+  "notificationType": "Tipe Notifikasi",
+  "noNotifications": "Tidak ada notifikasi ditemukan",
+  "channelConfig": "Konfigurasi Saluran",
+  "pushEnabled": "Push Aktif",
+  "whatsappEnabled": "WhatsApp Aktif",
+  "smsEnabled": "SMS Aktif"
+}

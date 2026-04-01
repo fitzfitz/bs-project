@@ -10,6 +10,12 @@ import {
   createPaginatedSuccessSchema,
   ErrorSchema,
 } from "../../utils/openapi";
+import {
+  RoleScopeEnum,
+  BranchSummarySchema,
+  StaffTierEnum,
+  LoyaltyTierEnum,
+} from "../../utils/zod-prisma";
 import type { AppEnv } from "../../types";
 import type { RouteHandler } from "@hono/zod-openapi";
 
@@ -20,9 +26,40 @@ const UserSchema = z.object({
   lastName: z.string(),
   phone: z.string().nullable().optional(),
   tenantRoleId: z.string(),
-  tenantRole: z.object({ name: z.string(), scope: z.string() }).optional(),
+  tenantRole: z.object({ name: z.string(), scope: RoleScopeEnum }).nullable().optional(),
   isActive: z.boolean(),
   createdAt: z.string().optional(),
+});
+
+const UserDetailSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  phone: z.string().nullable().optional(),
+  tenantRole: z.object({ id: z.string(), name: z.string(), scope: RoleScopeEnum }).nullable().optional(),
+  isActive: z.boolean(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  branch: BranchSummarySchema.nullable().optional(),
+  staffProfile: z.object({ id: z.string(), tier: StaffTierEnum, bio: z.string().nullable().optional() }).nullable().optional(),
+  customerMembership: z.object({ id: z.string(), pointsBalance: z.number(), tier: LoyaltyTierEnum }).nullable().optional(),
+});
+
+const UpdateRoleResponseSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  tenantRoleId: z.string(),
+  tenantRole: z.object({ name: z.string(), scope: RoleScopeEnum }).nullable().optional(),
+  isActive: z.boolean(),
+});
+
+const AssignBranchResponseSchema = z.object({
+  id: z.string(),
+  branchId: z.string().nullable(),
+  branch: BranchSummarySchema.nullable().optional(),
 });
 
 // ── Route definitions ──────────────────────────────────────────────
@@ -56,7 +93,7 @@ export const getUserRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: createSuccessSchema(z.any()) },
+        "application/json": { schema: createSuccessSchema(UserDetailSchema) },
       },
       description: "User details",
     },
@@ -80,7 +117,9 @@ export const updateRoleRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: createSuccessSchema(UserSchema) },
+        "application/json": {
+          schema: createSuccessSchema(UpdateRoleResponseSchema),
+        },
       },
       description: "Role updated",
     },
@@ -108,7 +147,9 @@ export const assignBranchRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: createSuccessSchema(z.any()) },
+        "application/json": {
+          schema: createSuccessSchema(AssignBranchResponseSchema),
+        },
       },
       description: "Branch assigned",
     },

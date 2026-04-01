@@ -39,11 +39,14 @@ export function useCustomerMembership(userId: string | undefined) {
   });
 }
 
+/** PATCH /loyalty/admin/adjust — API returns `{ success, message }` only (no `data`). */
+export type AdjustPointsResponse = { success: true; message: string };
+
 export function useAdjustPoints() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { userId: string; points: number; description: string }) =>
-      api.patch<ApiResponse<CustomerMembership>>("/loyalty/admin/adjust", data),
+      api.patch<AdjustPointsResponse>("/loyalty/admin/adjust", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-loyalty"] });
     },

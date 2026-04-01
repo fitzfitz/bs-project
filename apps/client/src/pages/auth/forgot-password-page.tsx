@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,6 +23,7 @@ const ForgotPasswordSchema = z.object({
 type ForgotPasswordFormValues = z.infer<typeof ForgotPasswordSchema>;
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation('auth');
   const [submitted, setSubmitted] = useState(false);
 
   const form = useForm<ForgotPasswordFormValues>({
@@ -45,12 +47,12 @@ export default function ForgotPasswordPage() {
           <div className="w-16 h-16 bg-primary/10 rounded-2xl mx-auto mb-6 flex items-center justify-center">
             <span className="text-3xl">✉️</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Check your email</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{t('checkEmailTitle')}</h1>
           <p className="text-slate-500 mt-2">
-            If an account exists with that email, you will receive reset instructions.
+            {t('resetSent')}
           </p>
           <Button asChild className="mt-8" size="lg">
-            <Link to="/login">Back to Sign In</Link>
+            <Link to="/login">{t('backToSignIn')}</Link>
           </Button>
         </div>
       </div>
@@ -64,8 +66,8 @@ export default function ForgotPasswordPage() {
           <div className="w-16 h-16 bg-primary rounded-2xl mx-auto mb-6 shadow-lg shadow-primary/30 flex items-center justify-center">
             <span className="text-3xl">🔑</span>
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Forgot Password?</h1>
-          <p className="text-slate-500 mt-2">Enter your email and we’ll send you reset instructions.</p>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{t('forgotPassword')}</h1>
+          <p className="text-slate-500 mt-2">{t('forgotSubtitle')}</p>
         </div>
 
         <Form {...form}>
@@ -94,14 +96,14 @@ export default function ForgotPasswordPage() {
               )}
             />
             <Button type="submit" disabled={form.formState.isSubmitting} size="lg" className="w-full h-12 rounded-xl mt-4">
-              {form.formState.isSubmitting ? 'Sending…' : 'Send Reset Link'}
+              {form.formState.isSubmitting ? t('sending') : t('sendResetLink')}
             </Button>
           </form>
         </Form>
 
         <p className="text-center mt-6 text-sm text-slate-500">
           <Link to="/login" className="font-medium text-primary hover:underline">
-            Back to Sign In
+            {t('backToSignIn')}
           </Link>
         </p>
       </div>

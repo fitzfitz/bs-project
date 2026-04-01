@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Prisma } from "@prisma/client";
 
 interface SegmentRules {
   minVisits?: number;
@@ -130,10 +130,10 @@ export const CrmService = {
           organizationId,
           branchId,
           name,
-          rules: rules as any,
+          rules: rules as Prisma.InputJsonValue,
           isAutomatic: true,
         },
-        update: { rules: rules as any },
+        update: { rules: rules as Prisma.InputJsonValue },
       });
     }
 

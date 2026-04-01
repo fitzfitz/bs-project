@@ -35,7 +35,7 @@ The API runs on `http://localhost:8787/api` with Swagger docs at `http://localho
 
 - **Runtime:** Node.js 22 + `@hono/node-server`
 - **Framework:** Hono with `@hono/zod-openapi` for typed routes and auto-generated OpenAPI docs
-- **Database:** PostgreSQL via Prisma ORM (46 models, 27 enums)
+- **Database:** PostgreSQL via Prisma ORM (50 models, 28 enums)
 - **Auth:** JWT access/refresh tokens, database-driven RBAC (`requirePermission()`), Google OAuth, platform admin auth
 - **Real-time:** Soketi (Pusher-compatible) for live queue updates
 - **Media:** S3/MinIO for file uploads

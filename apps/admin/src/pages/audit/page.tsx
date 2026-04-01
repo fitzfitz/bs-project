@@ -1,10 +1,14 @@
+import { useTranslation } from "react-i18next";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
 import { AuditViewer } from "@/features/audit/widgets/audit-viewer";
 
 export default function AuditPage() {
+  const { t } = useTranslation();
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Audit Log</h1>
+    <PageContainer>
+      <PageHeader title={t("audit:title")} />
       <AuditViewer />
-    </div>
+    </PageContainer>
   );
 }

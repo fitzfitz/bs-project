@@ -2,6 +2,15 @@ import { createMiddleware } from "hono/factory";
 import type { AppEnv } from "../types";
 import type { PrismaClient } from "@prisma/client";
 
+interface ExtArgs {
+  where?: Record<string, unknown>;
+  data?: Record<string, unknown> | Record<string, unknown>[];
+  [key: string]: unknown;
+}
+type ExtQueryCallback = (params: { args: ExtArgs; query: (args: ExtArgs) => Promise<unknown> }) => Promise<unknown>;
+type ExtensionParam = Extract<Parameters<PrismaClient["$extends"]>[0], { query?: unknown }>;
+type PrismaQueryExt = NonNullable<ExtensionParam["query"]>;
+
 const TENANT_MODELS = [
   "user",
   "branch",
@@ -43,6 +52,7 @@ const TENANT_MODELS = [
   "tenantRole",
   "tenantRoleService",
   "refreshToken",
+  "waitlistEntry",
 ] as const;
 
 /**
@@ -50,62 +60,64 @@ const TENANT_MODELS = [
  * into all `where` clauses for tenant-scoped models.
  */
 export function scopeToOrg(db: PrismaClient, orgId: string): PrismaClient {
-  const queryOverrides: Record<string, any> = {};
+  const queryOverrides: Record<string, Record<string, ExtQueryCallback>> = {};
 
   for (const model of TENANT_MODELS) {
     queryOverrides[model] = {
-      async findMany({ args, query }: any) {
+      async findMany({ args, query }) {
         args.where = { ...args.where, organizationId: orgId };
         return query(args);
       },
-      async findFirst({ args, query }: any) {
+      async findFirst({ args, query }) {
         args.where = { ...args.where, organizationId: orgId };
         return query(args);
       },
-      async findUnique({ args, query }: any) {
+      async findUnique({ args, query }) {
         return query(args);
       },
-      async create({ args, query }: any) {
-        args.data = { ...args.data, organizationId: orgId };
+      async create({ args, query }) {
+        const data = args.data as Record<string, unknown>;
+        args.data = { ...data, organizationId: orgId };
         return query(args);
       },
-      async createMany({ args, query }: any) {
+      async createMany({ args, query }) {
         if (Array.isArray(args.data)) {
-          args.data = args.data.map((d: any) => ({
+          args.data = args.data.map((d: Record<string, unknown>) => ({
             ...d,
             organizationId: orgId,
           }));
         } else {
-          args.data = { ...args.data, organizationId: orgId };
+          const data = args.data as Record<string, unknown>;
+          args.data = { ...data, organizationId: orgId };
         }
         return query(args);
       },
-      async update({ args, query }: any) {
+      async update({ args, query }) {
         return query(args);
       },
-      async updateMany({ args, query }: any) {
+      async updateMany({ args, query }) {
         args.where = { ...args.where, organizationId: orgId };
         return query(args);
       },
-      async delete({ args, query }: any) {
+      async delete({ args, query }) {
         return query(args);
       },
-      async deleteMany({ args, query }: any) {
+      async deleteMany({ args, query }) {
         args.where = { ...args.where, organizationId: orgId };
         return query(args);
       },
-      async count({ args, query }: any) {
+      async count({ args, query }) {
         args.where = { ...args.where, organizationId: orgId };
         return query(args);
       },
-      async aggregate({ args, query }: any) {
+      async aggregate({ args, query }) {
         args.where = { ...args.where, organizationId: orgId };
         return query(args);
       },
     };
   }
 
-  return db.$extends({ query: queryOverrides as any }) as unknown as PrismaClient;
+  return db.$extends({ query: queryOverrides as PrismaQueryExt }) as unknown as PrismaClient;
 }
 
 /**
@@ -135,30 +147,31 @@ export function scopeToBranch(
     "customerSegment",
   ] as const;
 
-  const queryOverrides: Record<string, any> = {};
+  const queryOverrides: Record<string, Record<string, ExtQueryCallback>> = {};
 
   for (const model of branchModels) {
     queryOverrides[model] = {
-      async findMany({ args, query }: any) {
+      async findMany({ args, query }) {
         args.where = { ...args.where, branchId };
         return query(args);
       },
-      async findFirst({ args, query }: any) {
+      async findFirst({ args, query }) {
         args.where = { ...args.where, branchId };
         return query(args);
       },
-      async create({ args, query }: any) {
-        args.data = { ...args.data, branchId };
+      async create({ args, query }) {
+        const data = args.data as Record<string, unknown>;
+        args.data = { ...data, branchId };
         return query(args);
       },
-      async count({ args, query }: any) {
+      async count({ args, query }) {
         args.where = { ...args.where, branchId };
         return query(args);
       },
     };
   }
 
-  return db.$extends({ query: queryOverrides as any }) as unknown as PrismaClient;
+  return db.$extends({ query: queryOverrides as PrismaQueryExt }) as unknown as PrismaClient;
 }
 
 /**

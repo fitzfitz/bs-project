@@ -1,0 +1,16 @@
+{
+  "title": "Commissions",
+  "date": "Date",
+  "base": "Base",
+  "totalColumn": "Total",
+  "earnings": "Earnings",
+  "commission": "Commission",
+  "tips": "Tips",
+  "totalEarnings": "Total Earnings",
+  "model": "Model",
+  "flatPercentage": "Flat Percentage",
+  "slidingScale": "Sliding Scale",
+  "basePlusBonus": "Base + Bonus",
+  "period": "Period",
+  "noEarnings": "No earnings found"
+}

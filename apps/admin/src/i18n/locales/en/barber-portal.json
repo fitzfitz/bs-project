@@ -1,0 +1,15 @@
+{
+  "staffProfileNotFound": "Barber profile not found. Please contact support.",
+  "selectBranchForSchedule": "Select a branch to view your schedule.",
+  "totalEarnedThisPage": "Total earned (this page)",
+  "noEarningsData": "No earnings data found",
+  "noAttendanceInPeriod": "No attendance records in this period.",
+  "mySchedule": "My Schedule",
+  "myCommissions": "My Commissions",
+  "myAttendance": "My Attendance",
+  "todaysQueue": "Today's Queue",
+  "noAppointments": "No appointments today",
+  "earnings": "Earnings",
+  "clockInOut": "Clock In / Out",
+  "history": "History"
+}

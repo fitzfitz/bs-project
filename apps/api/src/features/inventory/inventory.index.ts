@@ -26,6 +26,8 @@ import {
   stockOutHandler,
   adjustStockRoute,
   adjustStockHandler,
+  getStockMovementsRoute,
+  getStockMovementsHandler,
 } from "./inventory.handlers";
 
 const inventoryApp = new OpenAPIHono<AppEnv>();
@@ -37,6 +39,7 @@ readApp.openapi(getProductRoute, getProductHandler);
 readApp.openapi(getBranchInventoryRoute, getBranchInventoryHandler);
 readApp.openapi(getLowStockAlertsRoute, getLowStockAlertsHandler);
 readApp.openapi(getValuationRoute, getValuationHandler);
+readApp.openapi(getStockMovementsRoute, getStockMovementsHandler);
 
 const writeStockApp = new OpenAPIHono<AppEnv>();
 writeStockApp.use("*", authMiddleware(), orgScopeMiddleware(), requirePermission("INVENTORY", "update"));

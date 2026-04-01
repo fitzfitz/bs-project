@@ -17,32 +17,50 @@ export const RegisterSchema = z.object({
 
 export type RegisterFormValues = z.infer<typeof RegisterSchema>;
 
+export type PermissionActions = {
+  canCreate: boolean;
+  canRead: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+};
+
+export type AuthUser = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string | null;
+  tenantRoleId: string;
+  organizationId: string;
+  branchId?: string | null;
+  isCustomer?: boolean;
+  avatar?: string | null;
+  isActive?: boolean;
+  authProvider?: string;
+  emailVerified?: boolean;
+  emailOptIn?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  branch?: { id: string; name: string } | null;
+  tenantRole?: { id: string; name: string; scope: string } | null;
+  staffProfile?: { id: string; tier: string } | null;
+  permissions?: Record<string, PermissionActions>;
+};
+
 export type LoginResponse = {
-  success: boolean;
+  success: true;
   data: {
-    user: {
-      id: string;
-      email: string;
-      firstName: string;
-      lastName: string;
-      tenantRoleId: string;
-      tenantRole?: { name: string; scope: string };
-      isCustomer?: boolean;
-    };
+    user: AuthUser;
     accessToken: string;
     refreshToken: string;
   };
 };
 
 export type RegisterResponse = {
-  success: boolean;
+  success: true;
   data: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    tenantRoleId: string;
-    tenantRole?: { name: string; scope: string };
-    isCustomer?: boolean;
+    user: AuthUser;
+    accessToken: string;
+    refreshToken: string;
   };
 };

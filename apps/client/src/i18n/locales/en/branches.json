@@ -1,0 +1,22 @@
+{
+  "title": "Find a Branch",
+  "pageSubtitle": "Find the nearest branch and book your spot.",
+  "searchPlaceholder": "Search by city or name...",
+  "listView": "List",
+  "mapView": "Map",
+  "favorite": "Favorite",
+  "unfavorite": "Remove Favorite",
+  "openNow": "Open Now",
+  "closed": "Closed",
+  "operatingHours": "Operating Hours",
+  "services": "Services",
+  "distance": "Distance",
+  "noBranches": "No branches found",
+  "viewDetails": "View Details",
+  "loadingLocations": "Loading locations...",
+  "temporarilyClosed": "Temporarily Closed",
+  "bookHere": "Book Here",
+  "details": "Details",
+  "reviews": "Reviews",
+  "noAdditionalDetails": "No additional details available"
+}

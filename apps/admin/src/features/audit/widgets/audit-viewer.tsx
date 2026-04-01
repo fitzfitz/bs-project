@@ -86,8 +86,8 @@ function AuditLogTab() {
     limit: 30,
   });
 
-  const logs: AuditLogEntry[] = (data as any)?.data ?? [];
-  const pagination = (data as any)?.pagination;
+  const logs: AuditLogEntry[] = data?.data ?? [];
+  const pagination = data?.pagination;
 
   return (
     <div className="space-y-4">
@@ -190,7 +190,7 @@ function AnomalyTab() {
   const [resolveNotes, setResolveNotes] = useState("");
 
   const { data: statsData } = useAnomalyStats(branchId ?? undefined);
-  const stats = (statsData as any)?.data;
+  const stats = statsData?.data;
 
   const { data, isLoading } = useAnomalies({
     branchId: branchId ?? undefined,
@@ -200,8 +200,8 @@ function AnomalyTab() {
   });
 
   const resolve = useResolveAnomaly();
-  const anomalies: AnomalyFlag[] = (data as any)?.data ?? [];
-  const pagination = (data as any)?.pagination;
+  const anomalies: AnomalyFlag[] = data?.data ?? [];
+  const pagination = data?.pagination;
 
   function handleResolve() {
     if (!resolving) return;
@@ -216,7 +216,9 @@ function AnomalyTab() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatMini label="Total Anomalies" value={stats.total} />
           <StatMini label="Unresolved" value={stats.unresolved} highlight />
-          {(stats.bySeverity ?? []).filter((s: any) => s.severity === "CRITICAL" || s.severity === "HIGH").map((s: any) => (
+          {(stats.bySeverity ?? [])
+            .filter((s: { severity: string; count: number }) => s.severity === "CRITICAL" || s.severity === "HIGH")
+            .map((s: { severity: string; count: number }) => (
             <StatMini key={s.severity} label={s.severity} value={s.count} />
           ))}
         </div>

@@ -1,0 +1,20 @@
+{
+  "title": "Attendance",
+  "attendanceLog": "Attendance Log",
+  "calendar": "Calendar",
+  "clockIn": "Clock In",
+  "clockOut": "Clock Out",
+  "clockedIn": "Clocked In",
+  "clockedOut": "Clocked Out",
+  "shiftSchedule": "Shift Schedule",
+  "addShift": "Add Shift",
+  "weeklyView": "Weekly View",
+  "startTime": "Start Time",
+  "endTime": "End Time",
+  "duration": "Duration",
+  "noAttendance": "No attendance records",
+  "date": "Date",
+  "staffMember": "Staff Member",
+  "notes": "Notes",
+  "shiftActive": "Active"
+}

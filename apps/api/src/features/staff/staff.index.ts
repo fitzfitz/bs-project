@@ -18,6 +18,10 @@ import {
   assignToBranchHandler,
   removeFromBranchRoute,
   removeFromBranchHandler,
+  updateAvatarRoute,
+  updateAvatarHandler,
+  resetCommissionRoute,
+  resetCommissionHandler,
   updateStatusRoute,
   updateStatusHandler,
 } from "./staff.handlers";
@@ -43,6 +47,14 @@ staffApp.openapi(removeFromBranchRoute, removeFromBranchHandler);
 
 staffApp.on("DELETE", deleteStaffRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("STAFF_MANAGEMENT", "delete"), (c, next) => next());
 staffApp.openapi(deleteStaffRoute, deleteStaffHandler);
+
+// Avatar update
+staffApp.on("PATCH", updateAvatarRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("STAFF_MANAGEMENT", "update"), (c, next) => next());
+staffApp.openapi(updateAvatarRoute, updateAvatarHandler);
+
+// Reset commission to template
+staffApp.on("POST", resetCommissionRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("STAFF_MANAGEMENT", "update"), (c, next) => next());
+staffApp.openapi(resetCommissionRoute, resetCommissionHandler);
 
 // Status update — service providers can update their own status
 staffApp.on("PATCH", updateStatusRoute.path, authMiddleware(), orgScopeMiddleware(), requireStaff(), (c, next) => next());

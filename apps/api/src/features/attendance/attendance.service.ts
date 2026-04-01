@@ -131,7 +131,7 @@ export const AttendanceService = {
   async createShiftBlock(db: PrismaClient, data: CreateShiftBlockInput) {
     const staff = await db.staffProfile.findUnique({ where: { id: data.staffProfileId }, select: { organizationId: true } });
     if (!staff) throw new Error("Staff profile not found");
-    let shiftDate = new Date(data.date);
+    const shiftDate = new Date(data.date);
     shiftDate.setHours(0, 0, 0, 0);
 
     const shift = await db.shiftSchedule.upsert({

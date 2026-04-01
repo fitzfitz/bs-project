@@ -1,0 +1,15 @@
+{
+  "title": "Notification Management",
+  "totalNotifications": "Total Notifications",
+  "unread": "Unread",
+  "readRate": "Read Rate",
+  "commonType": "Most Common Type",
+  "testSend": "Test Send",
+  "sendTestNotification": "Send Test Notification",
+  "notificationType": "Notification Type",
+  "noNotifications": "No notifications found",
+  "channelConfig": "Channel Configuration",
+  "pushEnabled": "Push Enabled",
+  "whatsappEnabled": "WhatsApp Enabled",
+  "smsEnabled": "SMS Enabled"
+}

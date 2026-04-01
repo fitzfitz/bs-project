@@ -2,7 +2,6 @@ import type { PrismaClient, Prisma } from "@prisma/client";
 import type {
   CreateTransactionInput,
   AddPaymentsInput,
-  VoidTransactionInput,
   ListTransactionsQuery,
 } from "./transactions.schema";
 import { promotionsService } from "../promotions/promotions.service";
@@ -49,9 +48,16 @@ async function finalizeTransactionSideEffects(
     }
   }
 
-  // Loyalty: redeem & earn via LoyaltyService
+  // Loyalty: redeem & earn via LoyaltyService (config-driven rates)
   try {
     const { LoyaltyService } = await import("../loyalty/loyalty.service");
+    const { ConfigService } = await import("../config/config.service");
+    const [earnRate, redeemRate] = await Promise.all([
+      ConfigService.getNumericConfig(tx as unknown as PrismaClient, "POINTS_EARN_RATE", 10_000),
+      ConfigService.getNumericConfig(tx as unknown as PrismaClient, "POINTS_REDEEM_RATE", 500),
+    ]);
+    const loyaltyRates = { earnRate, redeemRate };
+
     if (updatedTransaction.loyaltyPointsUsed > 0 && updatedTransaction.customerId) {
       const txRecord = await tx.transaction.findUnique({
         where: { id: transactionId },
@@ -63,6 +69,7 @@ async function finalizeTransactionSideEffects(
         updatedTransaction.loyaltyPointsUsed,
         updatedTransaction.id,
         txRecord?.netAmount ?? 0,
+        loyaltyRates,
       );
     }
     if (updatedTransaction.customerId) {
@@ -75,6 +82,7 @@ async function finalizeTransactionSideEffects(
         updatedTransaction.customerId,
         updatedTransaction.id,
         txRecord?.netAmount ?? 0,
+        loyaltyRates,
       );
       if (result.pointsEarned > 0) {
         await tx.transaction.update({
@@ -329,6 +337,90 @@ export const TransactionService = {
           entityType: "Transaction",
           entityId: transactionId,
           details: { reason },
+        },
+      });
+
+      return updatedTransaction;
+    }, { timeout: 30000 });
+  },
+
+  async refundTransaction(db: PrismaClient, transactionId: string, userId: string, reason: string) {
+    return await db.$transaction(async (tx) => {
+      const transaction = await tx.transaction.findUnique({
+        where: { id: transactionId },
+        include: { items: true },
+      });
+
+      if (!transaction) throw new Error("Transaction not found");
+      if (transaction.status === "REFUNDED") throw new Error("Transaction is already refunded");
+      if (transaction.status !== "COMPLETED") throw new Error("Only completed transactions can be refunded");
+
+      // 1. Reverse inventory stock for product line items
+      const { InventoryService } = await import("../inventory/inventory.service");
+      for (const item of transaction.items) {
+        if (item.productId && item.quantity > 0) {
+          await InventoryService.recordVoidReversal(
+            tx,
+            transaction.branchId,
+            item.productId,
+            transaction.organizationId,
+            item.quantity,
+            `Refund transaction ${transactionId}`
+          );
+        }
+      }
+
+      // 2. Reverse loyalty points earned
+      if (transaction.loyaltyPointsEarned > 0 && transaction.customerId) {
+        try {
+          const { LoyaltyService } = await import("../loyalty/loyalty.service");
+          await LoyaltyService.adjustPoints(
+            tx as unknown as PrismaClient,
+            transaction.customerId,
+            -transaction.loyaltyPointsEarned,
+            `Reversed: refund transaction ${transactionId}`,
+          );
+        } catch (e: any) {
+          console.error("Refund side-effect: failed to reverse earned loyalty points:", e.message);
+        }
+      }
+
+      // 3. Restore loyalty points that were redeemed
+      if (transaction.loyaltyPointsUsed > 0 && transaction.customerId) {
+        try {
+          const { LoyaltyService } = await import("../loyalty/loyalty.service");
+          await LoyaltyService.adjustPoints(
+            tx as unknown as PrismaClient,
+            transaction.customerId,
+            transaction.loyaltyPointsUsed,
+            `Restored: refund transaction ${transactionId}`,
+          );
+        } catch (e: any) {
+          console.error("Refund side-effect: failed to restore redeemed loyalty points:", e.message);
+        }
+      }
+
+      // 4. Update status
+      const updatedTransaction = await tx.transaction.update({
+        where: { id: transactionId },
+        data: { status: "REFUNDED" },
+      });
+
+      // 5. Audit log
+      await tx.auditLog.create({
+        data: {
+          organizationId: transaction.organizationId,
+          userId,
+          branchId: transaction.branchId,
+          action: "REFUND_TRANSACTION",
+          entityType: "Transaction",
+          entityId: transactionId,
+          details: {
+            reason,
+            refundedAmount: transaction.totalDue,
+            loyaltyPointsEarnedReversed: transaction.loyaltyPointsEarned,
+            loyaltyPointsUsedRestored: transaction.loyaltyPointsUsed,
+          },
         },
       });
 

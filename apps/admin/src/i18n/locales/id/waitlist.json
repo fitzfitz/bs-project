@@ -1,0 +1,22 @@
+{
+  "title": "Manajemen Daftar Tunggu",
+  "noEntries": "Tidak ada entri daftar tunggu untuk cabang ini.",
+  "selectBranch": "Pilih cabang untuk melihat daftar tunggu.",
+  "customer": "Pelanggan",
+  "email": "Email",
+  "preferredDate": "Tanggal Pilihan",
+  "timeSlot": "Slot Waktu",
+  "status": "Status",
+  "notifiedAt": "Diberitahu Pada",
+  "expiresAt": "Kedaluwarsa Pada",
+  "createdAt": "Bergabung Pada",
+  "services": "Layanan",
+  "staff": "Preferensi Staf",
+  "noPreference": "Siapa saja",
+  "statusWaiting": "Menunggu",
+  "statusNotified": "Diberitahu",
+  "statusExpired": "Kedaluwarsa",
+  "statusCancelled": "Dibatalkan",
+  "totalEntries": "{{count}} entri",
+  "loading": "Memuat daftar tunggu..."
+}

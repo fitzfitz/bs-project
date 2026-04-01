@@ -1,0 +1,16 @@
+{
+  "title": "Portal Staf",
+  "staffProfileNotFound": "Profil barber tidak ditemukan. Hubungi dukungan.",
+  "selectBranchForSchedule": "Pilih cabang untuk melihat jadwal Anda.",
+  "totalEarnedThisPage": "Total diperoleh (halaman ini)",
+  "noEarningsData": "Tidak ada data penghasilan",
+  "noAttendanceInPeriod": "Tidak ada catatan kehadiran pada periode ini.",
+  "mySchedule": "Jadwal Saya",
+  "myCommissions": "Komisi Saya",
+  "myAttendance": "Kehadiran Saya",
+  "todaysQueue": "Antrean Hari Ini",
+  "noAppointments": "Tidak ada jadwal hari ini",
+  "earnings": "Penghasilan",
+  "clockInOut": "Masuk / Keluar",
+  "history": "Riwayat"
+}

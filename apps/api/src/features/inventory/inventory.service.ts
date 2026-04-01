@@ -3,7 +3,6 @@ import type {
   CreateProductInput,
   UpdateProductInput,
   StockInInput,
-  StockOutInput,
   AdjustStockInput,
   ListProductsQuery,
 } from "./inventory.schema";

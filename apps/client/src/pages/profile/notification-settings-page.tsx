@@ -1,11 +1,38 @@
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Bell, BellOff, Mail } from 'lucide-react';
 import { useNotifications } from '@/features/profile/api/use-notifications';
+import { useProfile } from '@/features/profile/api/use-profile';
+import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 
 export default function NotificationSettings() {
+  const { t } = useTranslation('notifications');
   const navigate = useNavigate();
   const { isInitialized, isPushEnabled, enablePush } = useNotifications();
+  const { data: profile } = useProfile();
+  const [emailOptIn, setEmailOptIn] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (profile?.emailOptIn !== undefined) {
+      setEmailOptIn(profile.emailOptIn);
+    }
+  }, [profile?.emailOptIn]);
+
+  const handleEmailToggle = async () => {
+    const newValue = !emailOptIn;
+    setEmailOptIn(newValue);
+    setIsSaving(true);
+    try {
+      await api.patch('/auth/me/notification-preferences', { emailOptIn: newValue });
+    } catch {
+      setEmailOptIn(!newValue);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-dvh bg-slate-50 relative">
@@ -18,13 +45,13 @@ export default function NotificationSettings() {
             <ChevronLeft className="w-6 h-6" />
           </button>
           
-          <h1 className="font-bold text-slate-900 leading-tight">Notification Settings</h1>
+          <h1 className="font-bold text-slate-900 leading-tight">{t('settings')}</h1>
         </div>
       </div>
 
       <div className="flex-1 p-6 space-y-6">
         <p className="text-slate-500 text-sm">
-          Keep track of your upcoming appointments, special offers, and loyalty points.
+          {t('settingsIntro')}
         </p>
 
         {/* Push Notifications Toggle */}
@@ -48,31 +75,36 @@ export default function NotificationSettings() {
               className="w-full"
               variant={isPushEnabled ? "secondary" : "default"}
             >
-              {isPushEnabled ? 'Enabled' : 'Turn On Push Notifications'}
+              {isPushEnabled ? t('enabled') : t('turnOnPush')}
             </Button>
             {isPushEnabled && (
                <p className="text-xs text-slate-400 text-center mt-3">
-                To turn off, you must change your browser or OS settings.
+                {t('pushOffHint')}
                </p>
             )}
           </div>
         </div>
 
-        {/* Email Opt-in (Placeholders for backend implementation) */}
+        {/* Email Opt-in */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-          <div className="flex justify-between items-start mb-4">
+          <div className="flex justify-between items-start">
             <div className="flex gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${emailOptIn ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-400'}`}>
                 <Mail className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-slate-900">Email Updates</h3>
-                <p className="text-sm text-slate-500 mt-1">Receive booking receipts, promotions, and loyalty summaries.</p>
+                <h3 className="font-bold text-slate-900">{t('emailUpdates')}</h3>
+                <p className="text-sm text-slate-500 mt-1">{t('emailDescription')}</p>
               </div>
             </div>
-            {/* Native Tailwind Toggle Snippet */}
             <label className="relative inline-flex items-center cursor-pointer pt-1">
-              <input type="checkbox" className="sr-only peer" defaultChecked />
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={emailOptIn}
+                onChange={handleEmailToggle}
+                disabled={isSaving}
+              />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[6px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>

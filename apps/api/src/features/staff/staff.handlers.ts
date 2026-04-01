@@ -6,6 +6,10 @@ import {
   listStaffQuery,
   assignStaffSchema,
   StaffStatusEnum,
+  StaffProfileScalarSchema,
+  StaffProfileWithUserSchema,
+  StaffProfileWithUserAndBranchSchema,
+  UserWithBranchSchema,
 } from "./staff.schema";
 import { StaffService } from "./staff.service";
 import {
@@ -17,8 +21,6 @@ import {
 import type { AppEnv } from "../../types";
 import type { RouteHandler } from "@hono/zod-openapi";
 
-const GenericStaffResponseSchema = createSuccessSchema(z.any());
-
 export const listStaffRoute = createRoute({
   method: "get",
   path: "/",
@@ -28,7 +30,9 @@ export const listStaffRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: createPaginatedSuccessSchema(z.any()) },
+        "application/json": {
+          schema: createPaginatedSuccessSchema(StaffProfileWithUserSchema),
+        },
       },
       description: "Array of staff with pagination metadata",
     },
@@ -43,7 +47,11 @@ export const getStaffRoute = createRoute({
   request: { params: staffIdParam },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericStaffResponseSchema } },
+      content: {
+        "application/json": {
+          schema: createSuccessSchema(StaffProfileWithUserAndBranchSchema),
+        },
+      },
       description: "Staff details",
     },
     404: {
@@ -66,7 +74,9 @@ export const createStaffRoute = createRoute({
   },
   responses: {
     201: {
-      content: { "application/json": { schema: GenericStaffResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(StaffProfileWithUserSchema) },
+      },
       description: "Staff profile created",
     },
   },
@@ -86,7 +96,9 @@ export const updateStaffRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericStaffResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(StaffProfileWithUserSchema) },
+      },
       description: "Staff profile updated",
     },
   },
@@ -121,7 +133,9 @@ export const assignToBranchRoute = createRoute({
   },
   responses: {
     201: {
-      content: { "application/json": { schema: GenericStaffResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(UserWithBranchSchema) },
+      },
       description: "Assignment created",
     },
   },
@@ -142,6 +156,77 @@ export const removeFromBranchRoute = createRoute({
   },
 });
 
+export const updateAvatarRoute = createRoute({
+  method: "patch",
+  path: "/{id}/avatar",
+  tags: ["Staff"],
+  summary: "Update staff avatar",
+  security: [{ bearerAuth: [] }],
+  request: {
+    params: staffIdParam,
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({ avatar: z.string().url().nullable() }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: createSuccessSchema(z.object({ id: z.string(), avatar: z.string().nullable() })),
+        },
+      },
+      description: "Avatar updated",
+    },
+  },
+});
+
+export const updateAvatarHandler: RouteHandler<
+  typeof updateAvatarRoute,
+  AppEnv
+> = async (c) => {
+  const { id } = c.req.valid("param");
+  const { avatar } = c.req.valid("json");
+  const result = await StaffService.updateAvatar(c.var.db, id, avatar);
+  return c.json({ success: true as const, data: result }, 200);
+};
+
+export const resetCommissionRoute = createRoute({
+  method: "post",
+  path: "/{id}/reset-commission",
+  tags: ["Staff"],
+  summary: "Reset staff commission rate from org config template",
+  security: [{ bearerAuth: [] }],
+  request: { params: staffIdParam },
+  responses: {
+    200: {
+      content: {
+        "application/json": { schema: createSuccessSchema(StaffProfileWithUserSchema) },
+      },
+      description: "Commission rate reset to template",
+    },
+    404: {
+      content: { "application/json": { schema: ErrorSchema } },
+      description: "Staff not found",
+    },
+  },
+});
+
+export const resetCommissionHandler: RouteHandler<
+  typeof resetCommissionRoute,
+  AppEnv
+> = async (c) => {
+  const { id } = c.req.valid("param");
+  const result = await StaffService.resetCommission(c.var.db, id);
+  if (!result) {
+    return c.json({ success: false as const, message: "Staff not found" }, 404);
+  }
+  return c.json({ success: true as const, data: result }, 200);
+};
+
 export const updateStatusRoute = createRoute({
   method: "patch",
   path: "/{id}/status",
@@ -160,7 +245,9 @@ export const updateStatusRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericStaffResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(StaffProfileScalarSchema) },
+      },
       description: "Status updated",
     },
   },

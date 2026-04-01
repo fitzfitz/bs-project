@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
 import { useBranchStore } from "@/store/use-branch-store";
 import { BranchSelector } from "@/components/branch-selector";
 import {
@@ -10,6 +13,8 @@ import {
   type CashDrawerEntry,
 } from "@/features/cash-drawer/api/use-cash-drawer";
 import { DollarSign } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { useSessionStore } from "@/features/auth/store";
 
 const ENTRY_TYPE_LABELS: Record<string, string> = {
   SALE: "Sale",
@@ -19,6 +24,8 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function CashDrawerPage() {
+  const org = useSessionStore((s) => s.user?.organization);
+  const { t } = useTranslation();
   const branchId = useBranchStore((s) => s.selectedBranchId) ?? "";
   const { data, isLoading } = useCurrentSession(branchId || null);
   const openMutation = useOpenSession();
@@ -76,11 +83,11 @@ export default function CashDrawerPage() {
     : 0;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-2xl font-semibold">Cash Drawer</h1>
-        <BranchSelector />
-      </div>
+    <PageContainer>
+      <PageHeader
+        title={t("cash-drawer:title")}
+        actions={<BranchSelector />}
+      />
 
       {!branchId ? (
         <p className="text-muted-foreground text-sm">Select a branch to continue.</p>
@@ -135,7 +142,7 @@ export default function CashDrawerPage() {
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Running Total</p>
                 <p className="text-2xl font-semibold">
-                  {runningTotal.toLocaleString("id-ID")}
+                  {formatCurrency(runningTotal, org?.currency, org?.locale)}
                 </p>
               </div>
             </div>
@@ -228,7 +235,7 @@ export default function CashDrawerPage() {
                           }`}
                         >
                           {e.amount >= 0 ? "+" : ""}
-                          {e.amount.toLocaleString("id-ID")}
+                          {formatCurrency(e.amount, org?.currency, org?.locale)}
                         </td>
                       </tr>
                     ))
@@ -306,13 +313,21 @@ export default function CashDrawerPage() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Expected Balance</span>
                 <span className="font-medium">
-                  {(closedSummary.expectedBalance ?? 0).toLocaleString("id-ID")}
+                  {formatCurrency(
+                    closedSummary.expectedBalance ?? 0,
+                    org?.currency,
+                    org?.locale,
+                  )}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Actual (Closing)</span>
                 <span className="font-medium">
-                  {(closedSummary.closingBalance ?? 0).toLocaleString("id-ID")}
+                  {formatCurrency(
+                    closedSummary.closingBalance ?? 0,
+                    org?.currency,
+                    org?.locale,
+                  )}
                 </span>
               </div>
               <div className="flex justify-between items-center pt-2 border-t">
@@ -325,7 +340,11 @@ export default function CashDrawerPage() {
                   }`}
                 >
                   {(closedSummary.discrepancy ?? 0) >= 0 ? "+" : ""}
-                  {(closedSummary.discrepancy ?? 0).toLocaleString("id-ID")}
+                  {formatCurrency(
+                    closedSummary.discrepancy ?? 0,
+                    org?.currency,
+                    org?.locale,
+                  )}
                 </span>
               </div>
             </div>
@@ -339,6 +358,6 @@ export default function CashDrawerPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

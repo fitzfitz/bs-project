@@ -1,0 +1,23 @@
+{
+  "title": "Branch Settings",
+  "details": "Details",
+  "operatingHours": "Operating Hours",
+  "surgePricing": "Surge Pricing",
+  "branchName": "Branch Name",
+  "branchAddress": "Address",
+  "tipDistribution": "Tip Distribution",
+  "perBarber": "Per Barber",
+  "pooled": "Pooled",
+  "day": "Day",
+  "openTime": "Open Time",
+  "closeTime": "Close Time",
+  "closed": "Closed",
+  "addRule": "Add Rule",
+  "multiplier": "Multiplier",
+  "startHour": "Start Hour",
+  "endHour": "End Hour",
+  "dayOfWeek": "Day of Week",
+  "noRules": "No surge pricing rules",
+  "emergencyClosed": "Emergency Closed",
+  "holidays": "Holidays"
+}

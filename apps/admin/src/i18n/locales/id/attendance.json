@@ -1,0 +1,20 @@
+{
+  "title": "Kehadiran",
+  "attendanceLog": "Log Kehadiran",
+  "calendar": "Kalender",
+  "clockIn": "Masuk",
+  "clockOut": "Keluar",
+  "clockedIn": "Sudah Masuk",
+  "clockedOut": "Sudah Keluar",
+  "shiftSchedule": "Jadwal Shift",
+  "addShift": "Tambah Shift",
+  "weeklyView": "Tampilan Mingguan",
+  "startTime": "Waktu Mulai",
+  "endTime": "Waktu Selesai",
+  "duration": "Durasi",
+  "noAttendance": "Tidak ada catatan kehadiran",
+  "date": "Tanggal",
+  "staffMember": "Anggota Staf",
+  "notes": "Catatan",
+  "shiftActive": "Aktif"
+}

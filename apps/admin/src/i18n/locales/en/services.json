@@ -1,0 +1,16 @@
+{
+  "title": "Service Catalog",
+  "addService": "Add Service",
+  "editService": "Edit Service",
+  "serviceName": "Service Name",
+  "category": "Category",
+  "basePrice": "Base Price",
+  "duration": "Duration (min)",
+  "bufferTime": "Buffer Time (min)",
+  "tierSurcharges": "Tier Surcharges",
+  "combos": "Combos",
+  "branchOverrides": "Branch Overrides",
+  "noServices": "No services found",
+  "overridePrice": "Override Price",
+  "disableService": "Disable for Branch"
+}

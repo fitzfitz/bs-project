@@ -1,0 +1,22 @@
+{
+  "title": "Waitlist Management",
+  "noEntries": "No waitlist entries for this branch.",
+  "selectBranch": "Select a branch to view waitlist entries.",
+  "customer": "Customer",
+  "email": "Email",
+  "preferredDate": "Preferred Date",
+  "timeSlot": "Time Slot",
+  "status": "Status",
+  "notifiedAt": "Notified At",
+  "expiresAt": "Expires At",
+  "createdAt": "Joined At",
+  "services": "Services",
+  "staff": "Staff Preference",
+  "noPreference": "Any",
+  "statusWaiting": "Waiting",
+  "statusNotified": "Notified",
+  "statusExpired": "Expired",
+  "statusCancelled": "Cancelled",
+  "totalEntries": "{{count}} entries",
+  "loading": "Loading waitlist..."
+}

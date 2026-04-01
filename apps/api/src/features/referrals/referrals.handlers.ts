@@ -71,9 +71,12 @@ export const applyHandler: RouteHandler<typeof applyRoute, AppEnv> = async (c) =
         createdAt: referral.createdAt.toISOString(),
       },
     }, 200);
-  } catch (err: any) {
-    const status = err.message.includes("Already") ? 409 : 400;
-    return c.json({ success: false as const, message: err.message }, status as any);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    if (message.includes("Already")) {
+      return c.json({ success: false as const, message }, 409);
+    }
+    return c.json({ success: false as const, message }, 400);
   }
 };
 

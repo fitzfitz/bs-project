@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type { DayOfWeek } from "@prisma/client";
 import type { CloudflarePusher } from "../../utils/pusher";
+import type { NotificationService } from "../../utils/notifications";
 import type {
   CreateBranchInput,
   UpdateBranchInput,
@@ -180,7 +181,8 @@ export const BranchesService = {
     branchId: string,
     organizationId: string,
     userId: string,
-    pusher?: CloudflarePusher
+    pusher?: CloudflarePusher,
+    ns?: NotificationService
   ) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -193,12 +195,26 @@ export const BranchesService = {
         data: { isEmergencyClosed: true },
       });
 
+      const affectedQueueEntries = await tx.queueEntry.findMany({
+        where: { branchId, status: { in: ["WAITING", "CALLED"] } },
+        select: { customerId: true },
+      });
+
       const cancelledQueue = await tx.queueEntry.updateMany({
         where: {
           branchId,
           status: { in: ["WAITING", "CALLED"] },
         },
         data: { status: "CANCELLED" },
+      });
+
+      const affectedBookings = await tx.booking.findMany({
+        where: {
+          branchId,
+          status: "CONFIRMED",
+          scheduledAt: { gte: today, lt: tomorrow },
+        },
+        select: { customerId: true },
       });
 
       const cancelledBookings = await tx.booking.updateMany({
@@ -225,10 +241,19 @@ export const BranchesService = {
         },
       });
 
+      const affectedUserIds = new Set<string>();
+      for (const e of affectedQueueEntries) {
+        if (e.customerId) affectedUserIds.add(e.customerId);
+      }
+      for (const b of affectedBookings) {
+        if (b.customerId) affectedUserIds.add(b.customerId);
+      }
+
       return {
         branch,
         queueCancelled: cancelledQueue.count,
         bookingsCancelled: cancelledBookings.count,
+        affectedUserIds: Array.from(affectedUserIds),
       };
     });
 
@@ -239,6 +264,25 @@ export const BranchesService = {
       });
     }
 
+    if (ns && result.affectedUserIds.length > 0) {
+      const branchName = result.branch.name ?? "Your branch";
+      const title = "Branch Emergency Closure";
+      const body = `${branchName} has been temporarily closed. Your booking/queue entry has been cancelled.`;
+      for (const uid of result.affectedUserIds) {
+        void ns.sendPush(uid, title, body, { branchId, type: "EMERGENCY_CLOSURE" });
+        void db.notification.create({
+          data: {
+            organizationId,
+            userId: uid,
+            title,
+            body,
+            type: "EMERGENCY_CLOSURE",
+            data: { branchId },
+          },
+        });
+      }
+    }
+
     return result;
   },
 
@@ -247,7 +291,8 @@ export const BranchesService = {
     branchId: string,
     organizationId: string,
     userId: string,
-    pusher?: CloudflarePusher
+    pusher?: CloudflarePusher,
+    ns?: NotificationService
   ) {
     const branch = await db.branch.update({
       where: { id: branchId },
@@ -270,6 +315,40 @@ export const BranchesService = {
         branchId,
         isEmergencyClosed: false,
       });
+    }
+
+    if (ns) {
+      const recentAudit = await db.auditLog.findFirst({
+        where: { branchId, action: "EMERGENCY_CLOSURE" },
+        orderBy: { createdAt: "desc" },
+      });
+      const closureDetails = recentAudit?.details as Record<string, unknown> | null;
+      if (closureDetails) {
+        const recentNotifications = await db.notification.findMany({
+          where: {
+            organizationId,
+            type: "EMERGENCY_CLOSURE",
+            data: { path: ["branchId"], equals: branchId },
+          },
+          select: { userId: true },
+          distinct: ["userId"],
+        });
+        const title = "Branch Reopened";
+        const body = `${branch.name ?? "Your branch"} is now open again. You can book a new appointment.`;
+        for (const n of recentNotifications) {
+          void ns.sendPush(n.userId, title, body, { branchId, type: "BRANCH_REOPENED" });
+          void db.notification.create({
+            data: {
+              organizationId,
+              userId: n.userId,
+              title,
+              body,
+              type: "BRANCH_REOPENED",
+              data: { branchId },
+            },
+          });
+        }
+      }
     }
 
     return branch;

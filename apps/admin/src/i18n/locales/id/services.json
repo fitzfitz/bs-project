@@ -1,0 +1,16 @@
+{
+  "title": "Katalog Layanan",
+  "addService": "Tambah Layanan",
+  "editService": "Ubah Layanan",
+  "serviceName": "Nama Layanan",
+  "category": "Kategori",
+  "basePrice": "Harga Dasar",
+  "duration": "Durasi (menit)",
+  "bufferTime": "Waktu Jeda (menit)",
+  "tierSurcharges": "Biaya Tambahan Tingkat",
+  "combos": "Paket",
+  "branchOverrides": "Pengaturan Cabang",
+  "noServices": "Tidak ada layanan ditemukan",
+  "overridePrice": "Harga Khusus",
+  "disableService": "Nonaktifkan untuk Cabang"
+}

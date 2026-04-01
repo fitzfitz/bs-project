@@ -1,12 +1,20 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import type { AppEnv } from "../../types";
 import { PlatformService } from "./platform.service";
 import {
   platformLoginSchema,
   createOrgSchema,
   updateOrgSchema,
   platformConfigSchema,
+  PlatformLoginSuccessDataSchema,
+  OrganizationListItemSchema,
+  OrganizationDetailSchema,
+  OrganizationCreatedSchema,
+  OrganizationScalarsSchema,
+  FeatureResponseSchema,
+  IndustryTemplateSchema,
+  PlatformConfigSchema,
 } from "./platform.schema";
+import { createSuccessSchema } from "../../utils/openapi";
 import { sign } from "hono/jwt";
 
 // --- Auth ---
@@ -24,10 +32,7 @@ export const platformLoginRoute = createRoute({
       description: "Login successful",
       content: {
         "application/json": {
-          schema: z.object({
-            success: z.literal(true),
-            data: z.object({ token: z.string(), admin: z.any() }),
-          }),
+          schema: createSuccessSchema(PlatformLoginSuccessDataSchema),
         },
       },
     },
@@ -81,7 +86,7 @@ export const listOrgsRoute = createRoute({
       description: "Organization list",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.array(z.any()) }),
+          schema: createSuccessSchema(z.array(OrganizationListItemSchema)),
         },
       },
     },
@@ -110,7 +115,7 @@ export const getOrgRoute = createRoute({
       description: "Organization details",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.any() }),
+          schema: createSuccessSchema(OrganizationDetailSchema),
         },
       },
     },
@@ -146,7 +151,7 @@ export const createOrgRoute = createRoute({
       description: "Organization created",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.any() }),
+          schema: createSuccessSchema(OrganizationCreatedSchema),
         },
       },
     },
@@ -186,7 +191,7 @@ export const updateOrgRoute = createRoute({
       description: "Organization updated",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.any() }),
+          schema: createSuccessSchema(OrganizationScalarsSchema),
         },
       },
     },
@@ -212,7 +217,7 @@ export const deactivateOrgRoute = createRoute({
       description: "Organization deactivated",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.any() }),
+          schema: createSuccessSchema(OrganizationScalarsSchema),
         },
       },
     },
@@ -241,7 +246,7 @@ export const listFeaturesRoute = createRoute({
       description: "Feature list",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.array(z.any()) }),
+          schema: createSuccessSchema(z.array(FeatureResponseSchema)),
         },
       },
     },
@@ -266,7 +271,7 @@ export const listTemplatesRoute = createRoute({
       description: "Template list",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.array(z.any()) }),
+          schema: createSuccessSchema(z.array(IndustryTemplateSchema)),
         },
       },
     },
@@ -291,7 +296,7 @@ export const listConfigRoute = createRoute({
       description: "Config list",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.array(z.any()) }),
+          schema: createSuccessSchema(z.array(PlatformConfigSchema)),
         },
       },
     },
@@ -317,7 +322,7 @@ export const setConfigRoute = createRoute({
       description: "Config updated",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.any() }),
+          schema: createSuccessSchema(PlatformConfigSchema),
         },
       },
     },

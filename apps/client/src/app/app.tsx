@@ -16,6 +16,8 @@ import ProfilePage from '@/pages/profile/profile-page';
 import EditProfilePage from '@/pages/profile/edit-profile-page';
 import NotificationSettings from '@/pages/profile/notification-settings-page';
 import ReceiptPage from '@/pages/profile/receipt-page';
+import NotificationsPage from '@/pages/notifications/notifications-page';
+import PaymentMethodsPage from '@/pages/payments/payment-methods-page';
 import LoyaltyPage from '@/pages/loyalty/loyalty-page';
 import TermsOfService from '@/pages/legal/terms-of-service-page';
 import PrivacyPolicy from '@/pages/legal/privacy-policy-page';
@@ -40,6 +42,8 @@ function App() {
         <Route path="history" element={<ProtectedRoute><HistoryTracker /></ProtectedRoute>} />
         <Route path="profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="profile/edit" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
+        <Route path="notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+        <Route path="payment-methods" element={<ProtectedRoute><PaymentMethodsPage /></ProtectedRoute>} />
         <Route path="settings/notifications" element={<ProtectedRoute><NotificationSettings /></ProtectedRoute>} />
         <Route path="loyalty" element={<ProtectedRoute><LoyaltyPage /></ProtectedRoute>} />
         <Route path="receipt/:transactionId" element={<ProtectedRoute><ReceiptPage /></ProtectedRoute>} />

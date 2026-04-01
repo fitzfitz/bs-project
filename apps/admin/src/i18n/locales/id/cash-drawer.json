@@ -1,0 +1,15 @@
+{
+  "title": "Laci Kas",
+  "openDrawer": "Buka Laci",
+  "closeDrawer": "Tutup Laci",
+  "drawerOpen": "Laci Terbuka",
+  "drawerClosed": "Laci Tertutup",
+  "openingBalance": "Saldo Awal",
+  "currentBalance": "Saldo Saat Ini",
+  "closingBalance": "Saldo Akhir",
+  "addEntry": "Tambah Entri",
+  "entries": "Entri",
+  "discrepancy": "Selisih",
+  "endOfDay": "Ringkasan Akhir Hari",
+  "noEntries": "Tidak ada entri"
+}

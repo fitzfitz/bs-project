@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { UserCircle2, Sparkles, ChevronRight, Star, MessageSquare, ChevronDown } from 'lucide-react';
 import { useBookingStore } from '@/features/booking/store';
@@ -7,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { ReviewFeed } from '@/features/reviews/widgets/review-feed';
 
 export default function BarberSelection() {
+  const { t } = useTranslation('booking');
   const { branchId } = useParams();
   const navigate = useNavigate();
   const { selectedBarberId, setBarber } = useBookingStore();
@@ -20,15 +22,15 @@ export default function BarberSelection() {
   };
 
   if (isLoading) {
-    return <div className="text-center p-8 text-slate-400">Loading barbers...</div>;
+    return <div className="text-center p-8 text-slate-400">{t('loadingBarbers')}</div>;
   }
 
   return (
     <>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Select Barber</h2>
+        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t('selectBarber')}</h2>
         <p className="text-slate-500 mt-1.5 text-sm leading-relaxed">
-          Choose a specific barber or let us pick the first available one for you.
+          {t('selectBarberSubtitle')}
         </p>
       </div>
 
@@ -47,15 +49,15 @@ export default function BarberSelection() {
             <Sparkles className="w-6 h-6 text-primary" />
           </div>
           <div className="flex-1 text-left pl-4">
-            <div className="font-bold text-slate-900 text-[16px]">Any Available</div>
-            <p className="text-sm text-slate-500 mt-0.5">Fastest wait time</p>
+            <div className="font-bold text-slate-900 text-[16px]">{t('anyAvailable')}</div>
+            <p className="text-sm text-slate-500 mt-0.5">{t('fastestWait')}</p>
           </div>
           <ChevronRight className="w-5 h-5 text-slate-300" />
         </button>
 
         {/* List of specific barbers */}
         <div className="pt-4 pb-2">
-          <h3 className="font-bold text-slate-800 tracking-wide text-sm uppercase">Our Team</h3>
+          <h3 className="font-bold text-slate-800 tracking-wide text-sm uppercase">{t('ourTeam')}</h3>
         </div>
 
         <div className="grid grid-cols-1 gap-3">
@@ -75,8 +77,8 @@ export default function BarberSelection() {
                   className="flex items-center flex-1 text-left"
                 >
                   <div className="w-14 h-14 rounded-full bg-slate-100 overflow-hidden shrink-0 border border-slate-200 flex items-center justify-center">
-                    {barber.avatarUrl ? (
-                      <img src={barber.avatarUrl} alt={barber.user?.firstName ?? ''} className="w-full h-full object-cover" />
+                    {barber.user?.avatar ? (
+                      <img src={barber.user.avatar} alt={barber.user?.firstName ?? ''} className="w-full h-full object-cover" />
                     ) : (
                       <UserCircle2 className="w-8 h-8 text-slate-400" />
                     )}

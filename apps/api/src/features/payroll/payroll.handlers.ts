@@ -11,8 +11,10 @@ import {
   markDisbursedSchema,
   listPayrollQuerySchema,
   PayrollPeriodSchema,
+  bulkApproveSchema,
+  bulkDisburseSchema,
 } from "./payroll.schema";
-import { createSuccessSchema, createPaginatedSuccessSchema } from "../../utils/openapi";
+import { createPaginatedSuccessSchema } from "../../utils/openapi";
 
 const periodResponse = (schema: z.ZodTypeAny) =>
   z.object({
@@ -169,14 +171,88 @@ export const disburseRoute = createRoute({
   },
 });
 
-function toPayload(p: { approvedAt: Date | null; approvedBy: string | null; [k: string]: any }) {
+// ─── Bulk operations ──────────────────────────────────────────────────────
+
+export const bulkApproveRoute = createRoute({
+  method: "post",
+  path: "/bulk-approve",
+  tags: ["Payroll"],
+  summary: "Bulk approve payroll periods",
+  request: { body: { content: { "application/json": { schema: bulkApproveSchema } } } },
+  responses: {
+    200: {
+      description: "All periods approved",
+      content: {
+        "application/json": {
+          schema: z.object({ success: z.literal(true), data: z.object({ approved: z.number() }) }),
+        },
+      },
+    },
+    400: { description: "Validation error or invalid transition" },
+  },
+});
+
+export const bulkDisburseRoute = createRoute({
+  method: "post",
+  path: "/bulk-disburse",
+  tags: ["Payroll"],
+  summary: "Bulk disburse payroll periods",
+  request: { body: { content: { "application/json": { schema: bulkDisburseSchema } } } },
+  responses: {
+    200: {
+      description: "All periods disbursed",
+      content: {
+        "application/json": {
+          schema: z.object({ success: z.literal(true), data: z.object({ disbursed: z.number() }) }),
+        },
+      },
+    },
+    400: { description: "Validation error or invalid transition" },
+  },
+});
+
+export const bulkApproveHandler: RouteHandler<typeof bulkApproveRoute, AppEnv> = async (c) => {
+  try {
+    const { ids, note } = c.req.valid("json");
+    const userId = c.var.userId!;
+    const organizationId = c.get("organizationId")!;
+    const result = await PayrollService.bulkApprove(c.var.db, ids, userId, organizationId, note);
+    return c.json({ success: true as const, data: result }, 200);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Internal server error";
+    return c.json({ success: false, message: msg }, 400);
+  }
+};
+
+export const bulkDisburseHandler: RouteHandler<typeof bulkDisburseRoute, AppEnv> = async (c) => {
+  try {
+    const { ids } = c.req.valid("json");
+    const userId = c.var.userId!;
+    const organizationId = c.get("organizationId")!;
+    const result = await PayrollService.bulkDisburse(c.var.db, ids, userId, organizationId);
+    return c.json({ success: true as const, data: result }, 200);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Internal server error";
+    return c.json({ success: false, message: msg }, 400);
+  }
+};
+
+function toPayload(p: {
+  approvedAt: Date | null;
+  approvedBy: string | null;
+  periodStart: Date;
+  periodEnd: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  [k: string]: unknown;
+}) {
   return {
     ...p,
-    periodStart: p.periodStart.toISOString?.()?.slice(0, 10) ?? p.periodStart,
-    periodEnd: p.periodEnd.toISOString?.()?.slice(0, 10) ?? p.periodEnd,
-    approvedAt: p.approvedAt?.toISOString?.() ?? null,
-    createdAt: p.createdAt?.toISOString?.() ?? p.createdAt,
-    updatedAt: p.updatedAt?.toISOString?.() ?? p.updatedAt,
+    periodStart: p.periodStart.toISOString().slice(0, 10),
+    periodEnd: p.periodEnd.toISOString().slice(0, 10),
+    approvedAt: p.approvedAt?.toISOString() ?? null,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
   };
 }
 

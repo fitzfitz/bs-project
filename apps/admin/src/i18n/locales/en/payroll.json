@@ -1,0 +1,20 @@
+{
+  "title": "Payroll",
+  "generate": "Generate",
+  "submit": "Submit",
+  "approve": "Approve",
+  "dispute": "Dispute",
+  "disburse": "Disburse",
+  "bulkApprove": "Bulk Approve",
+  "bulkDisburse": "Bulk Disburse",
+  "period": "Period",
+  "status": "Status",
+  "draft": "Draft",
+  "submitted": "Submitted",
+  "approved": "Approved",
+  "disputed": "Disputed",
+  "disbursed": "Disbursed",
+  "totalPayout": "Total Payout",
+  "noPeriods": "No payroll periods found",
+  "selectedCount": "{{count}} selected"
+}

@@ -6,7 +6,6 @@ import type {
 } from "./roles.schema";
 import {
   invalidatePermissionCache,
-  invalidateAllPermissionCaches,
 } from "../../middlewares/rbac";
 
 export const RolesService = {

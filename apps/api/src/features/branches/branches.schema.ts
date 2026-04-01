@@ -1,18 +1,6 @@
 import { z } from "zod";
-
-// ============================================================================
-// Enums
-// ============================================================================
-
-export const DayOfWeekEnum = z.enum([
-  "MONDAY",
-  "TUESDAY",
-  "WEDNESDAY",
-  "THURSDAY",
-  "FRIDAY",
-  "SATURDAY",
-  "SUNDAY",
-]);
+import { DayOfWeekEnum, TipDistributionEnum } from "../../utils/zod-prisma";
+import { ServiceScalarSchema } from "../services/services.schema";
 
 // ============================================================================
 // Branch Schemas
@@ -28,8 +16,6 @@ export const createBranchSchema = z.object({
   longitude: z.number().optional(),
   imageUrl: z.string().url().optional().or(z.literal("")),
 });
-
-export const TipDistributionEnum = z.enum(["PER_STAFF", "POOLED"]);
 
 export const updateBranchSchema = createBranchSchema.partial().extend({
   isActive: z.boolean().optional(),
@@ -113,6 +99,92 @@ export const updateBranchHolidaySchema = createBranchHolidaySchema.partial();
 export const holidayIdParam = z.object({
   id: z.string().min(1),
   holidayId: z.string().min(1),
+});
+
+// ============================================================================
+// Response / entity schemas
+// ============================================================================
+
+export const OperatingHourResponseSchema = z.object({
+  id: z.string(),
+  branchId: z.string(),
+  organizationId: z.string(),
+  dayOfWeek: DayOfWeekEnum,
+  openTime: z.string(),
+  closeTime: z.string(),
+  isClosed: z.boolean(),
+});
+
+export const SurgeRuleResponseSchema = z.object({
+  id: z.string(),
+  branchId: z.string(),
+  organizationId: z.string(),
+  name: z.string(),
+  dayOfWeek: DayOfWeekEnum,
+  startHour: z.number().int(),
+  endHour: z.number().int(),
+  multiplier: z.number(),
+  isActive: z.boolean(),
+});
+
+export const BranchScalarSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string(),
+  address: z.string(),
+  city: z.string(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  imageUrl: z.string().nullable(),
+  isActive: z.boolean(),
+  isEmergencyClosed: z.boolean(),
+  tipDistribution: TipDistributionEnum.nullable(),
+  maxDiscountPercent: z.number().nullable(),
+  averageRating: z.number(),
+  totalReviews: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const BranchWithRelationsSchema = BranchScalarSchema.extend({
+  operatingHours: z.array(OperatingHourResponseSchema),
+  surgeRules: z.array(SurgeRuleResponseSchema),
+});
+
+export const BranchServiceOverrideWithServiceSchema = z.object({
+  id: z.string(),
+  branchId: z.string(),
+  serviceId: z.string(),
+  organizationId: z.string(),
+  overridePrice: z.number().nullable(),
+  isActive: z.boolean(),
+  service: ServiceScalarSchema,
+});
+
+export const BranchDetailSchema = BranchScalarSchema.extend({
+  operatingHours: z.array(OperatingHourResponseSchema),
+  surgeRules: z.array(SurgeRuleResponseSchema),
+  serviceOverrides: z.array(BranchServiceOverrideWithServiceSchema),
+});
+
+export const EmergencyCloseResultSchema = z.object({
+  branch: BranchScalarSchema,
+  queueCancelled: z.number().int(),
+  bookingsCancelled: z.number().int(),
+});
+
+export const BranchHolidaySchema = z.object({
+  id: z.string(),
+  branchId: z.string(),
+  organizationId: z.string(),
+  date: z.string(),
+  name: z.string(),
+  isClosed: z.boolean(),
+  openTime: z.string().nullable(),
+  closeTime: z.string().nullable(),
+  createdAt: z.string(),
 });
 
 // ============================================================================

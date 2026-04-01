@@ -1,17 +1,18 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CommissionOverview } from "@/features/commissions/widgets/commission-overview";
 import { BranchSelector } from "@/components/branch-selector";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default function CommissionsPage() {
+  const { t } = useTranslation();
   const [page, setPage] = useState(1);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-2xl font-semibold">Commissions</h1>
-        <BranchSelector />
-      </div>
+    <PageContainer>
+      <PageHeader title={t("commissions:title")} actions={<BranchSelector />} />
       <CommissionOverview page={page} />
       <div className="flex items-center justify-end gap-2">
         <button
@@ -22,7 +23,9 @@ export default function CommissionsPage() {
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <span className="text-sm text-muted-foreground">Page {page}</span>
+        <span className="text-sm text-muted-foreground">
+          {t("common:page")} {page}
+        </span>
         <button
           type="button"
           onClick={() => setPage((p) => p + 1)}
@@ -31,6 +34,6 @@ export default function CommissionsPage() {
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
-    </div>
+    </PageContainer>
   );
 }

@@ -1,11 +1,15 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import type { AppEnv } from "../../types";
+import { createSuccessSchema } from "../../utils/openapi";
 import { RolesService } from "./roles.service";
 import {
   createRoleSchema,
   updateRoleSchema,
   permissionMatrixSchema,
   roleServicesSchema,
+  TenantRoleSchema,
+  TenantRoleListItemSchema,
+  PermissionMatrixEntrySchema,
+  RoleServiceEntrySchema,
 } from "./roles.schema";
 
 // --- List Roles ---
@@ -21,7 +25,7 @@ export const listRolesRoute = createRoute({
       description: "Role list",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.array(z.any()) }),
+          schema: createSuccessSchema(z.array(TenantRoleListItemSchema)),
         },
       },
     },
@@ -51,7 +55,7 @@ export const createRoleRoute = createRoute({
       description: "Role created",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.any() }),
+          schema: createSuccessSchema(TenantRoleSchema),
         },
       },
     },
@@ -83,7 +87,7 @@ export const updateRoleRoute = createRoute({
       description: "Role updated",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.any() }),
+          schema: createSuccessSchema(TenantRoleSchema),
         },
       },
     },
@@ -164,7 +168,7 @@ export const getPermissionsRoute = createRoute({
       description: "Permission matrix",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.array(z.any()) }),
+          schema: createSuccessSchema(z.array(PermissionMatrixEntrySchema)),
         },
       },
     },
@@ -193,7 +197,7 @@ export const setPermissionsRoute = createRoute({
       description: "Permission matrix updated",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.array(z.any()) }),
+          schema: createSuccessSchema(z.array(PermissionMatrixEntrySchema)),
         },
       },
     },
@@ -222,7 +226,7 @@ export const getRoleServicesRoute = createRoute({
       description: "Service assignments",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.array(z.any()) }),
+          schema: createSuccessSchema(z.array(RoleServiceEntrySchema)),
         },
       },
     },
@@ -251,7 +255,7 @@ export const setRoleServicesRoute = createRoute({
       description: "Service assignments updated",
       content: {
         "application/json": {
-          schema: z.object({ success: z.literal(true), data: z.array(z.any()) }),
+          schema: createSuccessSchema(z.array(RoleServiceEntrySchema)),
         },
       },
     },

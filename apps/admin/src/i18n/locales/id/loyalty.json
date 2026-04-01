@@ -1,0 +1,16 @@
+{
+  "title": "Manajemen Loyalitas",
+  "lookupCustomer": "Cari Pelanggan",
+  "userId": "ID Pengguna",
+  "points": "Poin",
+  "tier": "Tingkat",
+  "addPoints": "Tambah Poin",
+  "deductPoints": "Kurangi Poin",
+  "runExpiry": "Jalankan Kedaluwarsa Poin",
+  "referralStats": "Statistik Referral",
+  "totalReferrals": "Total Referral",
+  "completedReferrals": "Selesai",
+  "pendingReferrals": "Tertunda",
+  "noCustomerFound": "Pelanggan tidak ditemukan",
+  "pointHistory": "Riwayat Poin"
+}

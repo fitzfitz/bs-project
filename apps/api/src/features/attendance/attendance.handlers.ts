@@ -8,6 +8,10 @@ import {
   updateShiftBlockSchema,
   shiftBlockIdParam,
   listShiftsQuery,
+  AttendanceScalarSchema,
+  AttendanceWithStaffSchema,
+  ShiftScheduleScalarSchema,
+  ShiftScheduleWithStaffSchema,
 } from "./attendance.schema";
 import { AttendanceService } from "./attendance.service";
 import {
@@ -23,9 +27,6 @@ import type { RouteHandler } from "@hono/zod-openapi";
 // Route Definitions
 // ============================================================================
 
-const GenericAttendanceResponseSchema = createSuccessSchema(z.any());
-const GenericShiftResponseSchema = createSuccessSchema(z.any());
-
 export const listAttendanceRoute = createRoute({
   method: "get",
   path: "/",
@@ -36,7 +37,9 @@ export const listAttendanceRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: createPaginatedSuccessSchema(z.any()) },
+        "application/json": {
+          schema: createPaginatedSuccessSchema(AttendanceWithStaffSchema),
+        },
       },
       description: "Array of attendance records with pagination",
     },
@@ -57,7 +60,9 @@ export const clockInRoute = createRoute({
   responses: {
     201: {
       content: {
-        "application/json": { schema: GenericAttendanceResponseSchema },
+        "application/json": {
+          schema: createSuccessSchema(AttendanceScalarSchema),
+        },
       },
       description: "Clocked in successfully",
     },
@@ -83,7 +88,9 @@ export const clockOutRoute = createRoute({
   responses: {
     200: {
       content: {
-        "application/json": { schema: GenericAttendanceResponseSchema },
+        "application/json": {
+          schema: createSuccessSchema(AttendanceScalarSchema),
+        },
       },
       description: "Clocked out successfully",
     },
@@ -101,7 +108,7 @@ export const listShiftsRoute = createRoute({
     200: {
       content: {
         "application/json": {
-          schema: createSuccessSchema(z.array(z.any())),
+          schema: createSuccessSchema(z.array(ShiftScheduleWithStaffSchema)),
         },
       },
       description: "Array of shift blocks",
@@ -122,7 +129,9 @@ export const createShiftBlockRoute = createRoute({
   },
   responses: {
     201: {
-      content: { "application/json": { schema: GenericShiftResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(ShiftScheduleScalarSchema) },
+      },
       description: "Shift block created",
     },
   },
@@ -142,7 +151,9 @@ export const updateShiftBlockRoute = createRoute({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: GenericShiftResponseSchema } },
+      content: {
+        "application/json": { schema: createSuccessSchema(ShiftScheduleScalarSchema) },
+      },
       description: "Shift block updated",
     },
   },

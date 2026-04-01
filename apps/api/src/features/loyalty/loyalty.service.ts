@@ -2,10 +2,16 @@ import type { PrismaClient, Prisma, LoyaltyTierLevel } from "@prisma/client";
 
 type TxClient = Prisma.TransactionClient;
 
-const EARN_RATE = 10_000; // 1 point per 10,000 IDR
-const REDEEM_RATE = 500; // 1 point = 500 IDR discount
-const MAX_REDEEM_PERCENT = 0.5; // Max 50% of bill
+const DEFAULT_EARN_RATE = 10_000;
+const DEFAULT_REDEEM_RATE = 500;
+const DEFAULT_MAX_REDEEM_PERCENT = 0.5;
 const EXPIRY_MONTHS = 6;
+
+export type LoyaltyRates = {
+  earnRate?: number;
+  redeemRate?: number;
+  maxRedeemPercent?: number;
+};
 
 const TIER_THRESHOLDS: Record<LoyaltyTierLevel, number> = {
   BRONZE: 0,
@@ -42,7 +48,10 @@ export const LoyaltyService = {
     customerId: string,
     posTransactionId: string,
     netAmount: number,
+    rates?: LoyaltyRates,
   ) {
+    const earnRate = rates?.earnRate ?? DEFAULT_EARN_RATE;
+
     const user = await tx.user.findUnique({
       where: { id: customerId },
       select: { organizationId: true },
@@ -63,7 +72,7 @@ export const LoyaltyService = {
       update: {},
     });
 
-    const basePoints = Math.floor(netAmount / EARN_RATE);
+    const basePoints = Math.floor(netAmount / earnRate);
     const pointsEarned = Math.floor(basePoints * account.tierMultiplier);
     if (pointsEarned <= 0) return { pointsEarned: 0, tier: account.tier };
 
@@ -102,7 +111,11 @@ export const LoyaltyService = {
     points: number,
     posTransactionId: string,
     billNetAmount: number,
+    rates?: LoyaltyRates,
   ) {
+    const redeemRate = rates?.redeemRate ?? DEFAULT_REDEEM_RATE;
+    const maxRedeemPercent = rates?.maxRedeemPercent ?? DEFAULT_MAX_REDEEM_PERCENT;
+
     const account = await tx.customerMembership.findUnique({
       where: { userId: customerId },
     });
@@ -111,11 +124,11 @@ export const LoyaltyService = {
     if (account.pointsBalance < points)
       throw new Error("Insufficient loyalty points");
 
-    const discountAmount = points * REDEEM_RATE;
-    const maxAllowed = billNetAmount * MAX_REDEEM_PERCENT;
+    const discountAmount = points * redeemRate;
+    const maxAllowed = billNetAmount * maxRedeemPercent;
     if (discountAmount > maxAllowed)
       throw new Error(
-        `Redemption exceeds ${MAX_REDEEM_PERCENT * 100}% of bill (max ${maxAllowed} IDR)`,
+        `Redemption exceeds ${maxRedeemPercent * 100}% of bill (max ${maxAllowed})`,
       );
 
     await tx.customerMembership.update({

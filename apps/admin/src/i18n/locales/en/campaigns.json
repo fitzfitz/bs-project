@@ -1,0 +1,17 @@
+{
+  "title": "Campaigns",
+  "createCampaign": "Create Campaign",
+  "editCampaign": "Edit Campaign",
+  "campaignName": "Campaign Name",
+  "message": "Message",
+  "targetBranches": "Target Branches",
+  "send": "Send",
+  "schedule": "Schedule",
+  "status": "Status",
+  "draft": "Draft",
+  "scheduled": "Scheduled",
+  "sent": "Sent",
+  "cancelled": "Cancelled",
+  "noCampaigns": "No campaigns found",
+  "sendConfirm": "Are you sure you want to send this campaign?"
+}

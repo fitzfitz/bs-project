@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, User, Mail, Phone, Save } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,6 +18,7 @@ import { useProfile, useUpdateProfile } from '@/features/profile/api/use-profile
 import { UpdateProfileSchema, type UpdateProfileFormValues } from '@/features/profile/types';
 
 export default function EditProfilePage() {
+  const { t } = useTranslation(['profile', 'common']);
   const navigate = useNavigate();
   const { data: profile, isLoading } = useProfile();
   const updateProfile = useUpdateProfile();
@@ -47,15 +49,15 @@ export default function EditProfilePage() {
         lastName: data.lastName,
         phone: data.phone || undefined,
       });
-      alert('Profile updated successfully!');
+      alert(t('profileUpdated'));
       navigate('/profile');
     } catch (error) {
       console.error('Failed to update profile:', error);
-      alert('Failed to update profile. Please try again.');
+      alert(t('profileUpdateFailed'));
     }
   };
 
-  if (isLoading) return <div className="p-10 text-center">Loading...</div>;
+  if (isLoading) return <div className="p-10 text-center">{t('common:loading')}</div>;
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
@@ -63,7 +65,7 @@ export default function EditProfilePage() {
         <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-slate-100 rounded-full transition-colors">
           <ArrowLeft className="w-6 h-6 text-slate-600" />
         </button>
-        <h1 className="text-xl font-bold text-slate-900">Edit Profile</h1>
+        <h1 className="text-xl font-bold text-slate-900">{t('editProfile')}</h1>
       </header>
 
       <div className="p-6 space-y-6">
@@ -74,7 +76,7 @@ export default function EditProfilePage() {
               name="firstName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">First Name</FormLabel>
+                  <FormLabel className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">{t('firstName')}</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -95,7 +97,7 @@ export default function EditProfilePage() {
               name="lastName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Last Name</FormLabel>
+                  <FormLabel className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">{t('lastName')}</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -112,7 +114,7 @@ export default function EditProfilePage() {
             />
 
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Email Address</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">{t('emailAddress')}</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <Input 
@@ -129,7 +131,7 @@ export default function EditProfilePage() {
               name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Phone Number</FormLabel>
+                  <FormLabel className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">{t('phone')}</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -146,7 +148,7 @@ export default function EditProfilePage() {
             />
 
             <Button type="submit" disabled={updateProfile.isPending} className="w-full h-14 rounded-xl text-md font-bold shadow-lg gap-2 mt-4">
-              <Save className="w-5 h-5" /> Save Changes
+              <Save className="w-5 h-5" /> {t('saveChanges')}
             </Button>
           </form>
         </Form>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { usePOSStore } from "../store/use-pos-store";
 import { useServices } from "../api/use-services";
 import { useBranches } from "../api/use-branches";
@@ -9,6 +9,7 @@ import { useConfig } from "@/features/config/api/use-config";
 import { saveOfflineTransaction } from "@/lib/offline-store";
 import { syncPendingTransactions } from "@/lib/sync-pending";
 import { useSessionStore } from "@/features/auth/store";
+import { formatCurrency } from "@/lib/utils";
 import { useBranchStore } from "@/store/use-branch-store";
 import {
   ShoppingCart,
@@ -35,9 +36,6 @@ type ProductItem = {
   inventory?: Array<{ quantity: number }>;
 };
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
-
 const PAYMENT_METHODS = [
   { key: "CASH" as const, label: "Cash", icon: Banknote },
   { key: "QRIS" as const, label: "QRIS", icon: QrCode },
@@ -46,6 +44,7 @@ const PAYMENT_METHODS = [
 ];
 
 export function POSCheckout() {
+  const org = useSessionStore((s) => s.user?.organization);
   const { data: servicesData, isLoading: servicesLoading, error: servicesError } = useServices();
   const { data: branchesData, error: branchesError } = useBranches();
   const createTx = useCreateTransaction();
@@ -63,6 +62,8 @@ export function POSCheckout() {
   const tipAmount = usePOSStore((s) => s.tipAmount);
   const selectedPaymentMethod = usePOSStore((s) => s.selectedPaymentMethod);
   const queueEntryId = usePOSStore((s) => s.queueEntryId);
+  const pendingTransactionId = usePOSStore((s) => s.pendingTransactionId);
+  const pendingTransactionTotal = usePOSStore((s) => s.pendingTransactionTotal);
   const addItem = usePOSStore((s) => s.addItem);
   const removeItem = usePOSStore((s) => s.removeItem);
   const updateQuantity = usePOSStore((s) => s.updateQuantity);
@@ -72,7 +73,7 @@ export function POSCheckout() {
   const reset = usePOSStore((s) => s.reset);
 
   const [completedTxId, setCompletedTxId] = useState<string | null>(null);
-  const branches = branchesData?.data ?? [];
+  const branches = useMemo(() => branchesData?.data ?? [], [branchesData?.data]);
 
   useEffect(() => {
     if (!selectedBranchId && branches.length > 0) {
@@ -88,7 +89,24 @@ export function POSCheckout() {
   const grandTotal = subtotal - discountTotal + tax + tipAmount;
 
   const handleComplete = async () => {
-    if (!branchId || !selectedPaymentMethod || grandTotal <= 0) return;
+    if (!selectedPaymentMethod) return;
+
+    // Retry flow: pending transaction already exists on server
+    if (pendingTransactionId && pendingTransactionTotal != null) {
+      try {
+        await addPayments.mutateAsync({
+          id: pendingTransactionId,
+          payload: { payments: [{ method: selectedPaymentMethod, amount: pendingTransactionTotal }] },
+        });
+        setCompletedTxId(pendingTransactionId);
+        reset();
+      } catch (e) {
+        console.error(e);
+      }
+      return;
+    }
+
+    if (!branchId || grandTotal <= 0) return;
     const payload = {
       branchId,
       queueEntryId: queueEntryId ?? undefined,
@@ -119,9 +137,10 @@ export function POSCheckout() {
     try {
       const createRes = await createTx.mutateAsync(payload);
       const txId = createRes.data.id;
+      const serverTotal = createRes.data.totalDue ?? grandTotal;
       await addPayments.mutateAsync({
         id: txId,
-        payload: { payments: [{ method: selectedPaymentMethod, amount: grandTotal }] },
+        payload: { payments: [{ method: selectedPaymentMethod, amount: serverTotal }] },
       });
       setCompletedTxId(txId);
       reset();
@@ -228,7 +247,7 @@ export function POSCheckout() {
                     {s.name}
                   </span>
                   <span className="mt-auto pt-1 text-xs font-bold text-primary">
-                    {fmt(s.basePrice)}
+                    {formatCurrency(s.basePrice, org?.currency, org?.locale)}
                   </span>
                 </button>
               ))
@@ -258,7 +277,9 @@ export function POSCheckout() {
                     {p.name}
                   </span>
                   <div className="mt-auto pt-1 flex items-center justify-between w-full">
-                    <span className="text-xs font-bold text-primary">{fmt(p.sellPrice)}</span>
+                    <span className="text-xs font-bold text-primary">
+                      {formatCurrency(p.sellPrice, org?.currency, org?.locale)}
+                    </span>
                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${outOfStock ? "bg-red-50 text-red-500" : "bg-emerald-50 text-emerald-600"}`}>
                       {outOfStock ? "Out" : `${stock} left`}
                     </span>
@@ -297,7 +318,7 @@ export function POSCheckout() {
                   <li key={i} className="flex items-center gap-3 px-5 py-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
-                      <p className="text-xs text-slate-400">{fmt(item.unitPrice)} each</p>
+                      <p className="text-xs text-slate-400">{formatCurrency(item.unitPrice, org?.currency, org?.locale)} each</p>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <button
@@ -318,7 +339,11 @@ export function POSCheckout() {
                       </button>
                     </div>
                     <span className="w-20 text-right text-sm font-semibold text-slate-700">
-                      {fmt(item.unitPrice * item.qty - item.discount)}
+                      {formatCurrency(
+                        item.unitPrice * item.qty - item.discount,
+                        org?.currency,
+                        org?.locale,
+                      )}
                     </span>
                     <button
                       type="button"
@@ -337,7 +362,7 @@ export function POSCheckout() {
           <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-4 space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-500">Subtotal</span>
-              <span className="font-medium text-slate-700">{fmt(subtotal)}</span>
+              <span className="font-medium text-slate-700">{formatCurrency(subtotal, org?.currency, org?.locale)}</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -354,7 +379,9 @@ export function POSCheckout() {
 
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-500">Tax ({taxRatePercent}%)</span>
-              <span className="font-medium text-slate-700">{fmt(tax)}</span>
+              <span className="font-medium text-slate-700">
+                {formatCurrency(tax, org?.currency, org?.locale)}
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -370,7 +397,7 @@ export function POSCheckout() {
 
             <div className="flex items-center justify-between border-t border-slate-200 pt-3">
               <span className="text-base font-bold text-slate-800">Total</span>
-              <span className="text-lg font-black text-primary">{fmt(grandTotal)}</span>
+              <span className="text-lg font-black text-primary">{formatCurrency(grandTotal, org?.currency, org?.locale)}</span>
             </div>
           </div>
 
@@ -398,13 +425,27 @@ export function POSCheckout() {
 
           {/* Checkout Button */}
           <div className="px-5 pb-5 pt-1">
+            {pendingTransactionId && (
+              <p className="mb-2 text-center text-xs font-medium text-amber-600">
+                Completing pending transaction {pendingTransactionId.slice(0, 12)}...
+              </p>
+            )}
             <button
               type="button"
               onClick={handleComplete}
-              disabled={cartItems.length === 0 || !selectedPaymentMethod || createTx.isPending || addPayments.isPending}
+              disabled={
+                (!pendingTransactionId && cartItems.length === 0) ||
+                !selectedPaymentMethod ||
+                createTx.isPending ||
+                addPayments.isPending
+              }
               className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-white shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/30 active:scale-[0.98] disabled:opacity-50 disabled:shadow-none disabled:active:scale-100"
             >
-              {createTx.isPending || addPayments.isPending ? "Processing..." : `Complete — ${fmt(grandTotal)}`}
+              {createTx.isPending || addPayments.isPending
+                ? "Processing..."
+                : pendingTransactionId
+                  ? `Pay — ${formatCurrency(pendingTransactionTotal ?? 0, org?.currency, org?.locale)}`
+                  : `Complete — ${formatCurrency(grandTotal, org?.currency, org?.locale)}`}
             </button>
             {(createTx.error || addPayments.error) && (
               <p className="mt-2 text-center text-xs text-red-500">

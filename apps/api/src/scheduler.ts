@@ -3,6 +3,9 @@ import { createHash, createHmac } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import type { DayOfWeek } from "@prisma/client";
 import { getPrisma } from "./utils/db.js";
+import { logger as rootLogger } from "./utils/logger.js";
+
+const log = rootLogger.child({ module: "scheduler" });
 
 const DAY_MAP: Record<number, string> = {
   0: "SUNDAY",
@@ -66,10 +69,10 @@ async function triggerPusher(
       body,
     });
     if (!res.ok) {
-      console.error(`[scheduler] Pusher trigger failed: ${res.status}`);
+      log.error({ status: res.status }, "Pusher trigger failed");
     }
   } catch (err: any) {
-    console.error("[scheduler] Pusher fetch error:", err.message);
+    log.error({ err }, "Pusher fetch error");
   }
 }
 
@@ -104,11 +107,9 @@ async function processNoShowTimeout(): Promise<void> {
       });
     }
 
-    console.log(
-      `[scheduler] NO_SHOW: transitioned ${staleEntries.length} entries`
-    );
-  } catch (err: any) {
-    console.error("[scheduler] NO_SHOW job error:", err.message);
+    log.info({ count: staleEntries.length }, "NO_SHOW: transitioned entries");
+  } catch (err: unknown) {
+    log.error({ err }, "NO_SHOW job error");
   }
 }
 
@@ -171,11 +172,9 @@ async function processGracePeriodRelease(): Promise<void> {
       });
     }
 
-    console.log(
-      `[scheduler] Grace period: released ${lateEntries.length} late online bookings`
-    );
-  } catch (err: any) {
-    console.error("[scheduler] Grace period job error:", err.message);
+    log.info({ count: lateEntries.length }, "Grace period: released late online bookings");
+  } catch (err: unknown) {
+    log.error({ err }, "Grace period job error");
   }
 }
 
@@ -237,12 +236,10 @@ async function processAutoClockOut(): Promise<void> {
         data: { clockOut: closeUtc, autoClockOut: true },
       });
 
-      console.log(
-        `[scheduler] Auto clock-out: ${openAttendances.length} staff at branch ${branch.branchId}`
-      );
+      log.info({ count: openAttendances.length, branchId: branch.branchId }, "Auto clock-out");
     }
-  } catch (err: any) {
-    console.error("[scheduler] Auto clock-out job error:", err.message);
+  } catch (err: unknown) {
+    log.error({ err }, "Auto clock-out job error");
   }
 }
 
@@ -255,12 +252,10 @@ async function processPointExpiry(): Promise<void> {
     const { LoyaltyService } = await import("./features/loyalty/loyalty.service.js");
     const result = await LoyaltyService.processPointExpiry(db);
     if (result.accountsProcessed > 0) {
-      console.log(
-        `[scheduler] Point expiry: ${result.accountsProcessed} accounts, ${result.totalExpired} points expired`
-      );
+      log.info({ accounts: result.accountsProcessed, expired: result.totalExpired }, "Point expiry");
     }
-  } catch (err: any) {
-    console.error("[scheduler] Point expiry job error:", err.message);
+  } catch (err: unknown) {
+    log.error({ err }, "Point expiry job error");
   }
 }
 
@@ -278,12 +273,10 @@ async function processRetentionTriggers(): Promise<void> {
     });
     const result = await RetentionService.processRetentionTriggers(db, ns);
     if (result.atRiskSent > 0 || result.expirySent > 0) {
-      console.log(
-        `[scheduler] Retention: ${result.atRiskSent} at-risk nudges, ${result.expirySent} expiry warnings`
-      );
+      log.info({ atRiskSent: result.atRiskSent, expirySent: result.expirySent }, "Retention triggers");
     }
-  } catch (err: any) {
-    console.error("[scheduler] Retention job error:", err.message);
+  } catch (err: unknown) {
+    log.error({ err }, "Retention job error");
   }
 }
 
@@ -293,24 +286,35 @@ async function processRetentionTriggers(): Promise<void> {
 
 async function processReferralExpiry(): Promise<void> {
   const db = getDb();
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const now = new Date();
 
   try {
-    const result = await db.referral.updateMany({
+    // Expire referrals that have a set expiresAt date
+    const byExpiry = await db.referral.updateMany({
       where: {
         status: "PENDING",
+        expiresAt: { lt: now },
+      },
+      data: { status: "EXPIRED" },
+    });
+
+    // Fallback: expire referrals without expiresAt that are older than 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const byAge = await db.referral.updateMany({
+      where: {
+        status: "PENDING",
+        expiresAt: null,
         createdAt: { lt: thirtyDaysAgo },
       },
       data: { status: "EXPIRED" },
     });
 
-    if (result.count > 0) {
-      console.log(
-        `[scheduler] Referral expiry: ${result.count} referrals expired`
-      );
+    const total = byExpiry.count + byAge.count;
+    if (total > 0) {
+      log.info({ count: total }, "Referral expiry");
     }
-  } catch (err: any) {
-    console.error("[scheduler] Referral expiry job error:", err.message);
+  } catch (err: unknown) {
+    log.error({ err }, "Referral expiry job error");
   }
 }
 
@@ -323,10 +327,10 @@ async function processAnomalyDetection(): Promise<void> {
     const { AuditService } = await import("./features/audit/audit.service.js");
     const created = await AuditService.detectAnomalies(db);
     if (created > 0) {
-      console.log(`[scheduler] Anomaly detection: ${created} new anomalies flagged`);
+      log.info({ count: created }, "Anomaly detection: new anomalies flagged");
     }
-  } catch (err: any) {
-    console.error("[scheduler] Anomaly detection job error:", err.message);
+  } catch (err: unknown) {
+    log.error({ err }, "Anomaly detection job error");
   }
 }
 
@@ -341,9 +345,214 @@ async function processNightlySnapshots(): Promise<void> {
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
     const dateStr = yesterday.toISOString().slice(0, 10);
     const result = await AnalyticsService.computeDailySnapshots(db, dateStr);
-    console.log(`[scheduler] Nightly snapshots: ${result.branchesProcessed} branches for ${result.date}`);
-  } catch (err: any) {
-    console.error("[scheduler] Nightly snapshot job error:", err.message);
+    log.info({ branches: result.branchesProcessed, date: result.date }, "Nightly snapshots");
+  } catch (err: unknown) {
+    log.error({ err }, "Nightly snapshot job error");
+  }
+}
+
+// ─── Job 7b: Weekly churn scores ─────────────────────────────────────────────
+// Runs Monday 04:00 UTC. Recomputes ChurnScore for every active branch.
+
+async function processWeeklyChurnScores(): Promise<void> {
+  const db = getDb();
+  try {
+    const { ChurnService } = await import("./features/analytics/churn.service.js");
+    const branches = await db.branch.findMany({
+      where: { isActive: true },
+      select: { id: true, organizationId: true },
+    });
+    let customersScored = 0;
+    for (const b of branches) {
+      const r = await ChurnService.computeChurnScores(db, b.id, b.organizationId);
+      customersScored += r.customersScored;
+    }
+    if (branches.length > 0) {
+      log.info(
+        { branches: branches.length, customersScored },
+        "Weekly churn scores computed",
+      );
+    }
+  } catch (err: unknown) {
+    log.error({ err }, "Weekly churn job error");
+  }
+}
+
+// ─── Job 8: Appointment Reminder ──────────────────────────────────────────────
+// Runs every 5 minutes. Sends push notifications for bookings scheduled 25–30 min
+// from now that are still WAITING. Deduplicates via Notification table (if it exists)
+// or auditLog to avoid double sends.
+
+async function processAppointmentReminders(): Promise<void> {
+  const db = getDb();
+  try {
+    const { createNotificationService } = await import("./utils/notifications.js");
+    const ns = createNotificationService({
+      ONESIGNAL_APP_ID: process.env.ONESIGNAL_APP_ID,
+      ONESIGNAL_REST_API_KEY: process.env.ONESIGNAL_REST_API_KEY,
+    });
+
+    const now = new Date();
+    const from = new Date(now.getTime() + 25 * 60 * 1000);
+    const to = new Date(now.getTime() + 30 * 60 * 1000);
+
+    const upcomingEntries = await db.queueEntry.findMany({
+      where: {
+        status: "WAITING",
+        booking: {
+          scheduledAt: { gte: from, lt: to },
+        },
+      },
+      include: {
+        booking: { select: { id: true, scheduledAt: true } },
+        branch: { select: { name: true } },
+      },
+    });
+
+    if (upcomingEntries.length === 0) return;
+
+    let sent = 0;
+    for (const entry of upcomingEntries) {
+      if (!entry.customerId || !entry.booking) continue;
+
+      const existing = await db.auditLog.findFirst({
+        where: {
+          entityType: "AppointmentReminder",
+          entityId: entry.booking.id,
+          action: "CREATE",
+        },
+      });
+      if (existing) continue;
+
+      const branchName = entry.branch?.name ?? "the branch";
+      await ns.sendPush(
+        entry.customerId,
+        "Appointment Reminder",
+        `Your appointment at ${branchName} is in 30 minutes!`,
+        {
+          type: "APPOINTMENT_REMINDER",
+          bookingId: entry.booking.id,
+          branchId: entry.branchId,
+        },
+      );
+
+      const reminderTitle = "Appointment Reminder";
+      const reminderBody = `Your appointment at ${branchName} is in 30 minutes!`;
+
+      await db.auditLog.create({
+        data: {
+          organizationId: entry.organizationId,
+          action: "CREATE",
+          entityType: "AppointmentReminder",
+          entityId: entry.booking.id,
+          branchId: entry.branchId,
+          details: { customerId: entry.customerId },
+        },
+      });
+
+      await db.notification.create({
+        data: {
+          organizationId: entry.organizationId,
+          userId: entry.customerId,
+          title: reminderTitle,
+          body: reminderBody,
+          type: "APPOINTMENT_REMINDER",
+          data: { bookingId: entry.booking.id, branchId: entry.branchId },
+        },
+      }).catch((e: unknown) => log.error({ err: e }, "Notification record create failed"));
+
+      sent++;
+    }
+
+    if (sent > 0) {
+      log.info({ count: sent }, "Appointment reminders sent");
+    }
+  } catch (err: unknown) {
+    log.error({ err }, "Appointment reminder job error");
+  }
+}
+
+// ─── Job 8b: Waitlist expiry ─────────────────────────────────────────────────
+// Runs every 5 minutes with other 5m jobs. Marks past-slot waitlist rows EXPIRED.
+
+async function processWaitlistExpiry(): Promise<void> {
+  const db = getDb();
+  try {
+    const { WaitlistService } = await import("./features/waitlist/waitlist.service.js");
+    const count = await WaitlistService.expireWaitlistEntries(db);
+    if (count > 0) {
+      log.info({ count }, "Waitlist entries expired");
+    }
+  } catch (err: unknown) {
+    log.error({ err }, "Waitlist expiry job error");
+  }
+}
+
+// ─── Job 9: Scheduled report delivery ────────────────────────────────────────
+// Runs every hour. Sends PDF + CSV for due ReportSchedule rows (nextRunAt <= now).
+
+async function processScheduledReports(): Promise<void> {
+  const db = getDb();
+  const now = new Date();
+
+  try {
+    const { ReportsService } = await import("./features/reports/reports.service.js");
+    const { sendEmail } = await import("./utils/email.js");
+
+    const due = await db.reportSchedule.findMany({
+      where: { isActive: true, nextRunAt: { lte: now } },
+    });
+
+    for (const schedule of due) {
+      const branchId = ReportsService.resolveScheduleBranchId(schedule);
+      if (!branchId) {
+        log.warn({ scheduleId: schedule.id }, "Scheduled report skipped: no branchId");
+        continue;
+      }
+
+      const { dateFrom, dateTo } = ReportsService.resolveScheduleDates(schedule, now);
+      let report;
+      try {
+        report = await ReportsService.generateReport(db, {
+          type: schedule.reportType,
+          branchId,
+          dateFrom,
+          dateTo,
+        });
+      } catch (err: unknown) {
+        log.error({ err, scheduleId: schedule.id }, "Scheduled report generate failed");
+        continue;
+      }
+
+      const pdf = await ReportsService.exportPDF(report, { dateFrom, dateTo });
+      const csv = ReportsService.exportCSV(report);
+      const baseName = `${report.type}_${dateFrom}_${dateTo}`;
+
+      await sendEmail({
+        to: schedule.recipients,
+        subject: `Scheduled report: ${report.type} (${dateFrom} – ${dateTo})`,
+        html: `<p>Your scheduled <strong>${report.type}</strong> report for ${dateFrom} to ${dateTo} is attached (PDF and CSV).</p>`,
+        attachments: [
+          { filename: `${baseName}.pdf`, content: pdf, contentType: "application/pdf" },
+          { filename: `${baseName}.csv`, content: csv, contentType: "text/csv" },
+        ],
+      });
+
+      const nextRunAt = ReportsService.computeNextRunAt(schedule.frequency, now);
+      await db.reportSchedule.update({
+        where: { id: schedule.id },
+        data: {
+          lastSentAt: now,
+          nextRunAt,
+        },
+      });
+    }
+
+    if (due.length > 0) {
+      log.info({ count: due.length }, "Scheduled reports: processed due batch");
+    }
+  } catch (err: unknown) {
+    log.error({ err }, "Scheduled reports job error");
   }
 }
 
@@ -353,6 +562,8 @@ export function startScheduler(): void {
   cron.schedule("*/5 * * * *", () => {
     processNoShowTimeout();
     processGracePeriodRelease();
+    processAppointmentReminders();
+    processWaitlistExpiry();
   });
 
   cron.schedule("*/15 * * * *", () => {
@@ -376,5 +587,25 @@ export function startScheduler(): void {
     processNightlySnapshots();
   });
 
-  console.log("[scheduler] Started: NO_SHOW timeout (5min), Grace period release (5min), Auto clock-out (15min), Anomaly detection (15min), Point expiry (daily 03:00 UTC), Retention (daily 03:05 UTC), Referral expiry (daily 03:10 UTC), Nightly snapshots (daily 02:00 UTC)");
+  cron.schedule("15 2 * * *", async () => {
+    try {
+      const { ForecastService } = await import("./features/analytics/forecast.service.js");
+      const db = getDb();
+      await ForecastService.computeAllBranches(db);
+    } catch (err: unknown) {
+      log.error({ err }, "demand forecast computation failed");
+    }
+  });
+
+  cron.schedule("0 4 * * 1", () => {
+    processWeeklyChurnScores();
+  });
+
+  cron.schedule("0 * * * *", () => {
+    processScheduledReports();
+  });
+
+  log.info(
+    "Scheduler started: NO_SHOW(5m), GracePeriod(5m), Reminders(5m), WaitlistExpiry(5m), AutoClockOut(15m), Anomaly(15m), PointExpiry(03:00), Retention(03:05), ReferralExpiry(03:10), Snapshots(02:00), DemandForecast(02:15), ChurnWeekly(Mon 04:00 UTC), Reports( hourly )",
+  );
 }

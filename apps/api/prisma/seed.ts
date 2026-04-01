@@ -13,10 +13,10 @@ import "dotenv/config";
  *   npx prisma db seed
  */
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import * as bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs";
 
 const pool = new Pool({
   connectionString: process.env["DATABASE_URL"],
@@ -206,6 +206,33 @@ async function main() {
         ],
       },
     },
+    {
+      industryType: "MASSAGE" as const,
+      name: "Massage & Therapy",
+      description: "Massage parlor with therapist scheduling and treatment packages",
+      templateData: {
+        defaultRoles: [
+          { name: "Owner", scope: "HQ", isServiceProvider: false, isSystemRole: true },
+          { name: "Therapist", scope: "BRANCH", isServiceProvider: true },
+          { name: "Front Desk", scope: "BRANCH", isServiceProvider: false },
+          { name: "Customer", scope: "CUSTOMER", isServiceProvider: false, isSystemRole: true },
+        ],
+      },
+    },
+    {
+      industryType: "GENERAL_SERVICE" as const,
+      name: "General Service Business",
+      description: "Generic service business template suitable for any industry",
+      templateData: {
+        defaultRoles: [
+          { name: "Owner", scope: "HQ", isServiceProvider: false, isSystemRole: true },
+          { name: "Manager", scope: "BRANCH", isServiceProvider: false },
+          { name: "Staff", scope: "BRANCH", isServiceProvider: true },
+          { name: "Cashier", scope: "BRANCH", isServiceProvider: false },
+          { name: "Customer", scope: "CUSTOMER", isServiceProvider: false, isSystemRole: true },
+        ],
+      },
+    },
   ];
 
   for (const t of TEMPLATES) {
@@ -222,7 +249,12 @@ async function main() {
   const adminHash = await hashPassword("PlatformAdmin123!");
   await prisma.platformAdmin.upsert({
     where: { email: "admin@tmng.dev" },
-    update: {},
+    update: {
+      passwordHash: adminHash,
+      firstName: "TMNG",
+      lastName: "Admin",
+      role: "PLATFORM_ADMIN",
+    },
     create: {
       email: "admin@tmng.dev",
       passwordHash: adminHash,
@@ -232,6 +264,36 @@ async function main() {
     },
   });
   log("+", "Platform admin: admin@tmng.dev / PlatformAdmin123!");
+
+  // 1d. Platform Config (default business settings)
+  log(">", "Seeding platform config defaults...");
+  const CONFIG_DEFAULTS: Record<string, string> = {
+    POINTS_EARN_RATE: "10000",
+    POINTS_REDEEM_RATE: "500",
+    POINTS_EXPIRY_MONTHS: "6",
+    MAX_REDEMPTION_PERCENT: "50",
+    REFERRAL_BONUS_POINTS: "50",
+    REFERRAL_EXPIRY_DAYS: "30",
+    CASHIER_DISCOUNT_LIMIT: "10",
+    TAX_RATE: "12",
+    COMMISSION_RATE_MASTER: "40",
+    COMMISSION_RATE_SENIOR: "35",
+    COMMISSION_RATE_JUNIOR: "30",
+    PREPAYMENT_ENABLED: "false",
+    DEPOSIT_PERCENTAGE: "100",
+    CANCELLATION_POLICY_HOURS: "0",
+    CANCELLATION_PENALTY_PERCENTAGE: "0",
+    WAITLIST_ENABLED: "false",
+    WAITLIST_MAX_PER_SLOT: "5",
+  };
+  for (const [key, value] of Object.entries(CONFIG_DEFAULTS)) {
+    await prisma.platformConfig.upsert({
+      where: { key },
+      update: {},
+      create: { key, value },
+    });
+  }
+  log("+", `${Object.keys(CONFIG_DEFAULTS).length} platform config entries seeded`);
 
   // -------------------------------------------------------------------------
   // STAGE 2: Barbershop Dev Tenant
@@ -274,6 +336,16 @@ async function main() {
   await prisma.branchDailySnapshot.deleteMany({ where: { organizationId: org.id } });
   await prisma.auditLog.deleteMany({ where: { organizationId: org.id } });
 
+  // AI/ML data
+  await prisma.demandForecast.deleteMany({ where: { organizationId: org.id } });
+  await prisma.scheduleSuggestion.deleteMany({ where: { organizationId: org.id } });
+  await prisma.churnScore.deleteMany({ where: { organizationId: org.id } });
+
+  // Notifications & preferences
+  await prisma.notification.deleteMany({ where: { organizationId: org.id } });
+  await prisma.notificationChannelConfig.deleteMany({ where: { organizationId: org.id } });
+  await prisma.notificationPreference.deleteMany({ where: { organizationId: org.id } });
+
   // CRM & campaigns
   await prisma.customerSegmentMember.deleteMany({ where: { organizationId: org.id } });
   await prisma.campaign.deleteMany({ where: { organizationId: org.id } });
@@ -288,6 +360,9 @@ async function main() {
   await prisma.cashDrawerEntry.deleteMany({ where: { organizationId: org.id } });
   await prisma.cashDrawerSession.deleteMany({ where: { organizationId: org.id } });
 
+  // Saved payment methods
+  await prisma.savedPaymentMethod.deleteMany({ where: { organizationId: org.id } });
+
   // Transactions (explicit children before parent, even though CASCADE exists)
   await prisma.payment.deleteMany({ where: { organizationId: org.id } });
   await prisma.transactionItem.deleteMany({ where: { organizationId: org.id } });
@@ -297,6 +372,9 @@ async function main() {
   await prisma.queueEntry.deleteMany({ where: { organizationId: org.id } });
   await prisma.bookingItem.deleteMany({ where: { organizationId: org.id } });
   await prisma.booking.deleteMany({ where: { organizationId: org.id } });
+
+  // Waitlist
+  await prisma.waitlistEntry.deleteMany({ where: { organizationId: org.id } });
 
   // Payroll & commission
   await prisma.payrollPeriod.deleteMany({ where: { organizationId: org.id } });
@@ -327,6 +405,13 @@ async function main() {
   await prisma.branchHoliday.deleteMany({ where: { organizationId: org.id } });
   await prisma.operatingHour.deleteMany({ where: { organizationId: org.id } });
   await prisma.promoCode.deleteMany({ where: { organizationId: org.id } });
+
+  // Reports
+  await prisma.reportSchedule.deleteMany({ where: { organizationId: org.id } });
+  await prisma.savedReportTemplate.deleteMany({ where: { organizationId: org.id } });
+
+  // Auth tokens
+  await prisma.refreshToken.deleteMany({ where: { organizationId: org.id } });
 
   // Non-seeded branches (created by test 2.4 etc.) — nullify user refs first
   await prisma.user.updateMany({
@@ -424,7 +509,7 @@ async function main() {
   // 2e. Operating Hours (batched)
   log(">", "Setting operating hours...");
   const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
-  const hourData = [];
+  const hourData: Prisma.OperatingHourCreateManyInput[] = [];
   for (const branch of [branchCentral, branchSouth]) {
     for (const day of days) {
       const isSunday = day === "SUNDAY";
@@ -457,7 +542,7 @@ async function main() {
     { organizationId: org.id, tenantRoleId: roles["Customer"], email: "customer2@gmail.com", passwordHash: pw, firstName: "Dimas", lastName: "Pradana", phone: "+6281200000002", isCustomer: true },
   ];
 
-  const createdUsers: Record<string, any> = {};
+  const createdUsers: Record<string, { id: string; email: string }> = {};
   for (const ud of usersData) {
     const user = await prisma.user.upsert({
       where: { organizationId_email: { organizationId: ud.organizationId, email: ud.email } },
@@ -590,7 +675,7 @@ async function main() {
       { organizationId: org.id, comboId: combo.id, childServiceId: shave.id },
     ],
   });
-  log("+", "6 services (4 standard, 2 add-ons, 1 combo)");
+  log("+", "6 services (3 standard, 2 add-ons, 1 combo)");
 
   // 2j. Tier Surcharges
   log(">", "Adding tier surcharges...");
@@ -616,7 +701,7 @@ async function main() {
       isActive: true,
     },
   });
-  log("+", "Kemang branch: Haircut overridden to 90K IDR");
+  log("+", "Kemang branch: Haircut overridden to 90K");
 
   // 2l. Surge Rules
   log(">", "Adding surge pricing rules...");
@@ -694,18 +779,52 @@ async function main() {
   });
   log("+", "3 products, 5 inventory records, 5 stock movements");
 
-  // 2o. Role-Service Assignments (barbers can perform all services)
+  // 2o. Role-Service Assignments
+  // Barber → all services; Junior Barber → basic services only (Haircut, Shave)
   log(">", "Assigning services to barber roles...");
   const allServices = await prisma.service.findMany({ where: { organizationId: org.id } });
-  const roleSvcData = [];
+  const basicServiceNames = new Set(["Haircut", "Shave"]);
+  const roleSvcData: Prisma.TenantRoleServiceCreateManyInput[] = [];
   for (const roleName of ["Barber", "Junior Barber"]) {
     const roleId = roles[roleName];
-    for (const svc of allServices) {
+    const eligible = roleName === "Junior Barber"
+      ? allServices.filter((s) => basicServiceNames.has(s.name))
+      : allServices;
+    for (const svc of eligible) {
       roleSvcData.push({ organizationId: org.id, tenantRoleId: roleId, serviceId: svc.id });
     }
   }
   await prisma.tenantRoleService.createMany({ data: roleSvcData });
   log("+", `${roleSvcData.length} role-service assignments`);
+
+  // 2p. AI/ML Sample Data
+  log(">", "Creating AI/ML sample data...");
+  const today = new Date();
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+  const dayAfter = new Date(today); dayAfter.setDate(dayAfter.getDate() + 2);
+
+  await prisma.demandForecast.createMany({
+    data: [
+      { organizationId: org.id, branchId: branchCentral.id, date: today, predictedTransactions: 25, predictedRevenue: 2_500_000, confidenceLow: 2_000_000, confidenceHigh: 3_000_000, dayOfWeek: today.getDay(), isHoliday: false },
+      { organizationId: org.id, branchId: branchCentral.id, date: tomorrow, predictedTransactions: 30, predictedRevenue: 3_000_000, confidenceLow: 2_400_000, confidenceHigh: 3_600_000, dayOfWeek: tomorrow.getDay(), isHoliday: false },
+      { organizationId: org.id, branchId: branchCentral.id, date: dayAfter, predictedTransactions: 18, predictedRevenue: 1_800_000, confidenceLow: 1_400_000, confidenceHigh: 2_200_000, dayOfWeek: dayAfter.getDay(), isHoliday: false },
+    ],
+  });
+
+  await prisma.scheduleSuggestion.createMany({
+    data: [
+      { organizationId: org.id, branchId: branchCentral.id, date: tomorrow, suggestedStart: "10:00", suggestedEnd: "14:00", reason: "Predicted 40% above capacity", demandScore: 0.85, status: "PENDING" },
+      { organizationId: org.id, branchId: branchCentral.id, date: dayAfter, suggestedStart: "14:00", suggestedEnd: "18:00", reason: "Weekend surge expected", demandScore: 0.72, status: "ACCEPTED" },
+    ],
+  });
+
+  await prisma.churnScore.createMany({
+    data: [
+      { organizationId: org.id, customerId: customer1.id, branchId: branchCentral.id, score: 0.25, riskLevel: "LOW", features: { recency: 5, frequency: 8, monetary: 180000 } },
+      { organizationId: org.id, customerId: customer2.id, branchId: branchCentral.id, score: 0.72, riskLevel: "HIGH", features: { recency: 45, frequency: 2, monetary: 80000 } },
+    ],
+  });
+  log("+", "3 demand forecasts, 2 schedule suggestions, 2 churn scores");
 
   // -------------------------------------------------------------------------
   // Summary
@@ -733,6 +852,9 @@ async function main() {
     Promo Codes        3
     Products           3
     Inventory          5
+    Demand Forecasts   3
+    Schedule Suggest.  2
+    Churn Scores       2
 
   Login Credentials (all passwords: Password123!)
   -------------------------------------------

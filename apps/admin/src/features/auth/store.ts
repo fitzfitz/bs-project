@@ -8,6 +8,12 @@ type FeaturePermission = {
   canDelete: boolean;
 };
 
+type OrgCurrency = {
+  currency: string;
+  currencySymbol: string;
+  locale: string;
+};
+
 type UserSession = {
   id: string;
   email: string;
@@ -19,6 +25,7 @@ type UserSession = {
   staffProfile?: { id: string; tier: string } | null;
   isCustomer?: boolean;
   permissions?: Record<string, FeaturePermission>;
+  organization?: OrgCurrency;
 } | null;
 
 interface SessionState {

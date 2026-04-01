@@ -1,0 +1,20 @@
+{
+  "save": "Save",
+  "cancel": "Cancel",
+  "submit": "Submit",
+  "back": "Back",
+  "continue": "Continue",
+  "close": "Close",
+  "confirm": "Confirm",
+  "delete": "Delete",
+  "edit": "Edit",
+  "loading": "Loading...",
+  "error": "Something went wrong",
+  "retry": "Retry",
+  "noData": "No data available",
+  "success": "Success",
+  "required": "This field is required",
+  "viewAll": "View All",
+  "seeMore": "See More",
+  "done": "Done"
+}

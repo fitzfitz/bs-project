@@ -55,5 +55,14 @@ export const PayrollPeriodSchema = z.object({
   updatedAt: z.string(),
 });
 
+export const bulkApproveSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(50),
+  note: z.string().optional(),
+});
+
+export const bulkDisburseSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(50),
+});
+
 export type GeneratePeriodInput = z.infer<typeof generatePeriodSchema>;
 export type ListPayrollQuery = z.infer<typeof listPayrollQuerySchema>;

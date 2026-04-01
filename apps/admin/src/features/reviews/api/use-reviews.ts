@@ -3,25 +3,19 @@ import { api, type ApiResponse } from "@/lib/api";
 
 export interface ReviewItem {
   id: string;
+  customerId: string;
+  customerName: string;
+  staffProfileId: string | null;
+  staffName: string | null;
+  branchId: string | null;
   rating: number;
   comment: string | null;
   photoUrls: string[];
   isVisible: boolean;
   createdAt: string;
-  queueEntryId: string | null;
-  branchId: string | null;
-  staffProfileId: string | null;
-  customer: { firstName: string; lastName: string } | null;
-  staff: { user: { firstName: string; lastName: string } } | null;
 }
 
-interface ReviewListResponse {
-  items: ReviewItem[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
+export type ModerateReviewResponse = { success: true; message: string };
 
 export function useReviews(params: {
   branchId?: string;
@@ -41,7 +35,7 @@ export function useReviews(params: {
 
   return useQuery({
     queryKey: ["admin-reviews", params],
-    queryFn: () => api.get<ApiResponse<ReviewListResponse>>(`/reviews?${search}`),
+    queryFn: () => api.get<ApiResponse<ReviewItem[]>>(`/reviews?${search}`),
     enabled: !!params.branchId,
   });
 }
@@ -50,7 +44,7 @@ export function useModerateReview() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { id: string; isVisible: boolean; moderationNote?: string }) =>
-      api.patch<ApiResponse<ReviewItem>>(`/reviews/${data.id}/moderate`, {
+      api.patch<ModerateReviewResponse>(`/reviews/${data.id}/moderate`, {
         isVisible: data.isVisible,
         moderationNote: data.moderationNote,
       }),

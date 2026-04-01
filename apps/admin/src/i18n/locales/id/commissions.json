@@ -1,0 +1,16 @@
+{
+  "title": "Komisi",
+  "date": "Tanggal",
+  "base": "Dasar",
+  "totalColumn": "Total",
+  "earnings": "Penghasilan",
+  "commission": "Komisi",
+  "tips": "Tips",
+  "totalEarnings": "Total Penghasilan",
+  "model": "Model",
+  "flatPercentage": "Persentase Tetap",
+  "slidingScale": "Skala Bertingkat",
+  "basePlusBonus": "Gaji Pokok + Bonus",
+  "period": "Periode",
+  "noEarnings": "Tidak ada penghasilan ditemukan"
+}

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { BranchSelector } from "@/components/branch-selector";
 import { useBranchStore } from "@/store/use-branch-store";
 import {
@@ -8,10 +9,15 @@ import {
   useUpdateBarberStatus,
   useAssignBarberBranch,
   useUnassignBarberBranch,
+  useResetCommission,
+  useUpdateAvatar,
   type StaffProfile,
 } from "@/features/barbers/api/use-barbers";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { useUserSearch, type SearchUser } from "@/features/barbers/api/use-user-search";
 import { useBranches } from "@/features/pos/api/use-branches";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
 
 const TIERS = ["JUNIOR", "SENIOR", "MASTER"] as const;
 const STATUSES = ["AVAILABLE", "BUSY", "ON_BREAK", "RESERVED", "OFF_DUTY"] as const;
@@ -24,6 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function BarbersPage() {
+  const { t } = useTranslation();
   const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
   const { data: branchesData } = useBranches();
   const branches = branchesData?.data ?? [];
@@ -44,6 +51,8 @@ export default function BarbersPage() {
   const updateStatus = useUpdateBarberStatus();
   const assignBranch = useAssignBarberBranch();
   const unassignBranch = useUnassignBarberBranch();
+  const resetCommission = useResetCommission();
+  const updateAvatar = useUpdateAvatar();
 
   const barbers = data?.data ?? [];
   const pagination = data?.pagination;
@@ -82,26 +91,30 @@ export default function BarbersPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-2xl font-semibold">Barber Management</h1>
-        <BranchSelector />
-        <select
-          value={tierFilter}
-          onChange={(e) => { setTierFilter(e.target.value); setPage(1); }}
-          className="rounded border px-2 py-1 text-sm"
-        >
-          <option value="">All tiers</option>
-          {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="ml-auto rounded bg-primary px-4 py-1.5 text-sm text-primary-foreground"
-        >
-          + Add Barber
-        </button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title={t("staff:title")}
+        actions={(
+          <>
+            <BranchSelector />
+            <select
+              value={tierFilter}
+              onChange={(e) => { setTierFilter(e.target.value); setPage(1); }}
+              className="rounded border px-2 py-1 text-sm"
+            >
+              <option value="">All tiers</option>
+              {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="ml-auto rounded bg-primary px-4 py-1.5 text-sm text-primary-foreground"
+            >
+              + Add Barber
+            </button>
+          </>
+        )}
+      />
 
       {isLoading ? (
         <div className="text-muted-foreground">Loading...</div>
@@ -244,6 +257,19 @@ export default function BarbersPage() {
             </div>
 
             <div className="space-y-4 text-sm">
+              <div className="flex items-center gap-4">
+                <ImageUpload
+                  value={selectedBarber.user.avatar}
+                  prefix="avatars"
+                  entityId={selectedBarber.userId}
+                  onUploaded={(url) => updateAvatar.mutate({ userId: selectedBarber.userId, avatar: url })}
+                  onRemove={() => updateAvatar.mutate({ userId: selectedBarber.userId, avatar: null })}
+                />
+                <div>
+                  <p className="font-medium">{selectedBarber.user.firstName} {selectedBarber.user.lastName}</p>
+                  <p className="text-xs text-muted-foreground">{selectedBarber.user.email}</p>
+                </div>
+              </div>
               <div>
                 <p className="font-medium mb-1">Current Branch</p>
                 {selectedBarber.branch ? (
@@ -286,19 +312,33 @@ export default function BarbersPage() {
               </div>
 
               <div>
-                <p className="font-medium mb-1">Details</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-medium">Details</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm("Reset commission rate to the org template for this tier?")) {
+                        resetCommission.mutate(selectedBarber.userId);
+                      }
+                    }}
+                    disabled={resetCommission.isPending}
+                    className="text-xs text-primary hover:underline disabled:opacity-50"
+                  >
+                    {resetCommission.isPending ? "Resetting..." : "Reset to Template"}
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <span className="text-muted-foreground">Tier</span><span>{selectedBarber.tier}</span>
                   <span className="text-muted-foreground">Commission</span><span>{((selectedBarber.commissionRate ?? 0) * 100).toFixed(0)}%</span>
                   <span className="text-muted-foreground">Model</span><span>{selectedBarber.commissionModel ?? "—"}</span>
                   <span className="text-muted-foreground">Base Salary</span><span>{(selectedBarber.baseSalary ?? 0).toLocaleString("id-ID")}</span>
-                  <span className="text-muted-foreground">Active</span><span>{selectedBarber.isActive ? "Yes" : "No"}</span>
+                  <span className="text-muted-foreground">Active</span><span>{selectedBarber.user.isActive ? "Yes" : "No"}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -1,8 +1,10 @@
 import { ArrowLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { LoyaltyDashboard } from "@/features/loyalty/widgets/loyalty-dashboard";
 
 export default function LoyaltyPage() {
+  const { t } = useTranslation("loyalty");
   const navigate = useNavigate();
 
   return (
@@ -15,7 +17,7 @@ export default function LoyaltyPage() {
         >
           <ArrowLeft className="w-5 h-5 text-slate-700" />
         </button>
-        <h1 className="text-xl font-bold text-slate-900">Loyalty & Rewards</h1>
+        <h1 className="text-xl font-bold text-slate-900">{t("title")}</h1>
       </div>
 
       {/* Content */}

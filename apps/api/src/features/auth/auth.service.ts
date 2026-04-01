@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { OAuth2Client } from "google-auth-library";
 import type { RegisterInput, LoginInput, GoogleAuthInput } from "./auth.schema";
 
 export async function getPermissionsForRole(db: PrismaClient, tenantRoleId: string) {
@@ -39,8 +40,10 @@ export const AuthService = {
         isCustomer: true,
         organizationId: true,
         branchId: true,
+        emailOptIn: true,
         staffProfile: { select: { id: true, tier: true } },
         tenantRole: { select: { id: true, name: true, scope: true } },
+        organization: { select: { currency: true, currencySymbol: true, locale: true } },
       },
     });
     if (!user || !user.tenantRoleId) return user;
@@ -56,7 +59,7 @@ export const AuthService = {
   },
 
   async register(db: PrismaClient, data: RegisterInput) {
-    const org = await this.resolveOrg(db, data.orgSlug);
+    const org = await this.resolveOrg(db, data.orgSlug!);
 
     const customerRole = await db.tenantRole.findFirst({
       where: { scope: "CUSTOMER", organizationId: org.id },
@@ -93,15 +96,22 @@ export const AuthService = {
       },
     });
 
-    return { ...user, tenantRole: { id: customerRole.id, name: customerRole.name, scope: customerRole.scope } };
+    return {
+      ...user,
+      tenantRole: { id: customerRole.id, name: customerRole.name, scope: customerRole.scope },
+      organization: { currency: org.currency, currencySymbol: org.currencySymbol, locale: org.locale },
+    };
   },
 
   async login(db: PrismaClient, data: LoginInput) {
-    const org = await this.resolveOrg(db, data.orgSlug);
+    const org = await this.resolveOrg(db, data.orgSlug!);
 
     const user = await db.user.findUnique({
       where: { organizationId_email: { organizationId: org.id, email: data.email } },
-      include: { tenantRole: { select: { id: true, name: true, scope: true } } },
+      include: {
+        tenantRole: { select: { id: true, name: true, scope: true } },
+        organization: { select: { currency: true, currencySymbol: true, locale: true } },
+      },
     });
     if (!user) return null;
 
@@ -113,39 +123,45 @@ export const AuthService = {
     return user;
   },
 
-  /**
-   * Google OAuth: verify the ID token, find-or-create user, return user.
-   * In production, verify the token with Google's tokeninfo endpoint.
-   * For now, we decode the payload (JWT) without full verification.
-   */
-  async googleAuth(db: PrismaClient, data: GoogleAuthInput) {
-    const org = await this.resolveOrg(db, data.orgSlug);
+  async googleAuth(db: PrismaClient, data: GoogleAuthInput & { googleClientId?: string }) {
+    const org = await this.resolveOrg(db, data.orgSlug!);
 
-    // Decode Google ID token payload (base64 middle segment)
     const parts = data.idToken.split(".");
     if (parts.length !== 3) throw new Error("Invalid Google ID token format");
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+
+    const clientId = data.googleClientId;
+    if (!clientId) throw new Error("Google auth not configured");
+
+    const client = new OAuth2Client(clientId);
+    const ticket = await client.verifyIdToken({
+      idToken: data.idToken,
+      audience: clientId,
+    });
+    const payload = ticket.getPayload();
+    if (!payload) throw new Error("Invalid Google ID token");
 
     const { sub: googleId, email, given_name, family_name, email_verified, picture } = payload;
     if (!email) throw new Error("Google token missing email claim");
 
+    const orgInclude = { organization: { select: { currency: true, currencySymbol: true, locale: true } } };
+    const userInclude = { tenantRole: { select: { id: true, name: true, scope: true } }, ...orgInclude };
+
     let user = await db.user.findFirst({
       where: { organizationId: org.id, googleId },
-      include: { tenantRole: { select: { id: true, name: true, scope: true } } },
+      include: userInclude,
     });
 
     if (!user) {
-      // Check if email-based account exists (link Google)
       user = await db.user.findUnique({
         where: { organizationId_email: { organizationId: org.id, email } },
-        include: { tenantRole: { select: { id: true, name: true, scope: true } } },
+        include: userInclude,
       });
 
       if (user) {
         user = await db.user.update({
           where: { id: user.id },
           data: { googleId, authProvider: "GOOGLE", emailVerified: !!email_verified, avatar: picture || user.avatar },
-          include: { tenantRole: { select: { id: true, name: true, scope: true } } },
+          include: userInclude,
         });
       } else {
         const customerRole = await db.tenantRole.findFirst({
@@ -166,7 +182,7 @@ export const AuthService = {
             emailVerified: !!email_verified,
             avatar: picture || null,
           },
-          include: { tenantRole: { select: { id: true, name: true, scope: true } } },
+          include: userInclude,
         });
 
         await db.customerMembership.create({
@@ -229,7 +245,7 @@ export const AuthService = {
     });
   },
 
-  async forgotPassword(db: PrismaClient, email: string) {
+  async forgotPassword(_db: PrismaClient, _email: string) {
     return { message: "If an account exists with this email, you will receive reset instructions." };
   },
 

@@ -7,6 +7,9 @@ interface POSState {
   tipAmount: number;
   selectedPaymentMethod: PaymentMethod | null;
   queueEntryId: string | null;
+  /** When set, checkout skips transaction creation and pays this existing transaction */
+  pendingTransactionId: string | null;
+  pendingTransactionTotal: number | null;
   addItem: (item: Omit<CartItem, "qty" | "discount"> & { qty?: number }) => void;
   removeItem: (index: number) => void;
   updateQuantity: (index: number, qty: number) => void;
@@ -14,6 +17,7 @@ interface POSState {
   setTip: (amount: number) => void;
   setPaymentMethod: (method: PaymentMethod) => void;
   setQueueEntryId: (id: string | null) => void;
+  setPendingTransaction: (id: string, totalDue: number) => void;
   reset: () => void;
 }
 
@@ -23,6 +27,8 @@ const initialState = {
   tipAmount: 0,
   selectedPaymentMethod: null as PaymentMethod | null,
   queueEntryId: null as string | null,
+  pendingTransactionId: null as string | null,
+  pendingTransactionTotal: null as number | null,
 };
 
 export const usePOSStore = create<POSState>((set) => ({
@@ -52,5 +58,7 @@ export const usePOSStore = create<POSState>((set) => ({
   setTip: (tipAmount) => set({ tipAmount }),
   setPaymentMethod: (selectedPaymentMethod) => set({ selectedPaymentMethod }),
   setQueueEntryId: (queueEntryId) => set({ queueEntryId }),
+  setPendingTransaction: (id, totalDue) =>
+    set({ pendingTransactionId: id, pendingTransactionTotal: totalDue }),
   reset: () => set(initialState),
 }));

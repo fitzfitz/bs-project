@@ -1,0 +1,19 @@
+{
+  "title": "Audit Log",
+  "action": "Action",
+  "user": "User",
+  "details": "Details",
+  "ipAddress": "IP Address",
+  "anomalies": "Anomalies",
+  "anomalyDashboard": "Anomaly Dashboard",
+  "severity": "Severity",
+  "high": "High",
+  "medium": "Medium",
+  "low": "Low",
+  "resolve": "Resolve",
+  "resolved": "Resolved",
+  "unresolved": "Unresolved",
+  "resolution": "Resolution",
+  "noLogs": "No audit logs found",
+  "noAnomalies": "No anomalies detected"
+}

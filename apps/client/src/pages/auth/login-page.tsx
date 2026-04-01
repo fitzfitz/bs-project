@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import { useAuth } from '@/features/auth/api/use-auth';
 import { LoginSchema, type LoginFormValues } from '@/features/auth/types';
 
 export default function LoginPage() {
+  const { t } = useTranslation('auth');
   const { login, isLoggingIn, loginError } = useAuth();
 
   const form = useForm<LoginFormValues>({
@@ -45,7 +47,7 @@ export default function LoginPage() {
           <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
             {loginError && (
               <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg font-medium border border-red-100">
-                {loginError.message || "Failed to sign in. Please try again."}
+                {loginError.message || t('loginFailed')}
               </div>
             )}
             
@@ -73,7 +75,7 @@ export default function LoginPage() {
               name="password"
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>{t('password')}</FormLabel>
                   <FormControl>
                     <Input 
                       {...field}
@@ -94,7 +96,7 @@ export default function LoginPage() {
             </div>
 
             <Button type="submit" disabled={isLoggingIn} size="lg" className="w-full h-12 text-md font-semibold rounded-xl shadow-md mt-4">
-              {isLoggingIn ? 'Verifying...' : 'Sign In'}
+              {isLoggingIn ? t('verifying') : t('signIn')}
             </Button>
           </form>
         </Form>

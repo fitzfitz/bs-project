@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Star, Eye, EyeOff, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { BranchSelector } from "@/components/branch-selector";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
 import { useBranchStore } from "@/store/use-branch-store";
 import {
   useReviews,
@@ -27,12 +30,8 @@ function ReviewCard({ review }: { review: ReviewItem }) {
   const moderate = useModerateReview();
   const remove = useDeleteReview();
   const tenantRoleScope = useSessionStore((s) => s.user?.tenantRole?.scope);
-  const customerName = review.customer
-    ? `${review.customer.firstName} ${review.customer.lastName}`
-    : "Anonymous";
-  const staffName = review.staff
-    ? `${review.staff.user.firstName} ${review.staff.user.lastName}`
-    : "—";
+  const customerName = review.customerName.trim() || "Anonymous";
+  const staffName = review.staffName?.trim() || "—";
 
   return (
     <div
@@ -121,6 +120,7 @@ function ReviewCard({ review }: { review: ReviewItem }) {
 }
 
 export default function ReviewsPage() {
+  const { t } = useTranslation();
   const branchId = useBranchStore((s) => s.selectedBranchId);
   const [page, setPage] = useState(1);
   const [ratingFilter, setRatingFilter] = useState<number | undefined>();
@@ -132,19 +132,16 @@ export default function ReviewsPage() {
     limit: 20,
   });
 
-  const reviews = data?.data?.items ?? [];
-  const totalPages = data?.data?.totalPages ?? 1;
-  const total = data?.data?.total ?? 0;
+  const reviews = data?.data ?? [];
+  const totalPages = data?.pagination?.totalPages ?? 1;
+  const total = data?.pagination?.total ?? 0;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-2xl font-semibold">Reviews</h1>
-        <BranchSelector />
-      </div>
+    <PageContainer>
+      <PageHeader title={t("reviews:title")} actions={<BranchSelector />} />
 
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-sm text-slate-500">Filter by rating:</span>
+        <span className="text-sm text-slate-500">{t("reviews:filterByRating")}</span>
         {[undefined, 5, 4, 3, 2, 1].map((r) => (
           <button
             key={r ?? "all"}
@@ -217,6 +214,6 @@ export default function ReviewsPage() {
           </button>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

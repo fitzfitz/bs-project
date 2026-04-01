@@ -32,6 +32,7 @@ export type TransactionRow = {
   branch?: { name: string };
   customer?: { firstName: string; lastName: string } | null;
   staffProfile?: { user: { firstName: string; lastName: string } } | null;
+  queueEntry?: { customerName?: string } | null;
   items?: TransactionItem[];
   payments?: Payment[];
 };
@@ -74,6 +75,15 @@ export function useVoidTransaction() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       api.post<ApiResponse<TransactionRow>>(`/transactions/${id}/void`, { reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["transactions"] }),
+  });
+}
+
+export function useRefundTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      api.post<ApiResponse<TransactionRow>>(`/transactions/${id}/refund`, { reason }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["transactions"] }),
   });
 }

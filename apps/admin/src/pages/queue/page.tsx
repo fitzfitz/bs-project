@@ -1,4 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   DndContext,
   DragOverlay,
@@ -10,7 +13,6 @@ import {
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
-  type DragCancelEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -129,6 +131,7 @@ const DATE_LABEL_COLOR: Record<string, string> = {
 /* ========================================================================== */
 
 export default function QueuePage() {
+  const { t } = useTranslation();
   const branchId = useBranchStore((s) => s.selectedBranchId) ?? "";
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [assignModal, setAssignModal] = useState<QueueEntry | null>(null);
@@ -148,7 +151,7 @@ export default function QueuePage() {
   const postpone = usePostponeEntry();
   const cancel = useCancelEntry();
 
-  const entries = data?.data ?? [];
+  const entries = useMemo(() => data?.data ?? [], [data?.data]);
   const barbers = barbersData?.data ?? [];
 
   const lanes = useMemo(() => {
@@ -215,7 +218,7 @@ export default function QueuePage() {
     [entries, updateStatus, resolveLane],
   );
 
-  const handleDragCancel = useCallback((_event: DragCancelEvent) => {
+  const handleDragCancel = useCallback(() => {
     setActiveId(null);
     setOverrideLane({});
   }, []);
@@ -228,31 +231,34 @@ export default function QueuePage() {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-2xl font-semibold">Live Queue</h1>
-        <BranchSelector />
-        <div className="flex items-center gap-2">
-          <CalendarDays className="h-4 w-4 text-muted-foreground" />
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
-        <span className="text-sm text-muted-foreground">{entries.length} entries</span>
-        <button
-          type="button"
-          onClick={() => setWalkInOpen(true)}
-          disabled={!branchId}
-          className="ml-auto flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-50"
-        >
-          <UserPlus className="h-4 w-4" />
-          Walk-In
-        </button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title={t("queue:title")}
+        badge={<span className="text-sm text-muted-foreground">{entries.length} entries</span>}
+        actions={
+          <>
+            <BranchSelector />
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setWalkInOpen(true)}
+              disabled={!branchId}
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-50"
+            >
+              <UserPlus className="h-4 w-4" />
+              Walk-In
+            </button>
+          </>
+        }
+      />
 
       {/* Kanban board */}
       {isLoading ? (
@@ -365,7 +371,7 @@ export default function QueuePage() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -613,7 +619,7 @@ function EntryDetailModal({
           {/* Times grid */}
           <div className="grid grid-cols-2 gap-3">
             <InfoBlock label="Scheduled" value={`${getRelativeDateLabel(entry.booking?.scheduledAt ?? entry.scheduledFor ?? entry.createdAt)} ${formatTime(entry.booking?.scheduledAt ?? entry.scheduledFor ?? entry.createdAt)}`.trim()} />
-            <InfoBlock label="Est. Duration" value={entry.estimatedDuration > 0 ? `${entry.estimatedDuration} min` : "—"} />
+            <InfoBlock label="Est. Duration" value={entry.estimatedDuration && entry.estimatedDuration > 0 ? `${entry.estimatedDuration} min` : "—"} />
             {entry.calledAt && <InfoBlock label="Called At" value={formatDateTime(entry.calledAt)} />}
             {entry.startedAt && <InfoBlock label="Started At" value={formatDateTime(entry.startedAt)} />}
             {entry.completedAt && <InfoBlock label="Completed At" value={formatDateTime(entry.completedAt)} />}
@@ -888,7 +894,7 @@ function QueueCard({
           {dateLabel && <span className={`font-semibold ${dateLabelColor}`}>{dateLabel}</span>}
           {scheduledTime}
         </span>
-        {entry.estimatedDuration > 0 && (
+        {entry.estimatedDuration && entry.estimatedDuration > 0 && (
           <span className="flex items-center gap-1">
             <Timer className="h-3 w-3" />
             {entry.estimatedDuration}m

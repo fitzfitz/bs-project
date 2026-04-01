@@ -1,0 +1,12 @@
+{
+  "title": "Retention Management",
+  "stats": "Retention Stats",
+  "atRiskCustomers": "At-Risk Customers",
+  "churned": "Churned",
+  "retained": "Retained",
+  "triggerPolicy": "Trigger Policy",
+  "runTriggers": "Run Retention Triggers",
+  "runConfirm": "This will send retention nudges to at-risk customers. Continue?",
+  "lastRun": "Last Run",
+  "triggersRunning": "Running retention triggers..."
+}

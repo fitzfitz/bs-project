@@ -1,0 +1,14 @@
+{
+  "title": "Ikhtisar Keuangan",
+  "profitAndLoss": "Laba & Rugi",
+  "revenue": "Pendapatan",
+  "costs": "Biaya",
+  "grossProfit": "Laba Kotor",
+  "margin": "Margin",
+  "revenueBreakdown": "Rincian Pendapatan",
+  "costBreakdown": "Rincian Biaya",
+  "voidSummary": "Ringkasan Pembatalan",
+  "discountSummary": "Ringkasan Diskon",
+  "totalVoids": "Total Pembatalan",
+  "totalDiscounts": "Total Diskon"
+}

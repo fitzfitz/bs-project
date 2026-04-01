@@ -1,5 +1,20 @@
 import { z } from "zod";
 
+export const ConfigEntrySchema = z.object({
+  value: z.string(),
+  updatedBy: z.string().nullable(),
+  updatedAt: z.string(),
+});
+
+export const ConfigMapResponseSchema = z.record(z.string(), ConfigEntrySchema);
+
+export const ConfigUpdateResponseSchema = z.object({
+  key: z.string(),
+  value: z.string(),
+  updatedBy: z.string().nullable(),
+  updatedAt: z.string(),
+});
+
 export const updateConfigBody = z.object({
   value: z.string(),
 });
@@ -16,4 +31,10 @@ export const CONFIG_DEFAULTS: Record<string, string> = {
   COMMISSION_RATE_MASTER: "40",
   COMMISSION_RATE_SENIOR: "35",
   COMMISSION_RATE_JUNIOR: "30",
+  PREPAYMENT_ENABLED: "false",
+  DEPOSIT_PERCENTAGE: "100",
+  CANCELLATION_POLICY_HOURS: "0",
+  CANCELLATION_PENALTY_PERCENTAGE: "0",
+  WAITLIST_ENABLED: "false",
+  WAITLIST_MAX_PER_SLOT: "5",
 };

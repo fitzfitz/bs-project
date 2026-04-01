@@ -1,0 +1,19 @@
+{
+  "title": "Log Audit",
+  "action": "Aksi",
+  "user": "Pengguna",
+  "details": "Detail",
+  "ipAddress": "Alamat IP",
+  "anomalies": "Anomali",
+  "anomalyDashboard": "Dasbor Anomali",
+  "severity": "Tingkat Keparahan",
+  "high": "Tinggi",
+  "medium": "Sedang",
+  "low": "Rendah",
+  "resolve": "Selesaikan",
+  "resolved": "Terselesaikan",
+  "unresolved": "Belum Terselesaikan",
+  "resolution": "Resolusi",
+  "noLogs": "Tidak ada log audit ditemukan",
+  "noAnomalies": "Tidak ada anomali terdeteksi"
+}

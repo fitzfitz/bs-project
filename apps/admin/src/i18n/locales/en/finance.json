@@ -1,0 +1,14 @@
+{
+  "title": "Financial Overview",
+  "profitAndLoss": "Profit & Loss",
+  "revenue": "Revenue",
+  "costs": "Costs",
+  "grossProfit": "Gross Profit",
+  "margin": "Margin",
+  "revenueBreakdown": "Revenue Breakdown",
+  "costBreakdown": "Cost Breakdown",
+  "voidSummary": "Void Summary",
+  "discountSummary": "Discount Summary",
+  "totalVoids": "Total Voids",
+  "totalDiscounts": "Total Discounts"
+}

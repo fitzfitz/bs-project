@@ -19,6 +19,8 @@ import {
   deleteAccountHandler,
   searchUsersRoute,
   searchUsersHandler,
+  notificationPreferencesRoute,
+  notificationPreferencesHandler,
 } from "./auth.handlers";
 import { authMiddleware } from "../../middlewares/auth";
 import { requirePermission } from "../../middlewares/rbac";
@@ -37,6 +39,7 @@ protectedApp.use("*", authMiddleware(), orgScopeMiddleware());
 protectedApp.openapi(meRoute, meHandler);
 protectedApp.openapi(updateProfileRoute, updateProfileHandler);
 protectedApp.openapi(deleteAccountRoute, deleteAccountHandler);
+protectedApp.openapi(notificationPreferencesRoute, notificationPreferencesHandler);
 
 // Admin-only routes
 const adminApp = new OpenAPIHono<AppEnv>();

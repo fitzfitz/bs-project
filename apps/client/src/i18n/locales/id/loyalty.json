@@ -1,0 +1,22 @@
+{
+  "title": "Loyalitas",
+  "myPoints": "Poin Saya",
+  "currentTier": "Tingkat Saat Ini",
+  "nextTier": "Tingkat Selanjutnya",
+  "pointsToNext": "{{count}} poin menuju tingkat selanjutnya",
+  "tierProgress": "Progres Tingkat",
+  "bronze": "Perunggu",
+  "silver": "Perak",
+  "gold": "Emas",
+  "platinum": "Platinum",
+  "pointsHistory": "Riwayat Poin",
+  "earned": "Diperoleh",
+  "redeemed": "Ditukarkan",
+  "expired": "Kedaluwarsa",
+  "referFriend": "Ajak Teman",
+  "referralCode": "Kode Referral Anda",
+  "copyCode": "Salin Kode",
+  "codeCopied": "Kode disalin!",
+  "shareReferral": "Bagikan kode Anda dan dapatkan {{points}} poin bonus!",
+  "noHistory": "Belum ada riwayat poin"
+}

@@ -9,10 +9,13 @@ type AuthMeResponse = {
   email: string;
   firstName: string;
   lastName: string;
+  phone: string | null;
   tenantRoleId: string;
-  tenantRole?: { name: string; scope: string } | null;
-  staffProfile?: { id: string; tier: string } | null;
-  isCustomer?: boolean;
+  organizationId: string;
+  branchId: string | null;
+  isCustomer: boolean;
+  tenantRole: { id: string; name: string; scope: string } | null;
+  staffProfile: { id: string; tier: string } | null;
   permissions?: Record<string, { canCreate: boolean; canRead: boolean; canUpdate: boolean; canDelete: boolean }>;
 };
 

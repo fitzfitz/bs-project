@@ -1,0 +1,22 @@
+{
+  "title": "Cari Cabang",
+  "pageSubtitle": "Temukan cabang terdekat dan pesan tempat Anda.",
+  "searchPlaceholder": "Cari berdasarkan kota atau nama...",
+  "listView": "Daftar",
+  "mapView": "Peta",
+  "favorite": "Favorit",
+  "unfavorite": "Hapus Favorit",
+  "openNow": "Buka Sekarang",
+  "closed": "Tutup",
+  "operatingHours": "Jam Operasional",
+  "services": "Layanan",
+  "distance": "Jarak",
+  "noBranches": "Tidak ada cabang ditemukan",
+  "viewDetails": "Lihat Detail",
+  "loadingLocations": "Memuat lokasi...",
+  "temporarilyClosed": "Tutup Sementara",
+  "bookHere": "Pesan di Sini",
+  "details": "Detail",
+  "reviews": "Ulasan",
+  "noAdditionalDetails": "Tidak ada detail tambahan"
+}

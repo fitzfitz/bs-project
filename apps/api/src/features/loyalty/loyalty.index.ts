@@ -1,7 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import type { AppEnv } from "../../types";
 import { authMiddleware } from "../../middlewares/auth";
-import { requirePermission, requireCustomer } from "../../middlewares/rbac";
+import { requirePermission } from "../../middlewares/rbac";
 import { orgScopeMiddleware } from "../../middlewares/scope";
 import {
   getMyLoyaltyRoute,

@@ -1,4 +1,145 @@
 import { z } from "zod";
+import {
+  FeatureModuleEnum,
+  IndustryTypeEnum,
+  PlatformRoleEnum,
+  RoleScopeEnum,
+  TipDistributionEnum,
+} from "../../utils/zod-prisma";
+
+// ============================================================================
+// Response / OpenAPI shapes
+// ============================================================================
+
+/** Safe platform admin (login); excludes passwordHash. */
+export const PlatformAdminResponseSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  role: PlatformRoleEnum,
+  isActive: z.boolean(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const PlatformLoginSuccessDataSchema = z.object({
+  token: z.string(),
+  admin: PlatformAdminResponseSchema,
+});
+
+export const OrganizationScalarsSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  industryType: IndustryTypeEnum,
+  logo: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  contactEmail: z.string().nullable().optional(),
+  contactPhone: z.string().nullable().optional(),
+  website: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  country: z.string().nullable().optional(),
+  taxEnabled: z.boolean(),
+  taxRate: z.number(),
+  taxName: z.string(),
+  taxInclusive: z.boolean(),
+  currency: z.string(),
+  currencySymbol: z.string(),
+  timezone: z.string(),
+  locale: z.string(),
+  tipDistribution: TipDistributionEnum,
+  maxDiscountPercent: z.number(),
+  autoNoShowMinutes: z.number(),
+  autoClockOutTime: z.string().nullable().optional(),
+  defaultBookingBuffer: z.number(),
+  requireVoidApproval: z.boolean(),
+  loyaltyEnabled: z.boolean(),
+  loyaltyPointsPerCurrency: z.number(),
+  loyaltyRedemptionRate: z.number(),
+  isActive: z.boolean(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const OrganizationCountSchema = z.object({
+  users: z.number().int(),
+  branches: z.number().int(),
+});
+
+export const OrganizationListItemSchema = OrganizationScalarsSchema.extend({
+  _count: OrganizationCountSchema,
+});
+
+export const OrganizationBranchSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  city: z.string().nullable().optional(),
+  isActive: z.boolean(),
+});
+
+export const OrganizationTenantRoleSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  scope: RoleScopeEnum,
+  isServiceProvider: z.boolean(),
+});
+
+/** GET /organizations/:id — org with branches, tenant roles, and counts. */
+export const OrganizationDetailSchema = OrganizationScalarsSchema.extend({
+  branches: z.array(OrganizationBranchSummarySchema),
+  tenantRoles: z.array(OrganizationTenantRoleSummarySchema),
+  _count: OrganizationCountSchema,
+});
+
+export const TenantRoleScalarSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  scope: RoleScopeEnum,
+  isDefault: z.boolean(),
+  isSystemRole: z.boolean(),
+  isServiceProvider: z.boolean(),
+  sortOrder: z.number().int(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+/** POST /organizations — created org plus seeded tenant roles. */
+export const OrganizationCreatedSchema = OrganizationScalarsSchema.extend({
+  roles: z.array(TenantRoleScalarSchema),
+});
+
+export const FeatureResponseSchema = z.object({
+  id: z.string(),
+  code: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  module: FeatureModuleEnum,
+  sortOrder: z.number().int(),
+  isActive: z.boolean(),
+  createdAt: z.string().datetime(),
+});
+
+export const IndustryTemplateSchema = z.object({
+  id: z.string(),
+  industryType: IndustryTypeEnum,
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  templateData: z.unknown(),
+  isActive: z.boolean(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const PlatformConfigSchema = z.object({
+  key: z.string(),
+  value: z.string(),
+  updatedBy: z.string().nullable().optional(),
+  updatedAt: z.string().datetime(),
+});
 
 export const platformLoginSchema = z.object({
   email: z.string().email(),

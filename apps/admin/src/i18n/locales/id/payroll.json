@@ -1,0 +1,20 @@
+{
+  "title": "Penggajian",
+  "generate": "Buat",
+  "submit": "Kirim",
+  "approve": "Setujui",
+  "dispute": "Sengketa",
+  "disburse": "Cairkan",
+  "bulkApprove": "Setujui Massal",
+  "bulkDisburse": "Cairkan Massal",
+  "period": "Periode",
+  "status": "Status",
+  "draft": "Draf",
+  "submitted": "Terkirim",
+  "approved": "Disetujui",
+  "disputed": "Disengketakan",
+  "disbursed": "Dicairkan",
+  "totalPayout": "Total Pembayaran",
+  "noPeriods": "Tidak ada periode penggajian",
+  "selectedCount": "{{count}} dipilih"
+}

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type ApiResponse } from "@/lib/api";
 import { useSessionStore } from "@/features/auth/store";
-import type { UserProfileResponse } from "../types";
+import type { UpdateProfileResponse, UserProfileResponse } from "../types";
 
 export function useProfile() {
   const { user } = useSessionStore();
@@ -25,16 +25,26 @@ export function useUpdateProfile() {
       lastName: string;
       phone?: string;
     }) => {
-      const res = await api.patch<ApiResponse<UserProfileResponse>>(
+      const res = await api.patch<ApiResponse<UpdateProfileResponse>>(
         "/auth/me",
         data
       );
       return res.data;
     },
-    onSuccess: (updatedUser) => {
-      queryClient.setQueryData(["profile"], updatedUser);
+    onSuccess: (patch) => {
+      queryClient.setQueryData<UserProfileResponse>(["profile"], (prev) =>
+        prev ? { ...prev, ...patch } : prev
+      );
       if (user) {
-        setUser({ ...user, ...updatedUser });
+        setUser({
+          id: patch.id,
+          email: patch.email,
+          firstName: patch.firstName,
+          lastName: patch.lastName,
+          tenantRoleId: patch.tenantRoleId,
+          tenantRole: user.tenantRole,
+          isCustomer: patch.isCustomer,
+        });
       }
     },
   });

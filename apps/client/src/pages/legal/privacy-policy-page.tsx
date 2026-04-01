@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft } from 'lucide-react';
 
 export default function PrivacyPolicy() {
+  const { t } = useTranslation('legal');
   const navigate = useNavigate();
   return (
     <div className="flex flex-col min-h-dvh bg-white relative">
@@ -12,7 +14,7 @@ export default function PrivacyPolicy() {
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
-        <h1 className="font-bold text-slate-900 leading-tight">Privacy Policy</h1>
+        <h1 className="font-bold text-slate-900 leading-tight">{t('privacyTitle')}</h1>
       </div>
       <div className="p-6 prose prose-slate mx-auto pb-20 text-sm">
         <h2>1. Information We Collect</h2>

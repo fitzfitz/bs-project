@@ -1,24 +1,16 @@
-import { useEarnings } from "../api/use-earnings";
-
-type EarningItem = {
-  id: string;
-  staffProfileId: string;
-  date: string;
-  commissionBase: number;
-  commission: number;
-  tips: number;
-  total: number;
-  staff?: { user: { firstName: string; lastName: string } };
-};
+import { useEarnings, type StaffEarning } from "../api/use-earnings";
+import { formatCurrency } from "@/lib/utils";
+import { useSessionStore } from "@/features/auth/store";
 
 export function CommissionOverview({ page }: { page: number }) {
+  const org = useSessionStore((s) => s.user?.organization);
   const { data, isLoading, error } = useEarnings({ page });
 
   if (isLoading) return <p className="text-muted-foreground py-8 text-center">Loading...</p>;
   if (error) return <p className="text-destructive py-8 text-center">{error.message}</p>;
 
-  const items = (data?.data ?? []) as EarningItem[];
-  const pagination = (data as { pagination?: { page: number; totalPages: number; total: number } })?.pagination;
+  const items: StaffEarning[] = data?.data ?? [];
+  const pagination = data?.pagination;
 
   return (
     <div>
@@ -44,17 +36,23 @@ export function CommissionOverview({ page }: { page: number }) {
               </tr>
             ) : (
               items.map((e) => {
-                const staffName = e.staff
-                  ? `${e.staff.user.firstName} ${e.staff.user.lastName}`.trim()
-                  : e.staffProfileId.slice(0, 8) + "...";
+                const staffName = `${e.staff.user.firstName} ${e.staff.user.lastName}`.trim();
                 return (
                   <tr key={e.id} className="border-t border-slate-100 hover:bg-muted/30 transition-colors">
                     <td className="px-3 py-2 font-medium text-slate-700">{staffName}</td>
                     <td className="px-3 py-2 text-slate-600">{e.date}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{e.commissionBase.toLocaleString("id-ID")}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{e.commission.toLocaleString("id-ID")}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{e.tips.toLocaleString("id-ID")}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold">{e.total.toLocaleString("id-ID")}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatCurrency(e.commissionBase, org?.currency, org?.locale)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatCurrency(e.commission, org?.currency, org?.locale)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatCurrency(e.tips, org?.currency, org?.locale)}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-semibold">
+                      {formatCurrency(e.total, org?.currency, org?.locale)}
+                    </td>
                   </tr>
                 );
               })

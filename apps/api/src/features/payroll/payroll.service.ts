@@ -141,6 +141,75 @@ export const PayrollService = {
     return period;
   },
 
+  async bulkApprove(
+    db: PrismaClient,
+    ids: string[],
+    userId: string,
+    organizationId: string,
+    note?: string,
+  ) {
+    return db.$transaction(async (tx) => {
+      for (const id of ids) {
+        const period = await tx.payrollPeriod.findUnique({ where: { id } });
+        if (!period) throw new Error(`Payroll period not found: ${id}`);
+        if (period.status !== "PENDING_APPROVAL") {
+          throw new Error(`Invalid transition: ${period.status} -> APPROVED for period ${id}`);
+        }
+        await tx.payrollPeriod.update({
+          where: { id },
+          data: {
+            status: "APPROVED" as PayrollStatus,
+            approvedBy: userId,
+            approvedAt: new Date(),
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            organizationId,
+            userId,
+            action: "APPROVE_PAYROLL",
+            entityType: "PayrollPeriod",
+            entityId: id,
+            details: { note: note ?? null, bulk: true },
+          },
+        });
+      }
+      return { approved: ids.length };
+    });
+  },
+
+  async bulkDisburse(
+    db: PrismaClient,
+    ids: string[],
+    userId: string,
+    organizationId: string,
+  ) {
+    return db.$transaction(async (tx) => {
+      for (const id of ids) {
+        const period = await tx.payrollPeriod.findUnique({ where: { id } });
+        if (!period) throw new Error(`Payroll period not found: ${id}`);
+        if (period.status !== "APPROVED") {
+          throw new Error(`Invalid transition: ${period.status} -> DISBURSED for period ${id}`);
+        }
+        await tx.payrollPeriod.update({
+          where: { id },
+          data: { status: "DISBURSED" as PayrollStatus },
+        });
+        await tx.auditLog.create({
+          data: {
+            organizationId,
+            userId,
+            action: "DISBURSE_PAYROLL",
+            entityType: "PayrollPeriod",
+            entityId: id,
+            details: { bulk: true },
+          },
+        });
+      }
+      return { disbursed: ids.length };
+    });
+  },
+
   async list(db: PrismaClient, query: ListPayrollQuery) {
     const where: { staffProfileId?: string; status?: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "DISPUTED" | "DISBURSED" } = {};
     if (query.staffProfileId) where.staffProfileId = query.staffProfileId;

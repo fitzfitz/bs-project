@@ -1,0 +1,16 @@
+{
+  "title": "Dashboard",
+  "todaysSummary": "Today's Summary",
+  "revenue": "Revenue",
+  "tips": "Tips",
+  "transactionCount": "Transactions",
+  "avgTransaction": "Avg. Transaction",
+  "revenueTrend": "Revenue Trend",
+  "paymentMethods": "Payment Methods",
+  "transactionVolume": "Transaction Volume",
+  "last7Days": "7 Days",
+  "last14Days": "14 Days",
+  "last30Days": "30 Days",
+  "noDataForPeriod": "No data for this period",
+  "selectDateRange": "Select date range"
+}

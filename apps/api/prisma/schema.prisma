@@ -50,7 +50,6 @@ enum RoleScope {
 enum AuthProvider {
   EMAIL
   GOOGLE
-  APPLE
 }
 
 // ============================================================================
@@ -89,6 +88,14 @@ enum QueueStatus {
   AT_CHECKOUT
   PAID
   NO_SHOW
+  CANCELLED
+}
+
+enum WaitlistStatus {
+  WAITING
+  NOTIFIED
+  CONVERTED
+  EXPIRED
   CANCELLED
 }
 
@@ -232,11 +239,13 @@ enum AuditAction {
   UPDATE
   DELETE
   VOID_TRANSACTION
+  REFUND_TRANSACTION
   APPLY_DISCOUNT
   OVERRIDE_SCHEDULE
   CLOCK_IN
   CLOCK_OUT
   APPROVE_PAYROLL
+  DISBURSE_PAYROLL
   DISPUTE_PAYROLL
   EARN_POINTS
   REDEEM_POINTS
@@ -390,6 +399,16 @@ model Organization {
   loyaltyTransactions  LoyaltyTransaction[]
   stockMovements       StockMovement[]
   tenantRoleServices   TenantRoleService[]
+  notifications        Notification[]
+  notificationChannelConfigs NotificationChannelConfig[]
+  notificationPreferences    NotificationPreference[]
+  paymentMethods       SavedPaymentMethod[]
+  reportSchedules      ReportSchedule[]
+  savedReportTemplates SavedReportTemplate[]
+  waitlistEntries      WaitlistEntry[]
+  demandForecasts      DemandForecast[]
+  scheduleSuggestions  ScheduleSuggestion[]
+  churnScores          ChurnScore[]
 
   @@map("organizations")
 }
@@ -478,6 +497,7 @@ model User {
   // emailVerified: true if the email was confirmed via Google OAuth or an
   //   email verification flow. Google users are auto-verified.
   emailVerified Boolean      @default(false)
+  emailOptIn    Boolean      @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -496,6 +516,11 @@ model User {
   referralsReceived  Referral[]            @relation("referrals_received")
   segmentMemberships CustomerSegmentMember[]
   anomalyFlags       AnomalyFlag[]         @relation("anomaly_flags")
+  notifications              Notification[]
+  notificationPreference     NotificationPreference?
+  paymentMethods             SavedPaymentMethod[]
+  waitlistEntries            WaitlistEntry[]
+  churnScores                ChurnScore[]          @relation("churn_scores")
 
   @@unique([organizationId, email])
   @@unique([organizationId, phone])
@@ -560,6 +585,10 @@ model Branch {
   holidays           BranchHoliday[]
   dailySnapshots     BranchDailySnapshot[]
   anomalyFlags       AnomalyFlag[]
+  waitlistEntries    WaitlistEntry[]
+  demandForecasts    DemandForecast[]
+  scheduleSuggestions ScheduleSuggestion[]
+  churnScores        ChurnScore[]
 
   @@index([organizationId])
   @@map("branches")
@@ -811,22 +840,25 @@ model BookingItem {
 }
 
 model QueueEntry {
-  id             String      @id @default(cuid())
-  organizationId String
-  branchId       String
-  staffProfileId String?
-  bookingId      String?     @unique
-  source         QueueSource
-  status         QueueStatus @default(WAITING)
-  position       Int
-  customerName   String?
-  customerId     String?
-  estimatedWait  Int?
-  calledAt       DateTime?
-  startedAt      DateTime?
-  completedAt    DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id                   String      @id @default(cuid())
+  organizationId       String
+  branchId             String
+  staffProfileId       String?
+  bookingId            String?     @unique
+  source               QueueSource
+  status               QueueStatus @default(WAITING)
+  position             Int
+  customerName         String?
+  customerId           String?
+  estimatedWait        Int?
+  calledAt             DateTime?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  prepaidAmount        Decimal?
+  prepaymentReference  String?
+  refundAmount         Decimal?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
 
   organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branch       Branch        @relation(fields: [branchId], references: [id])
@@ -839,6 +871,29 @@ model QueueEntry {
   @@index([staffProfileId, status])
   @@index([organizationId])
   @@map("queue_entries")
+}
+
+model WaitlistEntry {
+  id                  String         @id @default(cuid())
+  organizationId      String
+  organization        Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branchId            String
+  branch              Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  userId              String
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerName        String
+  preferredDate       DateTime
+  preferredTimeSlot   String
+  serviceIds          String[]
+  staffProfileId      String?
+  status              WaitlistStatus @default(WAITING)
+  notifiedAt          DateTime?
+  expiresAt           DateTime
+  createdAt           DateTime       @default(now())
+
+  @@index([branchId, preferredDate])
+  @@index([organizationId])
+  @@map("waitlist_entries")
 }
 
 // ============================================================================
@@ -1066,6 +1121,7 @@ model Referral {
   refereeId      String
   bonusPoints    Int            @default(10)
   status         ReferralStatus @default(PENDING)
+  expiresAt      DateTime?
   completedAt    DateTime?
   createdAt      DateTime       @default(now())
 
@@ -1318,4 +1374,202 @@ model AnomalyFlag {
   @@index([branchId, createdAt])
   @@index([organizationId])
   @@map("anomaly_flags")
+}
+
+// ============================================================================
+// PAYMENT METHODS
+// ============================================================================
+
+model SavedPaymentMethod {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  tokenId        String
+  type           String   @default("CARD")
+  last4          String
+  expiryMonth    Int
+  expiryYear     Int
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@map("payment_methods")
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+model Notification {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  title          String
+  body           String
+  type           String
+  data           Json?
+  read           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([organizationId])
+  @@map("notifications")
+}
+
+model NotificationChannelConfig {
+  id               String   @id @default(cuid())
+  organizationId   String
+  notificationType String
+  pushEnabled      Boolean  @default(true)
+  whatsappEnabled  Boolean  @default(false)
+  smsEnabled       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, notificationType])
+  @@map("notification_channel_configs")
+}
+
+model NotificationPreference {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String   @unique
+  pushOptOut     Boolean  @default(false)
+  whatsappOptOut Boolean  @default(false)
+  smsOptOut      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+enum ReportFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model ReportSchedule {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  branchId       String?
+  reportType     String
+  frequency      ReportFrequency
+  recipients     String[]
+  filters        Json            @default("{}")
+  isActive       Boolean         @default(true)
+  lastSentAt     DateTime?
+  nextRunAt      DateTime
+  createdBy      String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([organizationId, isActive, nextRunAt])
+}
+
+model SavedReportTemplate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  name           String
+  reportType     String
+  filters        Json         @default("{}")
+  createdBy      String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+// ============================================================================
+// AI/ML — DEMAND FORECASTING, SCHEDULING, CHURN
+// ============================================================================
+
+model DemandForecast {
+  id                    String   @id @default(cuid())
+  branchId              String
+  organizationId        String
+  date                  DateTime @db.Date
+  predictedTransactions Float    @default(0)
+  predictedRevenue      Float    @default(0)
+  confidenceLow         Float    @default(0)
+  confidenceHigh        Float    @default(0)
+  dayOfWeek             Int
+  isHoliday             Boolean  @default(false)
+  createdAt             DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id])
+
+  @@unique([branchId, date])
+  @@index([organizationId])
+  @@map("demand_forecasts")
+}
+
+enum SuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model ScheduleSuggestion {
+  id              String           @id @default(cuid())
+  branchId        String
+  organizationId  String
+  staffProfileId  String?
+  date            DateTime         @db.Date
+  suggestedStart  String
+  suggestedEnd    String
+  reason          String
+  demandScore     Float            @default(0)
+  status          SuggestionStatus @default(PENDING)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id])
+
+  @@index([branchId, date])
+  @@index([organizationId])
+  @@map("schedule_suggestions")
+}
+
+enum ChurnRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model ChurnScore {
+  id             String         @id @default(cuid())
+  customerId     String
+  branchId       String
+  organizationId String
+  score          Float
+  riskLevel      ChurnRiskLevel
+  features       Json
+  computedAt     DateTime       @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id])
+  customer     User         @relation("churn_scores", fields: [customerId], references: [id])
+
+  @@unique([customerId, branchId])
+  @@index([branchId, riskLevel])
+  @@index([organizationId])
+  @@map("churn_scores")
 }

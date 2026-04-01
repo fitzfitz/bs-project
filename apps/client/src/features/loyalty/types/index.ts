@@ -59,4 +59,5 @@ export const TIER_COLORS: Record<LoyaltyTier, string> = {
   PLATINUM: "#7B68AE",
 };
 
-export const POINTS_VALUE_IDR = 500;
+/** Monetary value per loyalty point (business rule; display via formatCurrency). */
+export const POINTS_VALUE = 500;

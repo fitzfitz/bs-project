@@ -1,0 +1,12 @@
+{
+  "title": "Manajemen Retensi",
+  "stats": "Statistik Retensi",
+  "atRiskCustomers": "Pelanggan Berisiko",
+  "churned": "Berhenti",
+  "retained": "Dipertahankan",
+  "triggerPolicy": "Kebijakan Pemicu",
+  "runTriggers": "Jalankan Pemicu Retensi",
+  "runConfirm": "Ini akan mengirim pemberitahuan retensi ke pelanggan berisiko. Lanjutkan?",
+  "lastRun": "Terakhir Dijalankan",
+  "triggersRunning": "Menjalankan pemicu retensi..."
+}

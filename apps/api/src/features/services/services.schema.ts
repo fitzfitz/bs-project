@@ -1,11 +1,5 @@
 import { z } from "zod";
-
-// ============================================================================
-// Enums (mirroring Prisma)
-// ============================================================================
-
-export const ServiceTypeEnum = z.enum(["STANDARD", "COMBO", "ADD_ON"]);
-export const StaffTierEnum = z.enum(["JUNIOR", "SENIOR", "MASTER"]);
+import { ServiceTypeEnum, StaffTierEnum } from "../../utils/zod-prisma";
 
 // ============================================================================
 // Service Schemas
@@ -69,25 +63,62 @@ export const branchOverrideSchema = z.object({
 });
 
 // ============================================================================
-// Response Schema
+// Response / entity schemas
 // ============================================================================
 
-export const serviceResponseSchema = z.object({
+export const TierSurchargeSchema = z.object({
   id: z.string(),
+  serviceId: z.string(),
+  organizationId: z.string(),
+  tier: StaffTierEnum,
+  surcharge: z.number(),
+});
+
+export const BranchServiceOverrideSchema = z.object({
+  id: z.string(),
+  branchId: z.string(),
+  serviceId: z.string(),
+  organizationId: z.string(),
+  overridePrice: z.number().nullable(),
+  isActive: z.boolean(),
+});
+
+export const ServiceScalarSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
   name: z.string(),
   description: z.string().nullable(),
   category: z.string(),
   type: ServiceTypeEnum,
   basePrice: z.number(),
-  durationMinutes: z.number(),
-  bufferMinutes: z.number(),
+  durationMinutes: z.number().int(),
+  bufferMinutes: z.number().int(),
   isCommissionable: z.boolean(),
   loyaltyEligible: z.boolean(),
   isActive: z.boolean(),
-  sortOrder: z.number(),
+  sortOrder: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
+
+export const ComboServiceScalarSchema = z.object({
+  id: z.string(),
+  comboId: z.string(),
+  childServiceId: z.string(),
+  organizationId: z.string(),
+});
+
+export const ComboServiceWithChildSchema = ComboServiceScalarSchema.extend({
+  childService: ServiceScalarSchema,
+});
+
+export const ServiceWithRelationsSchema = ServiceScalarSchema.extend({
+  tierSurcharges: z.array(TierSurchargeSchema),
+  comboChildren: z.array(ComboServiceWithChildSchema),
+  branchOverrides: z.array(BranchServiceOverrideSchema),
+});
+
+export const serviceResponseSchema = ServiceScalarSchema;
 
 // ============================================================================
 // Types
@@ -95,4 +126,4 @@ export const serviceResponseSchema = z.object({
 
 export type CreateServiceInput = z.infer<typeof createServiceSchema>;
 export type UpdateServiceInput = z.infer<typeof updateServiceSchema>;
-export type ServiceResponse = z.infer<typeof serviceResponseSchema>;
+export type ServiceResponse = z.infer<typeof ServiceScalarSchema>;

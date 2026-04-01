@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BranchSelector } from "@/components/branch-selector";
 import { useBranchStore } from "@/store/use-branch-store";
+import { ImageUpload } from "@/components/ui/image-upload";
 import {
   useBranch,
   useUpdateBranch,
@@ -16,12 +18,15 @@ import {
   type SurgeRule,
   type BranchHoliday,
 } from "@/features/branches/api/use-branch-settings";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
 
 const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
 
 type Tab = "details" | "hours" | "surge" | "holidays";
 
 export default function BranchSettingsPage() {
+  const { t } = useTranslation();
   const branchId = useBranchStore((s) => s.selectedBranchId) ?? "";
   const { data, isLoading } = useBranch(branchId);
   const branch = data?.data;
@@ -31,11 +36,8 @@ export default function BranchSettingsPage() {
   if (!branch) return <div className="text-muted-foreground p-4">Select a branch.</div>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-2xl font-semibold">Branch Settings</h1>
-        <BranchSelector />
-      </div>
+    <PageContainer>
+      <PageHeader title={t("branches:title")} actions={<BranchSelector />} />
 
       {/* Emergency Closure Banner */}
       {branch.isEmergencyClosed && (
@@ -65,7 +67,7 @@ export default function BranchSettingsPage() {
       {tab === "hours" && <OperatingHoursTab key={branch.id} branchId={branch.id} hours={branch.operatingHours ?? []} />}
       {tab === "surge" && <SurgeRulesTab branchId={branch.id} rules={branch.surgeRules ?? []} />}
       {tab === "holidays" && <HolidaysTab branchId={branch.id} />}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -83,7 +85,7 @@ function ReopenButton({ branchId }: { branchId: string }) {
   );
 }
 
-function BranchDetailsTab({ branch }: { branch: { id: string; name: string; address: string; city: string; phone: string | null; email: string | null; tipDistribution?: "PER_STAFF" | "POOLED"; isEmergencyClosed: boolean } }) {
+function BranchDetailsTab({ branch }: { branch: { id: string; name: string; address: string; city: string; phone: string | null; email: string | null; imageUrl?: string | null; tipDistribution?: "PER_STAFF" | "POOLED"; isEmergencyClosed: boolean } }) {
   const updateBranch = useUpdateBranch();
   const emergencyClose = useEmergencyClose();
   const [name, setName] = useState(branch.name);
@@ -91,15 +93,26 @@ function BranchDetailsTab({ branch }: { branch: { id: string; name: string; addr
   const [city, setCity] = useState(branch.city);
   const [phone, setPhone] = useState(branch.phone ?? "");
   const [email, setEmail] = useState(branch.email ?? "");
+  const [imageUrl, setImageUrl] = useState(branch.imageUrl ?? null);
   const [tipDistribution, setTipDistribution] = useState<"PER_STAFF" | "POOLED">(branch.tipDistribution ?? "PER_STAFF");
   const [confirmClose, setConfirmClose] = useState(false);
 
   const handleSave = () => {
-    updateBranch.mutate({ id: branch.id, name, address, city, phone, email, tipDistribution });
+    updateBranch.mutate({ id: branch.id, name, address, city, phone, email, imageUrl: imageUrl ?? "", tipDistribution });
   };
 
   return (
     <div className="max-w-lg space-y-3">
+      <div>
+        <label className="block text-sm font-medium mb-1">Branch Image</label>
+        <ImageUpload
+          value={imageUrl}
+          prefix="branches"
+          entityId={branch.id}
+          onUploaded={(url) => setImageUrl(url)}
+          onRemove={() => setImageUrl(null)}
+        />
+      </div>
       {[
         { label: "Name", value: name, set: setName },
         { label: "Address", value: address, set: setAddress },

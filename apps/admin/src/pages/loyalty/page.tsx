@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { PageContainer } from "@/components/ui/page-container";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   Award,
   TrendingUp,
@@ -212,29 +215,32 @@ function LookupSection() {
 }
 
 export default function LoyaltyPage() {
+  const { t } = useTranslation();
   const { data: statsData, isLoading: statsLoading } = useReferralStats();
   const stats = statsData?.data;
   const expire = useExpirePoints();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Loyalty & Referrals</h1>
-        <button
-          type="button"
-          onClick={() => expire.mutate()}
-          disabled={expire.isPending}
-          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-        >
-          <Timer className="h-4 w-4" />
-          {expire.isPending ? "Processing..." : "Run Point Expiry"}
-        </button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title={t("loyalty:title")}
+        actions={
+          <button
+            type="button"
+            onClick={() => expire.mutate()}
+            disabled={expire.isPending}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+          >
+            <Timer className="h-4 w-4" />
+            {expire.isPending ? t("common:loading") : t("loyalty:runExpiry")}
+          </button>
+        }
+      />
 
       {expire.isSuccess && expire.data && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-          Expiry processed: {(expire.data as any).data?.accountsProcessed ?? 0} accounts,{" "}
-          {(expire.data as any).data?.totalExpired ?? 0} points expired.
+          Expiry processed: {expire.data.data.accountsProcessed} accounts,{" "}
+          {expire.data.data.totalExpired} points expired.
         </div>
       )}
 
@@ -275,6 +281,6 @@ export default function LoyaltyPage() {
       </div>
 
       <LookupSection />
-    </div>
+    </PageContainer>
   );
 }

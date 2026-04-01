@@ -1,0 +1,21 @@
+{
+  "title": "Inventory",
+  "stock": "Stock",
+  "products": "Products",
+  "addProduct": "Add Product",
+  "editProduct": "Edit Product",
+  "productName": "Product Name",
+  "sku": "SKU",
+  "costPrice": "Cost Price",
+  "sellPrice": "Sell Price",
+  "currentStock": "Current Stock",
+  "lowStockAlert": "Low Stock Alert",
+  "stockIn": "Stock In",
+  "stockOut": "Stock Out",
+  "adjustStock": "Adjust Stock",
+  "quantity": "Quantity",
+  "reason": "Reason",
+  "stockMovements": "Stock Movements",
+  "noProducts": "No products found",
+  "lowStock": "Low Stock"
+}

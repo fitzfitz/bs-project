@@ -1,0 +1,14 @@
+{
+  "title": "Reviews",
+  "filterByRating": "Filter by rating:",
+  "rating": "Rating",
+  "allRatings": "All Ratings",
+  "stars": "{{count}} Stars",
+  "showHidden": "Show Hidden",
+  "hideReview": "Hide Review",
+  "showReview": "Show Review",
+  "moderationNotes": "Moderation Notes",
+  "noReviews": "No reviews found",
+  "customer": "Customer",
+  "response": "Response"
+}

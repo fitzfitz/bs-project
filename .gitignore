@@ -25,5 +25,14 @@ Thumbs.db
 # Prisma
 prisma/migrations/
 
+# Test artifacts
+test-results/
+playwright-report/
+test_upload*
+
+# Build caches
+.vite/
+*.tsbuildinfo
+
 # Logs
 *.log

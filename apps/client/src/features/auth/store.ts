@@ -1,14 +1,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+type OrgCurrency = {
+  currency: string;
+  currencySymbol: string;
+  locale: string;
+};
+
 type UserSession = {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
   tenantRoleId: string;
-  tenantRole?: { name: string; scope: string };
+  tenantRole?: { id: string; name: string; scope: string } | null;
   isCustomer?: boolean;
+  organization?: OrgCurrency;
 } | null;
 
 interface SessionState {

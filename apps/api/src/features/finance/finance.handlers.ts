@@ -1,16 +1,30 @@
-import { createRoute, z } from "@hono/zod-openapi";
+import { createRoute } from "@hono/zod-openapi";
 import type { AppEnv } from "../../types";
 import type { RouteHandler } from "@hono/zod-openapi";
 import { FinanceService } from "./finance.service";
-import { plSummaryQuery, voidDiscountAuditQuery, payrollOversightQuery, taxSummaryQuery } from "./finance.schema";
-
-const jsonRes = z.object({ success: z.boolean(), data: z.any() });
+import { ErrorSchema } from "../../utils/openapi";
+import {
+  plSummaryQuery,
+  plSummarySuccessSchema,
+  voidDiscountAuditQuery,
+  voidDiscountAuditSuccessSchema,
+  payrollOversightQuery,
+  payrollOversightSuccessSchema,
+  taxSummaryQuery,
+  taxSummarySuccessSchema,
+} from "./finance.schema";
 
 export const plSummaryRoute = createRoute({
   method: "get",
   path: "/pl",
   request: { query: plSummaryQuery },
-  responses: { 200: { description: "P&L summary", content: { "application/json": { schema: jsonRes } } } },
+  responses: {
+    200: {
+      description: "P&L summary",
+      content: { "application/json": { schema: plSummarySuccessSchema } },
+    },
+    403: { description: "Forbidden — branch-scoped users must specify branchId", content: { "application/json": { schema: ErrorSchema } } },
+  },
   tags: ["Finance"],
 });
 
@@ -28,7 +42,12 @@ export const voidDiscountRoute = createRoute({
   method: "get",
   path: "/void-discount-audit",
   request: { query: voidDiscountAuditQuery },
-  responses: { 200: { description: "Void/discount audit", content: { "application/json": { schema: jsonRes } } } },
+  responses: {
+    200: {
+      description: "Void/discount audit",
+      content: { "application/json": { schema: voidDiscountAuditSuccessSchema } },
+    },
+  },
   tags: ["Finance"],
 });
 
@@ -42,7 +61,12 @@ export const payrollOversightRoute = createRoute({
   method: "get",
   path: "/payroll-oversight",
   request: { query: payrollOversightQuery },
-  responses: { 200: { description: "Payroll oversight", content: { "application/json": { schema: jsonRes } } } },
+  responses: {
+    200: {
+      description: "Payroll oversight",
+      content: { "application/json": { schema: payrollOversightSuccessSchema } },
+    },
+  },
   tags: ["Finance"],
 });
 
@@ -56,7 +80,12 @@ export const taxSummaryRoute = createRoute({
   method: "get",
   path: "/tax-summary",
   request: { query: taxSummaryQuery },
-  responses: { 200: { description: "Tax summary", content: { "application/json": { schema: jsonRes } } } },
+  responses: {
+    200: {
+      description: "Tax summary",
+      content: { "application/json": { schema: taxSummarySuccessSchema } },
+    },
+  },
   tags: ["Finance"],
 });
 
