@@ -16,5 +16,14 @@
   "required": "This field is required",
   "viewAll": "View All",
   "seeMore": "See More",
-  "done": "Done"
+  "done": "Done",
+  "days": {
+    "monday": "Monday",
+    "tuesday": "Tuesday",
+    "wednesday": "Wednesday",
+    "thursday": "Thursday",
+    "friday": "Friday",
+    "saturday": "Saturday",
+    "sunday": "Sunday"
+  }
 }

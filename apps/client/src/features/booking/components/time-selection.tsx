@@ -32,9 +32,14 @@ export default function TimeSelection() {
   const { data: slotsData, isLoading } = useAvailability(
     branchId,
     dateStr,
-    selectedBarberId ?? undefined
+    selectedBarberId ?? undefined,
   );
   const slots = slotsData?.data ?? [];
+
+  const isTodayDate = isSameDay(localDate, new Date());
+  const now = new Date();
+  const currentHours = now.getHours();
+  const currentMinutes = now.getMinutes();
 
   const handleNext = () => {
     if (localDate && localTime) {
@@ -77,7 +82,7 @@ export default function TimeSelection() {
                     "flex flex-col items-center justify-center min-w-[72px] h-[88px] rounded-2xl border transition-all duration-300 snap-start shrink-0",
                     isSelected
                       ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/30"
-                      : "border-slate-200 bg-white hover:border-slate-300 shadow-sm text-slate-700"
+                      : "border-slate-200 bg-white hover:border-slate-300 shadow-sm text-slate-700",
                   )}
                 >
                   <span
@@ -85,7 +90,7 @@ export default function TimeSelection() {
                       "text-xs font-bold uppercase tracking-wider mb-1",
                       isSelected
                         ? "text-primary-foreground/80"
-                        : "text-slate-400"
+                        : "text-slate-400",
                     )}
                   >
                     {isToday ? t("booking:today") : format(date, "EEE")}
@@ -98,7 +103,7 @@ export default function TimeSelection() {
                       "text-[10px] font-semibold",
                       isSelected
                         ? "text-primary-foreground/80"
-                        : "text-slate-400"
+                        : "text-slate-400",
                     )}
                   >
                     {format(date, "MMM")}
@@ -148,7 +153,7 @@ export default function TimeSelection() {
                       },
                       {
                         onSuccess: () => setWaitlistSuccess(true),
-                      }
+                      },
                     );
                   }}
                 >
@@ -168,19 +173,32 @@ export default function TimeSelection() {
           ) : (
             <div className="grid grid-cols-3 gap-3">
               {slots.map((slot) => {
+                let isPastTime = false;
+                if (isTodayDate) {
+                  const [slotHour, slotMinute] = slot.time
+                    .split(":")
+                    .map(Number);
+                  if (
+                    slotHour < currentHours ||
+                    (slotHour === currentHours && slotMinute <= currentMinutes)
+                  ) {
+                    isPastTime = true;
+                  }
+                }
+                const isAvailable = slot.available && !isPastTime;
                 const isSelected = localTime === slot.time;
                 return (
                   <button
                     key={slot.time}
-                    onClick={() => slot.available && setLocalTime(slot.time)}
-                    disabled={!slot.available}
+                    onClick={() => isAvailable && setLocalTime(slot.time)}
+                    disabled={!isAvailable}
                     className={cn(
                       "py-3.5 rounded-xl border text-sm font-bold transition-all duration-300",
-                      !slot.available
+                      !isAvailable
                         ? "border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed"
                         : isSelected
-                        ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
-                        : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 shadow-sm"
+                          ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+                          : "border-slate-200 bg-white hover:border-slate-300 text-slate-700 shadow-sm",
                     )}
                   >
                     {slot.time}
