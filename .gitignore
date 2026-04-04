@@ -30,6 +30,8 @@ test-results/
 playwright-report/
 test_upload*
 **/coverage
+**/test-results/
+**/playwright-report/
 
 # Build caches
 .vite/
