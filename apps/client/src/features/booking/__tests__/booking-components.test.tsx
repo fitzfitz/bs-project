@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "../../../test/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -55,6 +55,8 @@ function servicesHandler() {
 
 describe("booking components", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2025, 2, 20, 8, 0)); // 8:00 AM
     useBookingStore.getState().resetBooking();
     localStorage.removeItem("tmng-session-storage");
     useSessionStore.setState({
@@ -62,6 +64,10 @@ describe("booking components", () => {
       accessToken: null,
       refreshToken: null,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("ServiceSelection shows loading then services and toggles selection", async () => {

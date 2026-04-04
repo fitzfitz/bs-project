@@ -1,13 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "../../../test/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import React, { type ReactNode } from "react";
-import {
-  useNotificationList,
-  useUnreadCount,
-} from "../api/use-notifications";
+import { useNotificationList, useUnreadCount } from "../api/use-notifications";
+import { useSessionStore } from "@/features/auth/store";
 
 const API = "http://localhost:8787/api";
 
@@ -27,6 +25,15 @@ function qcWrapper(qc: QueryClient) {
 }
 
 describe("notifications feature", () => {
+  beforeEach(() => {
+    localStorage.removeItem("tmng-session-storage");
+    useSessionStore.setState({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+    });
+  });
+
   describe("useNotificationList", () => {
     it("fetches paginated notifications", async () => {
       const qc = createQueryClient();
@@ -80,8 +87,34 @@ describe("notifications feature", () => {
   });
 
   describe("useUnreadCount", () => {
+    it("disabled without session user", () => {
+      const qc = createQueryClient();
+      let called = false;
+      server.use(
+        http.get(`${API}/notifications/unread-count`, () => {
+          called = true;
+          return HttpResponse.json({ success: true, data: { count: 0 } });
+        }),
+      );
+
+      renderHook(() => useUnreadCount(), { wrapper: qcWrapper(qc) });
+      expect(called).toBe(false);
+    });
+
     it("fetches unread count", async () => {
       const qc = createQueryClient();
+      useSessionStore.getState().setSession(
+        {
+          id: "u1",
+          email: "p@c.com",
+          firstName: "Pat",
+          lastName: "Lee",
+          tenantRoleId: "tr1",
+        },
+        "tok",
+        "ref",
+      );
+
       server.use(
         http.get(`${API}/notifications/unread-count`, () =>
           HttpResponse.json({
@@ -101,6 +134,18 @@ describe("notifications feature", () => {
 
     it("returns 0 when no unread", async () => {
       const qc = createQueryClient();
+      useSessionStore.getState().setSession(
+        {
+          id: "u1",
+          email: "p@c.com",
+          firstName: "Pat",
+          lastName: "Lee",
+          tenantRoleId: "tr1",
+        },
+        "tok",
+        "ref",
+      );
+
       server.use(
         http.get(`${API}/notifications/unread-count`, () =>
           HttpResponse.json({
@@ -120,6 +165,18 @@ describe("notifications feature", () => {
 
     it("handles error state", async () => {
       const qc = createQueryClient();
+      useSessionStore.getState().setSession(
+        {
+          id: "u1",
+          email: "p@c.com",
+          firstName: "Pat",
+          lastName: "Lee",
+          tenantRoleId: "tr1",
+        },
+        "tok",
+        "ref",
+      );
+
       server.use(
         http.get(`${API}/notifications/unread-count`, () =>
           HttpResponse.json(
@@ -132,7 +189,7 @@ describe("notifications feature", () => {
       const { result } = renderHook(() => useUnreadCount(), {
         wrapper: qcWrapper(qc),
       });
-
+      console.log(result);
       await waitFor(() => expect(result.current.isError).toBe(true));
     });
   });

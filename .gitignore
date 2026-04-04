@@ -29,6 +29,7 @@ prisma/migrations/
 test-results/
 playwright-report/
 test_upload*
+**/coverage
 
 # Build caches
 .vite/

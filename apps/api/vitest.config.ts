@@ -8,6 +8,12 @@ export default defineConfig({
       provider: "v8",
       include: ["src/features/**/*.{service,handlers}.ts"],
       exclude: ["src/test/**"],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
+      },
     },
     setupFiles: ["./src/test/setup.ts"],
   },
