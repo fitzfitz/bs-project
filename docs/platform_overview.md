@@ -60,7 +60,8 @@ bs-project/                          # pnpm workspace root
 │   ├── api/                         # @tmng/saas-api — Hono.js REST API (Node.js 22)
 │   ├── admin/                       # @tmng/barber-admin — Admin dashboard (React 19)
 │   └── client/                      # @tmng/barber-client — Customer PWA (React 19)
-├── packages/                        # Shared packages (reserved for future)
+├── packages/
+│   └── email-templates/             # @tmng/email-templates — Shared HTML templates (Resend)
 ├── docs/                            # Architecture & planning docs
 └── openspec/                        # Feature specifications (spec.md per feature)
 ```
@@ -214,10 +215,11 @@ Both apps use `vite-plugin-pwa` with Workbox for service worker caching and inst
 | **WebSocket** | Soketi | Live queue updates, real-time notifications | Yes (VPS, Docker) |
 | **Media Storage** | MinIO | Staff photos, branch images, review photos, product photos | Yes (VPS, Docker) |
 | **Payment Gateway** | Xendit | QRIS, credit card, virtual account. Charge creation, webhooks, saved cards (tokenized) | No (SaaS) |
-| **Push Notifications** | OneSignal | Web push to customers (booking, queue status, reminders, campaigns) | No (Free tier) |
+| **Push Notifications** | OneSignal | Web push to customers (booking, queue status, reminders, campaigns). Foreground pushes reliably invalidate client-side caching. | No (Free tier) |
 | **WhatsApp** | Twilio | Template-based WhatsApp messages for notifications | No (SaaS) |
 | **SMS** | Twilio | Plain text SMS notifications (shared Twilio account) | No (SaaS) |
-| **Email** | nodemailer (SMTP) | Scheduled report delivery (PDF + CSV attachments) | Config-dependent |
+| **Email (Transactional)** | Resend | Branded transactional HTML emails (confirmed, cancelled, rescheduled, receipts) using `@tmng/email-templates`. | No (SaaS) |
+| **Email (Reports)** | nodemailer (SMTP) | Scheduled report delivery (PDF + CSV attachments). Separate from transactional user emails. | Config-dependent |
 | **Logging** | pino | Structured JSON logging with request correlation IDs | Built-in |
 
 All third-party integrations gracefully degrade when env vars are not configured — the system logs instead of crashing.

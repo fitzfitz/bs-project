@@ -306,7 +306,7 @@ export const createEntryHandler: RouteHandler<
 
   const organizationId = c.get("organizationId")!;
   const pusher = getPusher(c);
-  const ns = createNotificationService(c.env);
+  const ns = createNotificationService(c.env, c.var.db);
   const entry = await QueueService.createEntry(c.var.db, data, organizationId, pusher, ns);
   return c.json({ success: true as const, data: entry }, 201);
 };
@@ -319,7 +319,7 @@ export const updateStatusHandler: RouteHandler<
   const data = c.req.valid("json");
   const organizationId = c.get("organizationId")!;
   const pusher = getPusher(c);
-  const ns = createNotificationService(c.env);
+  const ns = createNotificationService(c.env, c.var.db);
   const entry = await QueueService.updateStatus(c.var.db, id, data, organizationId, pusher, ns);
   return c.json({ success: true as const, data: entry }, 200);
 };
@@ -352,7 +352,8 @@ export const cancelEntryHandler: RouteHandler<
 > = async (c) => {
   const { id } = c.req.valid("param");
   const pusher = getPusher(c);
-  const entry = await QueueService.cancelEntry(c.var.db, id, pusher);
+  const ns = createNotificationService(c.env, c.var.db);
+  const entry = await QueueService.cancelEntry(c.var.db, id, pusher, ns);
   return c.json({ success: true as const, data: entry }, 200);
 };
 
@@ -369,7 +370,7 @@ export const customerCancelHandler: RouteHandler<typeof customerCancelRoute, App
   const { id } = c.req.valid("param");
   const userId = c.get("userId") as string;
   const pusher = getPusher(c);
-  const ns = createNotificationService(c.env);
+  const ns = createNotificationService(c.env, c.var.db);
   const entry = await QueueService.customerCancelEntry(c.var.db, id, userId, pusher, ns);
   return c.json({ success: true as const, data: entry }, 200);
 };
@@ -396,7 +397,8 @@ export const rescheduleHandler: RouteHandler<typeof rescheduleRoute, AppEnv> = a
   const { startTime } = c.req.valid("json");
   const userId = c.get("userId") as string;
   const pusher = getPusher(c);
-  const entry = await QueueService.rescheduleEntry(c.var.db, id, userId, startTime, pusher);
+  const ns = createNotificationService(c.env, c.var.db);
+  const entry = await QueueService.rescheduleEntry(c.var.db, id, userId, startTime, pusher, ns);
   return c.json({ success: true as const, data: entry }, 200);
 };
 

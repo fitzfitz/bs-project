@@ -266,7 +266,7 @@ describe("BranchesService.emergencyClose push notifications", () => {
 
   beforeEach(() => {
     db = createMockDb();
-    mockNs = { sendPush: vi.fn().mockResolvedValue(true), sendWhatsApp: vi.fn().mockResolvedValue(false), sendSms: vi.fn().mockResolvedValue(false) };
+    mockNs = { sendPush: vi.fn().mockResolvedValue(true), sendWhatsApp: vi.fn().mockResolvedValue(false), sendSms: vi.fn().mockResolvedValue(false), sendEmail: vi.fn().mockResolvedValue(false) };
     vi.clearAllMocks();
   });
 

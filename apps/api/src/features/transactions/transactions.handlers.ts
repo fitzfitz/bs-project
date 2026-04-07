@@ -1,7 +1,9 @@
 import { createRoute, z } from "@hono/zod-openapi";
+import { HTTPException } from "hono/http-exception";
 import type { RouteHandler } from "@hono/zod-openapi";
 import type { AppEnv } from "../../types";
 import { TransactionService } from "./transactions.service";
+import { createNotificationService } from "../../utils/notifications";
 import {
   createTransactionSchema,
   addPaymentsSchema,
@@ -17,6 +19,7 @@ import {
   getTransactionById200Schema,
   getReceipt200Schema,
 } from "./transactions.schema";
+import { getPermissionsFromCache } from "../../middlewares/rbac";
 
 // -----------------------------------------------------------------------------
 // ROUTES
@@ -28,6 +31,7 @@ export const createTransactionRoute = createRoute({
   tags: ["Transactions"],
   summary: "Create a new draft transaction",
   description: "Creates a PENDING transaction.",
+  security: [{ bearerAuth: [] }],
   request: {
     body: {
       content: { "application/json": { schema: createTransactionSchema } },
@@ -54,6 +58,7 @@ export const addPaymentsRoute = createRoute({
   tags: ["Transactions"],
   summary: "Add payments and complete transaction",
   description: "Records payments and marks the transaction as COMPLETED.",
+  security: [{ bearerAuth: [] }],
   request: {
     params: z.object({ id: z.string() }),
     body: {
@@ -81,6 +86,7 @@ export const voidRoute = createRoute({
   tags: ["Transactions"],
   summary: "Void a transaction",
   description: "Voids a transaction and logs an audit record.",
+  security: [{ bearerAuth: [] }],
   request: {
     params: z.object({ id: z.string() }),
     body: {
@@ -108,6 +114,7 @@ export const refundRoute = createRoute({
   tags: ["Transactions"],
   summary: "Refund a transaction",
   description: "Refunds a completed transaction, reversing inventory and loyalty points.",
+  security: [{ bearerAuth: [] }],
   request: {
     params: z.object({ id: z.string() }),
     body: {
@@ -135,6 +142,7 @@ export const listRoute = createRoute({
   tags: ["Transactions"],
   summary: "List transactions",
   description: "Retrieve a paginated list of transactions.",
+  security: [{ bearerAuth: [] }],
   request: {
     query: listTransactionsQuerySchema,
   },
@@ -157,6 +165,7 @@ export const getSummaryRoute = createRoute({
   tags: ["Transactions"],
   summary: "Get daily summary",
   description: "Retrieve a summary of transactions for a specific branch and date.",
+  security: [{ bearerAuth: [] }],
   request: {
     query: z.object({
       branchId: z.string().min(1),
@@ -182,6 +191,7 @@ export const getByIdRoute = createRoute({
   tags: ["Transactions"],
   summary: "Get transaction by ID",
   description: "Retrieve complete details for a specific transaction by its ID.",
+  security: [{ bearerAuth: [] }],
   request: {
     params: z.object({ id: z.string() }),
   },
@@ -205,6 +215,7 @@ export const getReceiptRoute = createRoute({
   tags: ["Transactions"],
   summary: "Get receipt data",
   description: "Retrieve data formatted for a digital receipt.",
+  security: [{ bearerAuth: [] }],
   request: {
     params: z.object({ id: z.string() }),
   },
@@ -246,7 +257,8 @@ export const addPaymentsHandler: RouteHandler<typeof addPaymentsRoute, AppEnv> =
   try {
     const id = c.req.param("id");
     const data = c.req.valid("json");
-    const result = await TransactionService.addPayments(c.var.db, id, data);
+    const ns = createNotificationService(c.env, c.var.db);
+    const result = await TransactionService.addPayments(c.var.db, id, data, ns);
     return c.json({ success: true, message: "Payments recorded", data: result }, 200);
   } catch (error: any) {
     console.error("Failed to add payments:", error);
@@ -328,11 +340,17 @@ export const getSummaryHandler: RouteHandler<typeof getSummaryRoute, AppEnv> = a
 export const getByIdHandler: RouteHandler<typeof getByIdRoute, AppEnv> = async (c) => {
   try {
     const id = c.req.param("id");
-    const result = await TransactionService.getTransactionById(c.var.db, id);
+    const userId = c.get("userId") as string;
+    const tenantRoleId = c.get("tenantRoleId");
+    const permissions = tenantRoleId ? await getPermissionsFromCache(c.var.db, tenantRoleId) : undefined;
+
+    const result = await TransactionService.getTransactionById(c.var.db, id, userId, permissions);
     return c.json({ success: true, data: result }, 200);
   } catch (error: any) {
+    if (error instanceof HTTPException) {
+      return c.json({ success: false, message: error.message }, error.status);
+    }
     console.error("Failed to get transaction:", error);
-    if (error.message.includes("not found")) return c.json({ success: false, message: error.message }, 404);
     return c.json({ success: false, message: "Internal server error" }, 500);
   }
 };
@@ -340,12 +358,18 @@ export const getByIdHandler: RouteHandler<typeof getByIdRoute, AppEnv> = async (
 export const getReceiptHandler: RouteHandler<typeof getReceiptRoute, AppEnv> = async (c) => {
   try {
     const id = c.req.param("id");
-    const result = await TransactionService.getReceiptData(c.var.db, id);
+    const userId = c.get("userId") as string;
+    const tenantRoleId = c.get("tenantRoleId");
+    const permissions = tenantRoleId ? await getPermissionsFromCache(c.var.db, tenantRoleId) : undefined;
+
+    const result = await TransactionService.getReceiptData(c.var.db, id, userId, permissions);
     return c.json({ success: true, data: result }, 200);
   } catch (error: unknown) {
+    if (error instanceof HTTPException) {
+        return c.json({ success: false, message: error.message }, error.status);
+    }
     const message = error instanceof Error ? error.message : "Internal server error";
-    console.error("Failed to get receipt data:", error);
-    if (message.includes("not found")) return c.json({ success: false, message }, 404);
+    console.error("Failed to get receipt data:", message);
     return c.json({ success: false, message: "Internal server error" }, 500);
   }
 };

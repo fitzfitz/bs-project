@@ -141,6 +141,7 @@ export const TransactionScalarSchema = z.object({
   promoCode: z.string().nullable().optional(),
   status: TransactionStatusEnum,
   clientUuid: z.string().nullable().optional(),
+  receiptNumber: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

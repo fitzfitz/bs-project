@@ -94,7 +94,7 @@ export const PlatformService = {
       await tx.tenantRolePermission.createMany({ data: permData });
 
       const passwordHash = await bcrypt.hash(data.ownerPassword, 10);
-      await tx.user.create({
+      const owner = await tx.user.create({
         data: {
           email: data.ownerEmail,
           passwordHash,
@@ -103,6 +103,14 @@ export const PlatformService = {
           organizationId: org.id,
           tenantRoleId: ownerRole.id,
           isCustomer: false,
+        },
+      });
+
+      await tx.notificationPreference.create({
+        data: {
+          organizationId: org.id,
+          userId: owner.id,
+          emailOptOut: false,
         },
       });
 

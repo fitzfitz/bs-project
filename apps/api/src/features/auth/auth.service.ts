@@ -73,6 +73,7 @@ export const AuthService = {
 
     const passwordHash = await bcrypt.hash(data.password, 10);
 
+    console.log("DEBUG: org", org?.id, "customerRole", customerRole?.id, "scope", (customerRole as any)?.scope);
     const user = await db.user.create({
       data: {
         email: data.email,
@@ -96,10 +97,26 @@ export const AuthService = {
       },
     });
 
+    await db.notificationPreference.create({
+      data: {
+        userId: user.id,
+        organizationId: org.id,
+        emailOptOut: false,
+      },
+    });
+
     return {
       ...user,
-      tenantRole: { id: customerRole.id, name: customerRole.name, scope: customerRole.scope },
-      organization: { currency: org.currency, currencySymbol: org.currencySymbol, locale: org.locale },
+      tenantRole: { 
+        id: customerRole.id, 
+        name: customerRole.name, 
+        scope: customerRole.scope 
+      },
+      organization: { 
+        currency: org.currency, 
+        currencySymbol: org.currencySymbol, 
+        locale: org.locale 
+      },
     };
   },
 
@@ -192,6 +209,14 @@ export const AuthService = {
             pointsBalance: 0,
             lifetimePoints: 0,
             tier: "BRONZE",
+          },
+        });
+
+        await db.notificationPreference.create({
+          data: {
+            userId: user.id,
+            organizationId: org.id,
+            emailOptOut: false,
           },
         });
       }

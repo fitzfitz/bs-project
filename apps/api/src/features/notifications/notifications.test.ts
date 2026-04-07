@@ -430,7 +430,7 @@ describe("Channel config and preferences HTTP", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ pushEnabled: true, whatsappEnabled: true, smsEnabled: true }),
+      body: JSON.stringify({ pushEnabled: true, whatsappEnabled: true, smsEnabled: true, emailEnabled: false }),
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: { whatsappEnabled: boolean; smsEnabled: boolean } };
@@ -488,12 +488,54 @@ describe("Channel config and preferences HTTP", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ pushOptOut: false, whatsappOptOut: true, smsOptOut: false }),
+      body: JSON.stringify({ pushOptOut: false, whatsappOptOut: true, smsOptOut: false, emailOptOut: false }),
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: { whatsappOptOut: boolean; smsOptOut: boolean } };
     expect(body.data.whatsappOptOut).toBe(true);
     expect(body.data.smsOptOut).toBe(false);
+  });
+
+  it("PUT /preferences synchronizes NotificationPreference.emailOptOut with User.emailOptIn", async () => {
+    const token = await signTestJwt({
+      sub: testUsers.customer.userId,
+      organizationId: testUsers.customer.organizationId,
+      tenantRoleId: testUsers.customer.tenantRoleId,
+      scope: testUsers.customer.scope,
+      isCustomer: true,
+    });
+    
+    const mockPrefUpsert = db.notificationPreference.upsert as any;
+    mockPrefUpsert.mockResolvedValue({
+      pushOptOut: false,
+      whatsappOptOut: false,
+      smsOptOut: false,
+      emailOptOut: true,
+    });
+
+    const mockUserUpdate = db.user.update as any;
+    mockUserUpdate.mockResolvedValue({ id: testUsers.customer.userId, emailOptIn: false });
+
+    const app = mountFeatureWithDb(notificationsApp, db);
+    const res = await app.request("http://t/preferences", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ pushOptOut: false, whatsappOptOut: false, smsOptOut: false, emailOptOut: true }),
+    });
+
+    expect(res.status).toBe(200);
+    
+    // Verify sync logic
+    expect(mockPrefUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: expect.objectContaining({ emailOptOut: true })
+    }));
+    expect(mockUserUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: testUsers.customer.userId },
+      data: { emailOptIn: false }
+    }));
   });
 });
 
@@ -684,11 +726,297 @@ describe("notifications admin HTTP", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ userId: "u1", title: "Test", body: "Hello" }),
+      body: JSON.stringify({ userId: "u1", title: "Test", body: "Hello", sendEmail: true }),
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { data: { notificationId: string } };
+    const body = (await res.json()) as { data: { notificationId: string; pushSent: boolean; emailSent: boolean } };
     expect(body.data.notificationId).toBe("notif-1");
+    expect(body.data.pushSent).toBe(false);
+    expect(body.data.emailSent).toBe(false); // Expected false as env vars aren't set in test
+  });
+});
+
+// ─── Email Preferences & Channel Config Tests ────────────────────────────────
+
+describe("email preferences HTTP", () => {
+  let db: ReturnType<typeof createMockDb>;
+
+  beforeEach(() => {
+    invalidateAllPermissionCaches();
+    db = createMockDb();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, text: async () => "" }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("GET /preferences returns emailOptOut: false by default when no record exists", async () => {
+    const token = await signTestJwt({
+      sub: testUsers.customer.userId,
+      organizationId: testUsers.customer.organizationId,
+      tenantRoleId: testUsers.customer.tenantRoleId,
+      scope: testUsers.customer.scope,
+      isCustomer: true,
+    });
+    (db.notificationPreference.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    const app = mountFeatureWithDb(notificationsApp, db);
+    const res = await app.request("http://t/preferences", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { emailOptOut: boolean } };
+    expect(body.data.emailOptOut).toBe(false);
+  });
+
+  it("GET /preferences returns emailOptOut value from existing preference record", async () => {
+    const token = await signTestJwt({
+      sub: testUsers.customer.userId,
+      organizationId: testUsers.customer.organizationId,
+      tenantRoleId: testUsers.customer.tenantRoleId,
+      scope: testUsers.customer.scope,
+      isCustomer: true,
+    });
+    (db.notificationPreference.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      pushOptOut: false,
+      whatsappOptOut: false,
+      smsOptOut: false,
+      emailOptOut: true,
+    });
+    const app = mountFeatureWithDb(notificationsApp, db);
+    const res = await app.request("http://t/preferences", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { emailOptOut: boolean } };
+    expect(body.data.emailOptOut).toBe(true);
+  });
+
+  it("PUT /preferences accepts emailOptOut and persists it", async () => {
+    const token = await signTestJwt({
+      sub: testUsers.customer.userId,
+      organizationId: testUsers.customer.organizationId,
+      tenantRoleId: testUsers.customer.tenantRoleId,
+      scope: testUsers.customer.scope,
+      isCustomer: true,
+    });
+    (db.notificationPreference.upsert as ReturnType<typeof vi.fn>).mockResolvedValue({
+      pushOptOut: false,
+      whatsappOptOut: false,
+      smsOptOut: false,
+      emailOptOut: true,
+    });
+    const app = mountFeatureWithDb(notificationsApp, db);
+    const res = await app.request("http://t/preferences", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ pushOptOut: false, whatsappOptOut: false, smsOptOut: false, emailOptOut: true }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { emailOptOut: boolean } };
+    expect(body.data.emailOptOut).toBe(true);
+  });
+
+  it("PUT /preferences updates emailOptOut independently of other preferences", async () => {
+    const token = await signTestJwt({
+      sub: testUsers.customer.userId,
+      organizationId: testUsers.customer.organizationId,
+      tenantRoleId: testUsers.customer.tenantRoleId,
+      scope: testUsers.customer.scope,
+      isCustomer: true,
+    });
+    (db.notificationPreference.upsert as ReturnType<typeof vi.fn>).mockResolvedValue({
+      pushOptOut: true,
+      whatsappOptOut: true,
+      smsOptOut: true,
+      emailOptOut: false,
+    });
+    const app = mountFeatureWithDb(notificationsApp, db);
+    const res = await app.request("http://t/preferences", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ pushOptOut: true, whatsappOptOut: true, smsOptOut: true, emailOptOut: false }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { pushOptOut: boolean; emailOptOut: boolean } };
+    expect(body.data.pushOptOut).toBe(true);
+    expect(body.data.emailOptOut).toBe(false);
+  });
+});
+
+describe("email channel config HTTP", () => {
+  let db: ReturnType<typeof createMockDb>;
+
+  beforeEach(() => {
+    invalidateAllPermissionCaches();
+    db = createMockDb();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, text: async () => "" }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("GET /channels returns emailEnabled field in channel config", async () => {
+    mockTenantRolePermissions(db, [
+      { featureCode: "ORG_SETTINGS", canRead: true, canUpdate: true },
+    ]);
+    const token = await signTestJwt({
+      sub: testUsers.superAdmin.userId,
+      organizationId: testUsers.superAdmin.organizationId,
+      tenantRoleId: testUsers.superAdmin.tenantRoleId,
+      scope: testUsers.superAdmin.scope,
+    });
+    (db.notificationChannelConfig.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { notificationType: "BOOKING_CONFIRMED", pushEnabled: true, whatsappEnabled: false, smsEnabled: false, emailEnabled: true },
+    ]);
+    const app = mountFeatureWithDb(notificationsApp, db);
+    const res = await app.request("http://t/channels", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { emailEnabled: boolean }[] };
+    expect(body.data[0].emailEnabled).toBe(true);
+  });
+
+  it("PUT /channels/:type accepts emailEnabled and persists it", async () => {
+    mockTenantRolePermissions(db, [
+      { featureCode: "ORG_SETTINGS", canRead: true, canUpdate: true },
+    ]);
+    const token = await signTestJwt({
+      sub: testUsers.superAdmin.userId,
+      organizationId: testUsers.superAdmin.organizationId,
+      tenantRoleId: testUsers.superAdmin.tenantRoleId,
+      scope: testUsers.superAdmin.scope,
+    });
+    (db.notificationChannelConfig.upsert as ReturnType<typeof vi.fn>).mockResolvedValue({
+      notificationType: "BOOKING_CONFIRMED",
+      pushEnabled: true,
+      whatsappEnabled: false,
+      smsEnabled: false,
+      emailEnabled: true,
+    });
+    const app = mountFeatureWithDb(notificationsApp, db);
+    const res = await app.request("http://t/channels/BOOKING_CONFIRMED", {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ pushEnabled: true, whatsappEnabled: false, smsEnabled: false, emailEnabled: true }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { emailEnabled: boolean } };
+    expect(body.data.emailEnabled).toBe(true);
+  });
+});
+
+import { Resend } from "resend";
+type _Resend = Resend;
+
+const { mockResendSend } = vi.hoisted(() => ({
+  mockResendSend: vi.fn().mockResolvedValue({ data: { id: "test-id" }, error: null }),
+}));
+
+vi.mock("resend", () => {
+  return {
+    Resend: class {
+      emails = {
+        send: mockResendSend,
+      };
+    },
+  };
+});
+
+describe("Email adapter (notifications utility)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sendEmail returns false and logs no-op when Resend env vars absent", async () => {
+    const { createNotificationService } = await import("../../utils/notifications");
+    const ns = createNotificationService({});
+    const result = await ns.sendEmail("user-1", "Test Subject", "<html>Hello</html>");
+    expect(result).toBe(false);
+  });
+
+  it("sendEmail sends via Resend SDK and returns true", async () => {
+    const { createNotificationService } = await import("../../utils/notifications");
+    
+    // We need to mock the DB lookup for this test since sendEmail now resolves userId -> email
+    const mockDb = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ email: "test@example.com" }),
+      },
+    } as any;
+
+    const ns = createNotificationService({
+      RESEND_API_KEY: "re_test_123",
+      RESEND_FROM_EMAIL: "noreply@tmng.dev",
+    }, mockDb);
+
+    const result = await ns.sendEmail("user-1", "Test Subject", "<html>Hello</html>");
+    
+    expect(result).toBe(true);
+    expect(mockResendSend).toHaveBeenCalledWith({
+      from: "noreply@tmng.dev",
+      to: "test@example.com",
+      subject: "Test Subject",
+      html: "<html>Hello</html>",
+    });
+    expect(mockDb.user.findUnique).toHaveBeenCalledWith({ where: { id: "user-1" }, select: { email: true } });
+  });
+
+  it("sendEmail returns false when Resend returns error", async () => {
+    const { createNotificationService } = await import("../../utils/notifications");
+    
+    const mockDb = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ email: "test@example.com" }),
+      },
+    } as any;
+
+    const ns = createNotificationService({
+      RESEND_API_KEY: "re_test_123",
+      RESEND_FROM_EMAIL: "noreply@tmng.dev",
+    }, mockDb);
+
+    mockResendSend.mockResolvedValueOnce({ data: null, error: { message: "API failure" } });
+    const result = await ns.sendEmail("user-1", "Test Subject", "<html>Hello</html>");
+    expect(result).toBe(false);
+  });
+
+  it("sendEmail returns false when user has no email address", async () => {
+    const { createNotificationService } = await import("../../utils/notifications");
+    
+    const mockDb = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ email: null }),
+      },
+    } as any;
+
+    const ns = createNotificationService({
+      RESEND_API_KEY: "re_test_123",
+      RESEND_FROM_EMAIL: "noreply@tmng.dev",
+    }, mockDb);
+
+    const result = await ns.sendEmail("user-1", "Test", "<html></html>");
+    expect(result).toBe(false);
   });
 });

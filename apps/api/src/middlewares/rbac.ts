@@ -25,7 +25,7 @@ const ACTION_MAP: Record<Action, keyof FeaturePerms> = {
   delete: "canDelete",
 };
 
-async function getPermissionsFromCache(
+export async function getPermissionsFromCache(
   db: any,
   tenantRoleId: string
 ): Promise<Map<string, FeaturePerms>> {

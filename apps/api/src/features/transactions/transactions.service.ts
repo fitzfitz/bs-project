@@ -1,11 +1,13 @@
 import type { PrismaClient, Prisma } from "@prisma/client";
-import type {
+import {
   CreateTransactionInput,
   AddPaymentsInput,
   ListTransactionsQuery,
 } from "./transactions.schema";
 import { promotionsService } from "../promotions/promotions.service";
 import { HTTPException } from "hono/http-exception";
+import type { NotificationService } from "../../utils/notifications";
+import { paymentReceiptEmail } from "@tmng/email-templates";
 
 async function getOrgTaxRate(db: PrismaClient, organizationId: string): Promise<number> {
   const org = await db.organization.findUnique({
@@ -19,11 +21,17 @@ async function getOrgTaxRate(db: PrismaClient, organizationId: string): Promise<
 /** Transaction client from db.$transaction (for use in addPayments and webhook finalization). */
 type TxClient = Prisma.TransactionClient;
 
-async function finalizeTransactionSideEffects(
+export async function finalizeTransactionSideEffects(
   tx: TxClient,
   transactionId: string,
-  updatedTransaction: { id: string; organizationId: string; branchId: string; queueEntryId: string | null; promoCode: string | null; loyaltyPointsUsed: number; customerId: string | null; items: Array<{ productId: string | null; quantity: number }> }
+  updatedTransaction: { id: string; organizationId: string; branchId: string; queueEntryId: string | null; promoCode: string | null; loyaltyPointsUsed: number; customerId: string | null; items: Array<{ productId: string | null; quantity: number }> },
+  notificationService?: NotificationService
 ) {
+  if (!updatedTransaction) {
+    console.error("Side-effect: updatedTransaction is missing, skipping side effects");
+    return;
+  }
+
   // Mark queue entry as PAID (non-critical)
   if (updatedTransaction.queueEntryId) {
     try {
@@ -136,9 +144,108 @@ async function finalizeTransactionSideEffects(
   } catch (e: any) {
     console.error("Side-effect: inventory stock-out failed:", e.message);
   }
+
+  // Payment Receipt Email
+  if (notificationService && updatedTransaction.customerId) {
+    try {
+      const db = tx as unknown as PrismaClient;
+      const [branchInfo, pref, txDetails, customerUser] = await Promise.all([
+        db.branch.findUnique({
+          where: { id: updatedTransaction.branchId },
+          select: { name: true, address: true, city: true, phone: true, email: true, imageUrl: true },
+        }),
+        db.notificationPreference.findUnique({ where: { userId: updatedTransaction.customerId } }),
+        db.transaction.findUnique({
+          where: { id: transactionId },
+          include: { items: true, queueEntry: true },
+        }),
+        db.user.findUnique({
+          where: { id: updatedTransaction.customerId },
+          select: { firstName: true }
+        })
+      ]);
+
+      // Legacy fallback: Send email if preference is missing (pref is null) or opt-out is false.
+      const shouldSendEmail = branchInfo && (!pref || pref.emailOptOut === false) && txDetails;
+
+      if (shouldSendEmail) {
+        const customerName = customerUser?.firstName ?? "Customer";
+        const emailItems = txDetails!.items.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.unitPrice,
+          total: item.total,
+        }));
+        
+        const { subject, html } = paymentReceiptEmail({
+          customerName,
+          branchName: branchInfo.name,
+          currency: "IDR",
+          paidAt: new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }),
+          totalDue: txDetails!.totalDue,
+          items: emailItems,
+          branch: branchInfo,
+        });
+ 
+        await notificationService.sendEmail(updatedTransaction.customerId, subject, html);
+      }
+    } catch (e: any) {
+      console.error("Side-effect: payment receipt email failed:", e.message);
+    }
+  }
+}
+
+/**
+ * Internal helper to verify if a user is authorized to access a transaction.
+ * Logic: (OWNS transaction) OR (OWNS original queue booking) OR (HAS TRANSACTION:read permission).
+ */
+async function verifyTransactionAccess(
+  transaction: { customerId: string | null; queueEntry?: { customerId: string | null } | null },
+  userId: string,
+  permissions?: Map<string, { canRead: boolean; canCreate: boolean; canUpdate: boolean; canDelete: boolean }>
+) {
+  // 1. Direct Ownership check (Real User matches)
+  if (transaction.customerId && userId === transaction.customerId) return;
+
+  // 2. Queue ownership check (Fallback: if user matches the booking creator/owner)
+  if (transaction.queueEntry?.customerId && userId === transaction.queueEntry.customerId) {
+    return;
+  }
+
+  // 3. Staff RBAC check
+  if (permissions?.get("TRANSACTION")?.canRead) return;
+
+  // 4. Forbidden
+  console.warn(`[Auth] Access denied for user ${userId} to transaction ${transaction.customerId} (Queue owner: ${transaction.queueEntry?.customerId})`);
+  throw new HTTPException(403, { message: "Forbidden" });
+}
+
+/**
+ * Internal helper to generate a persistent receipt number.
+ * Format: TX-YYYYMMDD-XXX
+ */
+async function generateTransactionReceiptNumber(db: TxClient, transaction: { id: string; branchId: string; createdAt?: Date }) {
+  const date = transaction.createdAt || new Date();
+  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, "");
+  
+  // Count transactions in this branch for today created before or at the same time as this one
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const sequential = await db.transaction.count({
+    where: {
+      branchId: transaction.branchId,
+      createdAt: { gte: startOfDay, lte: date },
+      id: { lte: transaction.id },
+      status: { in: ["COMPLETED", "VOIDED", "REFUNDED"] },
+    },
+  });
+
+  return `TX-${dateStr}-${String(sequential).padStart(3, "0")}`;
 }
 
 export const TransactionService = {
+
   async createTransaction(db: PrismaClient, data: CreateTransactionInput, organizationId: string, scope?: string) {
     if (data.clientUuid) {
       const existing = await db.transaction.findUnique({
@@ -257,7 +364,7 @@ export const TransactionService = {
     return transaction;
   },
 
-  async addPayments(db: PrismaClient, transactionId: string, data: AddPaymentsInput) {
+  async addPayments(db: PrismaClient, transactionId: string, data: AddPaymentsInput, notificationService?: NotificationService) {
     return await db.$transaction(async (tx) => {
       const transaction = await tx.transaction.findUnique({
         where: { id: transactionId },
@@ -272,8 +379,10 @@ export const TransactionService = {
 
       // We allow standard floating point comparison with a tiny epsilon
       if (Math.abs(totalPaid - transaction.totalDue) > 0.01) {
-        throw new Error(`Payment mismatch: expected ${transaction.totalDue}, got ${totalPaid}`);
+        throw new Error(`Payment mismatch: expected ${transaction.totalDue} got ${totalPaid}`);
       }
+
+      const receiptNumber = await generateTransactionReceiptNumber(tx, transaction);
 
       await tx.payment.createMany({
         data: data.payments.map((p) => ({
@@ -287,14 +396,18 @@ export const TransactionService = {
 
       const updatedTransaction = await tx.transaction.update({
         where: { id: transactionId },
-        data: { status: "COMPLETED" },
+        data: { 
+          status: "COMPLETED",
+          receiptNumber,
+        },
         include: {
           items: true,
           payments: true,
+          queueEntry: true,
         },
       });
 
-      await finalizeTransactionSideEffects(tx, transactionId, updatedTransaction);
+      await finalizeTransactionSideEffects(tx, transactionId, updatedTransaction, notificationService);
       return updatedTransaction;
     }, { timeout: 30000 });
   },
@@ -534,24 +647,35 @@ export const TransactionService = {
   /**
    * Finalize a PENDING transaction (mark COMPLETED and run side effects). Used by payment webhook when gateway reports PAID.
    */
-  async finalizeTransactionOnPaid(db: PrismaClient, transactionId: string) {
+  async finalizeTransactionOnPaid(db: PrismaClient, transactionId: string, notificationService?: NotificationService) {
     return db.$transaction(async (tx) => {
       const transaction = await tx.transaction.findUnique({
         where: { id: transactionId },
         include: { items: true },
       });
       if (!transaction || transaction.status !== "PENDING") return null;
+
+      const receiptNumber = await generateTransactionReceiptNumber(tx, transaction);
+
       const updatedTransaction = await tx.transaction.update({
         where: { id: transactionId },
-        data: { status: "COMPLETED" },
+        data: { 
+          status: "COMPLETED",
+          receiptNumber,
+        },
         include: { items: true, payments: true },
       });
-      await finalizeTransactionSideEffects(tx, transactionId, updatedTransaction);
+      await finalizeTransactionSideEffects(tx, transactionId, updatedTransaction, notificationService);
       return updatedTransaction;
     }, { timeout: 30000 });
   },
 
-  async getTransactionById(db: PrismaClient, id: string) {
+  async getTransactionById(
+    db: PrismaClient,
+    id: string,
+    userId: string,
+    permissions?: Map<string, { canRead: boolean; canCreate: boolean; canUpdate: boolean; canDelete: boolean }>
+  ) {
     const tx = await db.transaction.findUnique({
       where: { id },
       include: {
@@ -564,34 +688,54 @@ export const TransactionService = {
       },
     });
 
-    if (!tx) throw new Error("Transaction not found");
+    if (!tx) throw new HTTPException(404, { message: "Transaction not found" });
+
+    // Enforce access control
+    await verifyTransactionAccess(tx, userId, permissions);
+
     return tx;
   },
 
-  async getReceiptData(db: PrismaClient, id: string) {
+  async getReceiptData(
+    db: PrismaClient,
+    id: string,
+    userId: string,
+    permissions?: Map<string, { canRead: boolean; canCreate: boolean; canUpdate: boolean; canDelete: boolean }>
+  ) {
     const tx = await db.transaction.findUnique({
       where: { id },
       include: {
         items: true,
         payments: true,
         branch: true,
-        queueEntry: { include: { staff: { include: { user: true } } } },
+        queueEntry: {
+          include: {
+            staff: {
+              include: { user: true },
+            },
+          },
+        },
       },
     });
-    if (!tx) throw new Error("Transaction not found");
+
+    if (!tx) throw new HTTPException(404, { message: "Transaction not found" });
+
+    // Enforce access control
+    await verifyTransactionAccess(tx, userId, permissions);
 
     const date = new Date(tx.createdAt);
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
-    const sequential = await db.transaction.count({
-      where: {
-        branchId: tx.branchId,
-        createdAt: { gte: startOfDay, lte: date },
-        id: { lte: tx.id },
-      },
-    });
-    const YYYYMMDD = date.toISOString().slice(0, 10).replace(/-/g, "");
-    const receiptNumber = `TX-${YYYYMMDD}-${String(sequential).padStart(3, "0")}`;
+
+    // PERFORMANCE OPTIMIZATION: Use the pre-calculated receiptNumber from the DB.
+    // If for any reason it's missing (e.g. legacy data), generate it on-the-fly and save it.
+    let receiptNumber = (tx as any).receiptNumber as string | null;
+    if (!receiptNumber) {
+        console.info(`Lazy-generating missing receipt number for transaction ${id}`);
+        receiptNumber = await generateTransactionReceiptNumber(db as unknown as TxClient, tx);
+        await db.transaction.update({
+            where: { id },
+            data: { receiptNumber }
+        });
+    }
 
     const subtotal = tx.grossAmount;
     const discountTotal = tx.discountAmount;

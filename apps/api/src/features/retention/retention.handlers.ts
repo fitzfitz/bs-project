@@ -25,7 +25,7 @@ export const triggerRoute = createRoute({
 });
 
 export const triggerHandler: RouteHandler<typeof triggerRoute, AppEnv> = async (c) => {
-  const ns = createNotificationService(c.env);
+  const ns = createNotificationService(c.env, c.var.db);
   const result = await RetentionService.processRetentionTriggers(c.var.db, ns);
   return c.json({ success: true as const, data: result }, 200);
 };

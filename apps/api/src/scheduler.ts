@@ -270,7 +270,9 @@ async function processRetentionTriggers(): Promise<void> {
     const ns = createNotificationService({
       ONESIGNAL_APP_ID: process.env.ONESIGNAL_APP_ID,
       ONESIGNAL_REST_API_KEY: process.env.ONESIGNAL_REST_API_KEY,
-    });
+      RESEND_API_KEY: process.env.RESEND_API_KEY,
+      RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
+    }, db);
     const result = await RetentionService.processRetentionTriggers(db, ns);
     if (result.atRiskSent > 0 || result.expirySent > 0) {
       log.info({ atRiskSent: result.atRiskSent, expirySent: result.expirySent }, "Retention triggers");
@@ -390,7 +392,9 @@ async function processAppointmentReminders(): Promise<void> {
     const ns = createNotificationService({
       ONESIGNAL_APP_ID: process.env.ONESIGNAL_APP_ID,
       ONESIGNAL_REST_API_KEY: process.env.ONESIGNAL_REST_API_KEY,
-    });
+      RESEND_API_KEY: process.env.RESEND_API_KEY,
+      RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
+    }, db);
 
     const now = new Date();
     const from = new Date(now.getTime() + 25 * 60 * 1000);

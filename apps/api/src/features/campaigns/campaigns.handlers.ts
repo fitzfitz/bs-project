@@ -148,7 +148,7 @@ export const sendRoute = createRoute({
 
 export const sendHandler: RouteHandler<typeof sendRoute, AppEnv> = async (c) => {
   const { id } = c.req.valid("param");
-  const ns = createNotificationService(c.env);
+  const ns = createNotificationService(c.env, c.var.db);
   try {
     const result = await CampaignService.sendCampaign(c.var.db, id, ns);
     return c.json({ success: true as const, data: result }, 200);

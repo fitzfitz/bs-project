@@ -527,16 +527,35 @@ export const searchUsersHandler: RouteHandler<typeof searchUsersRoute, AppEnv> =
 };
 
 export const notificationPreferencesHandler: RouteHandler<typeof notificationPreferencesRoute, AppEnv> = async (c) => {
-  const userId = c.get("userId");
+  const userId = c.get("userId") as string;
+  const orgId = c.get("organizationId") as string;
   if (!userId) {
     return c.json({ success: false as const, message: "Unauthorized" }, 401);
   }
 
   const { emailOptIn } = c.req.valid("json");
-  const updated = await c.var.db.user.update({
-    where: { id: userId as string },
-    data: { emailOptIn },
-    select: { emailOptIn: true },
+  
+  // Use a transaction to ensure both fields stay in sync
+  const updated = await c.var.db.$transaction(async (tx) => {
+    const user = await tx.user.update({
+      where: { id: userId },
+      data: { emailOptIn },
+      select: { emailOptIn: true },
+    });
+
+    await tx.notificationPreference.upsert({
+      where: { userId },
+      create: { 
+        organizationId: orgId, 
+        userId, 
+        emailOptOut: !emailOptIn 
+      },
+      update: { 
+        emailOptOut: !emailOptIn 
+      },
+    });
+
+    return user;
   });
 
   return c.json({ success: true as const, data: updated }, 200);

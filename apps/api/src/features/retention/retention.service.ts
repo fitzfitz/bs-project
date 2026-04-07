@@ -9,7 +9,7 @@ const NUDGE_COOLDOWN_DAYS = 14;
  * a JSON detail flag. Alternative: a dedicated NudgeLog table.
  */
 async function wasNudgedRecently(db: PrismaClient, userId: string): Promise<boolean> {
-  const cutoff = new Date();
+  const cutoff = new Date()   ;
   cutoff.setDate(cutoff.getDate() - NUDGE_COOLDOWN_DAYS);
 
   const recent = await db.auditLog.findFirst({

@@ -125,12 +125,14 @@ export const channelConfigSchema = z.object({
   pushEnabled: z.boolean(),
   whatsappEnabled: z.boolean(),
   smsEnabled: z.boolean(),
+  emailEnabled: z.boolean(),
 });
 
 export const upsertChannelConfigBody = z.object({
   pushEnabled: z.boolean(),
   whatsappEnabled: z.boolean(),
   smsEnabled: z.boolean(),
+  emailEnabled: z.boolean(),
 });
 
 export const channelTypeParam = z.object({
@@ -187,6 +189,7 @@ export const preferenceSchema = z.object({
   pushOptOut: z.boolean(),
   whatsappOptOut: z.boolean(),
   smsOptOut: z.boolean(),
+  emailOptOut: z.boolean(),
 });
 
 export const getPreferencesRoute = createRoute({
@@ -314,6 +317,7 @@ export const testSendBody = z.object({
   title: z.string().min(1).max(200),
   body: z.string().min(1).max(500),
   type: z.string().default("TEST"),
+  sendEmail: z.boolean().default(false),
 });
 
 export const adminTestSendRoute = createRoute({
@@ -332,7 +336,11 @@ export const adminTestSendRoute = createRoute({
       content: {
         "application/json": {
           schema: createSuccessSchema(
-            z.object({ notificationId: z.string(), pushSent: z.boolean() }),
+            z.object({
+              notificationId: z.string(),
+              pushSent: z.boolean(),
+              emailSent: z.boolean(),
+            }),
           ),
         },
       },

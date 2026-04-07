@@ -1,6 +1,6 @@
 # Gap Analysis
 
-> **Last updated:** Mar 28, 2026 — Admin UI redesign complete (12 sprints). Updated test metrics. Added client standalone test coverage. All PageHeader migrations complete.
+> **Last updated:** Apr 6, 2026 — Resolved GAP-38 (Resend email migration). Transactional emails migrated from OneSignal to Resend SDK with database-driven user email resolution.
 
 ---
 
@@ -37,9 +37,9 @@
 ### GAP-37: Forgot Password Email Not Implemented (LOW)
 
 - **Spec ref:** 1.1 (Authentication)
-- **Current state:** `auth.service.ts` `forgotPassword()` is a stub that always returns a generic success message without sending any email. `nodemailer` is already installed for report scheduling, so SMTP infrastructure exists.
+- **Current state:** `auth.service.ts` `forgotPassword()` is a stub that always returns a generic success message without sending any email. Both `nodemailer` (reports) and `Resend` (transactional) infrastructure now exist.
 - **Impact:** Users cannot actually reset their password via email.
-- **Effort:** 3h (generate reset token, send email via nodemailer, add reset endpoint)
+- **Effort:** 3h (generate reset token, send email via Resend, add reset endpoint)
 
 ### GAP-21: API Versioning (TECH DEBT — LOW)
 
@@ -107,6 +107,8 @@ All 32 originally tracked gaps have been resolved across Phases 1–7 and Sprint
 | GAP-30 | Google OAuth JWKS | `google-auth-library` token verification |
 | GAP-31 | Referral Expiry | `expiresAt` field + config-driven + scheduler |
 | GAP-32 | Stock Movement History | `GET /inventory/branches/:branchId/movements` |
+| INFRA-PATCH | OneSignal & Pusher Synchronization | Fixed `.dev.vars` vs `.env` API loading isolation. Patched React Strict mode fast-refresh disconnects in `usePusherChannel`, and implemented foreground OneSignal listeners to force layout updates. |
+| GAP-38 | Resend Email Migration | Migrated transactional emails from OneSignal to Resend SDK. Implemented DB lookup for user emails in background jobs. |
 
 ---
 
@@ -142,7 +144,7 @@ All 32 originally tracked gaps have been resolved across Phases 1–7 and Sprint
 | Vitest Tests | 951 (553 API / 257 admin / 141 client) |
 | E2E Playwright Specs | 9 (6 admin + 3 client) |
 | Resolved Gaps | 32 of 32 (original) |
-| Open Gaps | 5 (GAP-33 to GAP-37) + 1 tech debt (GAP-21) |
+| Open Gaps | 4 (GAP-33 to GAP-37) + 1 tech debt (GAP-21) |
 
 ## Admin UI Redesign (Mar 28, 2026)
 

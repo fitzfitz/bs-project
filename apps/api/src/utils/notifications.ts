@@ -1,7 +1,4 @@
-/**
- * Pluggable notification service: OneSignal (push), Twilio (WhatsApp + SMS).
- * Gracefully degrades to structured log when credentials are absent.
- */
+import { Resend } from "resend";
 import { logger as rootLogger } from "./logger";
 
 const log = rootLogger.child({ module: "notifications" });
@@ -13,20 +10,44 @@ interface NotificationEnv {
   TWILIO_AUTH_TOKEN?: string;
   TWILIO_WHATSAPP_FROM?: string;
   TWILIO_SMS_FROM?: string;
+  RESEND_API_KEY?: string;
+  RESEND_FROM_EMAIL?: string;
 }
 
 export interface NotificationService {
-  sendPush(userId: string, title: string, body: string, data?: Record<string, string>): Promise<boolean>;
-  sendWhatsApp(phone: string, templateId: string, vars?: Record<string, string>): Promise<boolean>;
+  sendPush(
+    userId: string,
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ): Promise<boolean>;
+  sendEmail(
+    userId: string,
+    subject: string,
+    htmlBody: string,
+  ): Promise<boolean>;
+  sendWhatsApp(
+    phone: string,
+    templateId: string,
+    vars?: Record<string, string>,
+  ): Promise<boolean>;
   sendSms(phone: string, body: string): Promise<boolean>;
 }
 
 const ONESIGNAL_API = "https://onesignal.com/api/v1/notifications";
 
-export function createNotificationService(env: NotificationEnv): NotificationService {
+export function createNotificationService(
+  env: NotificationEnv,
+  db?: any,
+): NotificationService {
   const appId = env.ONESIGNAL_APP_ID;
   const apiKey = env.ONESIGNAL_REST_API_KEY;
   const pushConfigured = Boolean(appId && apiKey);
+
+  const resendApiKey = env.RESEND_API_KEY;
+  const resendFrom = env.RESEND_FROM_EMAIL;
+  const emailConfigured = Boolean(resendApiKey && resendFrom);
+  const resend = emailConfigured ? new Resend(resendApiKey) : null;
 
   const twilioSid = env.TWILIO_ACCOUNT_SID;
   const twilioToken = env.TWILIO_AUTH_TOKEN;
@@ -80,6 +101,59 @@ export function createNotificationService(env: NotificationEnv): NotificationSer
       }
     },
 
+    async sendEmail(userId, subject, htmlBody) {
+      if (!emailConfigured || !resend) {
+        log.debug(
+          { userId, subject },
+          "email no-op (Resend env not configured)",
+        );
+        return false;
+      }
+
+      try {
+        // Resolve userId to email address
+        let toEmail: string | null = null;
+        if (db) {
+          const user = await db.user.findUnique({
+            where: { id: userId },
+            select: { email: true },
+          });
+          toEmail = user?.email;
+        }
+
+        if (!toEmail) {
+          log.warn(
+            { userId },
+            "email send failed: user has no email address or db lookup failed",
+          );
+          return false;
+        }
+
+        const { data, error } = await resend.emails.send({
+          from: resendFrom!,
+          to: toEmail,
+          subject,
+          html: htmlBody,
+        });
+        console.log({
+          from: resendFrom!,
+          to: toEmail,
+          subject,
+        });
+
+        if (error) {
+          log.error({ userId, error }, "Resend email error");
+          return false;
+        }
+
+        log.debug({ userId, id: data?.id }, "Resend email sent");
+        return true;
+      } catch (err: unknown) {
+        log.error({ err }, "email send failed");
+        return false;
+      }
+    },
+
     async sendWhatsApp(phone, templateId, vars) {
       if (!whatsappConfigured) {
         log.debug({ phone, templateId }, "whatsapp no-op (env not configured)");
@@ -87,7 +161,9 @@ export function createNotificationService(env: NotificationEnv): NotificationSer
       }
 
       try {
-        const toNumber = phone.startsWith("whatsapp:") ? phone : `whatsapp:+${phone.replace(/^\+/, "")}`;
+        const toNumber = phone.startsWith("whatsapp:")
+          ? phone
+          : `whatsapp:+${phone.replace(/^\+/, "")}`;
 
         const body = new URLSearchParams({
           From: twilioFrom!,

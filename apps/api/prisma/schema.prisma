@@ -918,6 +918,7 @@ model Transaction {
   promoCode           String?
   status              TransactionStatus @default(PENDING)
   clientUuid          String?           @unique
+  receiptNumber       String?           @unique
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -1430,6 +1431,7 @@ model NotificationChannelConfig {
   pushEnabled      Boolean  @default(true)
   whatsappEnabled  Boolean  @default(false)
   smsEnabled       Boolean  @default(false)
+  emailEnabled     Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -1446,6 +1448,7 @@ model NotificationPreference {
   pushOptOut     Boolean  @default(false)
   whatsappOptOut Boolean  @default(false)
   smsOptOut      Boolean  @default(false)
+  emailOptOut    Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

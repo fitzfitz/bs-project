@@ -2,7 +2,7 @@
 
 ## Overview
 
-Multi-channel notification system: in-app inbox, push (OneSignal), WhatsApp (Twilio), and SMS (Twilio). Provides user inbox endpoints, admin management endpoints, org-level channel configuration, and per-user preference toggles.
+Multi-channel notification system: in-app inbox, push (OneSignal), email (Resend), WhatsApp (Twilio), and SMS (Twilio). Provides user inbox endpoints, admin management endpoints, org-level channel configuration, and per-user preference toggles.
 
 **Base path:** `/api/notifications`
 
@@ -101,7 +101,8 @@ Multi-channel notification system: in-app inbox, push (OneSignal), WhatsApp (Twi
       "notificationType": "BOOKING_CONFIRMED",
       "pushEnabled": true,
       "whatsappEnabled": false,
-      "smsEnabled": false
+      "smsEnabled": false,
+      "emailEnabled": true
     }
   ]
 }
@@ -112,7 +113,7 @@ Multi-channel notification system: in-app inbox, push (OneSignal), WhatsApp (Twi
 **Body:**
 
 ```json
-{ "pushEnabled": true, "whatsappEnabled": false, "smsEnabled": false }
+{ "pushEnabled": true, "whatsappEnabled": false, "smsEnabled": false, "emailEnabled": true }
 ```
 
 **Response** `200`:
@@ -120,7 +121,7 @@ Multi-channel notification system: in-app inbox, push (OneSignal), WhatsApp (Twi
 ```json
 {
   "success": true,
-  "data": { "notificationType": "BOOKING_CONFIRMED", "pushEnabled": true, "whatsappEnabled": false, "smsEnabled": false }
+  "data": { "notificationType": "BOOKING_CONFIRMED", "pushEnabled": true, "whatsappEnabled": false, "smsEnabled": false, "emailEnabled": true }
 }
 ```
 
@@ -131,7 +132,7 @@ Multi-channel notification system: in-app inbox, push (OneSignal), WhatsApp (Twi
 ```json
 {
   "success": true,
-  "data": { "pushOptOut": false, "whatsappOptOut": false, "smsOptOut": false }
+  "data": { "pushOptOut": false, "whatsappOptOut": false, "smsOptOut": false, "emailOptOut": false }
 }
 ```
 
@@ -140,7 +141,7 @@ Multi-channel notification system: in-app inbox, push (OneSignal), WhatsApp (Twi
 **Body:**
 
 ```json
-{ "pushOptOut": false, "whatsappOptOut": false, "smsOptOut": false }
+{ "pushOptOut": false, "whatsappOptOut": false, "smsOptOut": false, "emailOptOut": false }
 ```
 
 **Response** `200`: same shape as GET.
@@ -164,6 +165,7 @@ Multi-channel notification system: in-app inbox, push (OneSignal), WhatsApp (Twi
 | Provider | Channel | Env Vars | Graceful Degradation |
 |----------|---------|----------|----------------------|
 | OneSignal | Push | `ONESIGNAL_APP_ID`, `ONESIGNAL_REST_API_KEY` | Logs no-op when absent |
+| Resend | Email | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Logs no-op when absent |
 | Twilio | WhatsApp | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` | Logs no-op when absent |
 | Twilio | SMS | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM` | Logs no-op when absent |
 
@@ -172,6 +174,7 @@ All providers are implemented in `utils/notifications.ts` via the `NotificationS
 ```typescript
 interface NotificationService {
   sendPush(userId: string, title: string, body: string, data?: Record<string, string>): Promise<boolean>;
+  sendEmail(userId: string, subject: string, htmlBody: string): Promise<boolean>;
   sendWhatsApp(phone: string, templateId: string, vars?: Record<string, string>): Promise<boolean>;
   sendSms(phone: string, body: string): Promise<boolean>;
 }
@@ -187,8 +190,12 @@ SMS uses the Twilio Messages API (`POST /2010-04-01/Accounts/{SID}/Messages.json
 4. Channel config requires `ORG_SETTINGS` permission. Admin endpoints require `CAMPAIGNS` permission.
 5. Marking an already-read notification as read is a no-op (idempotent, returns 200).
 6. Notification records are created server-side by queue lifecycle events, campaigns, retention, and the appointment reminder cron. There is no client-facing "create notification" endpoint.
-7. Channel config toggles (`pushEnabled`, `whatsappEnabled`, `smsEnabled`) control org-level delivery policy per notification type.
-8. User preferences (`pushOptOut`, `whatsappOptOut`, `smsOptOut`) allow individual opt-out from each channel.
+7. Channel config toggles (`pushEnabled`, `whatsappEnabled`, `smsEnabled`, `emailEnabled`) control org-level delivery policy per notification type.
+8. User preferences (`pushOptOut`, `whatsappOptOut`, `smsOptOut`, `emailOptOut`) allow individual opt-out from each channel.
+9. Email is sent via Resend's transactional API, using the `RESEND_API_KEY` and the verified `RESEND_FROM_EMAIL` sender address.
+10. Tier 1 transactional emails (booking confirmed/cancelled/rescheduled, payment receipt) respect `emailOptOut` but NOT `pushOptOut`. They are independent channels.
+11. SMTP (`utils/email.ts`) remains exclusively for scheduled report delivery (PDF/CSV attachments). All user-facing notification emails go via Resend.
+12. Email HTML templates live in the shared `@tmng/email-templates` workspace package (`packages/email-templates/`). Each template accepts a `BranchInfo` object for branded header/footer.
 
 ## Scenarios
 
@@ -206,8 +213,14 @@ SMS uses the Twilio Messages API (`POST /2010-04-01/Accounts/{SID}/Messages.json
 
 ### Success — Preferences
 
-- **GIVEN** authenticated user **WHEN** `GET /preferences` **THEN** `200` with defaults (`pushOptOut: false, whatsappOptOut: false, smsOptOut: false`) if no record exists.
+- **GIVEN** authenticated user **WHEN** `GET /preferences` **THEN** `200` with defaults (`pushOptOut: false, whatsappOptOut: false, smsOptOut: false, emailOptOut: false`) if no record exists.
 - **GIVEN** authenticated user **WHEN** `PUT /preferences` with `{ smsOptOut: true }` **THEN** `200` with updated preferences.
+- **GIVEN** authenticated user **WHEN** `PUT /preferences` with `{ emailOptOut: true }` **THEN** `200` with updated preferences including `emailOptOut: true`.
+
+### Success — Resend Email Provider
+
+- **GIVEN** `RESEND_API_KEY` and `RESEND_FROM_EMAIL` configured **WHEN** `sendEmail(userId, "Subject", "<html>...")` **THEN** POST to Resend API (via Resend SDK), returns `true`.
+- **GIVEN** Resend env vars absent **WHEN** `sendEmail(...)` **THEN** logs no-op, returns `false`.
 
 ### Success — SMS Provider
 
@@ -220,6 +233,8 @@ SMS uses the Twilio Messages API (`POST /2010-04-01/Accounts/{SID}/Messages.json
 - **GIVEN** notification ID not owned by user **WHEN** `PATCH /:id/read` **THEN** `404`.
 - **GIVEN** non-existent notification ID **WHEN** `PATCH /:id/read` **THEN** `404`.
 - **GIVEN** no ORG_SETTINGS permission **WHEN** `GET /channels` or `PUT /channels/:type` **THEN** `403`.
+- **GIVEN** Resend returns non-200 **WHEN** `sendEmail(...)` **THEN** logs error, returns `false`.
+- **GIVEN** network failure **WHEN** `sendEmail(...)` **THEN** logs error, returns `false`.
 - **GIVEN** Twilio returns error **WHEN** `sendSms(...)` **THEN** logs error, returns `false`.
 - **GIVEN** network failure **WHEN** `sendSms(...)` **THEN** logs error, returns `false`.
 
@@ -236,4 +251,5 @@ SMS uses the Twilio Messages API (`POST /2010-04-01/Accounts/{SID}/Messages.json
 
 - **Prisma:** `Notification`, `NotificationChannelConfig`, `NotificationPreference` models
 - **Auth:** `userId`, `organizationId` from JWT claims
-- **External:** OneSignal (push), Twilio (WhatsApp + SMS)
+- **External:** OneSignal (push), Resend (email), Twilio (WhatsApp + SMS)
+- **Internal:** `@tmng/email-templates` package (HTML template builders with branch-branded header/footer)

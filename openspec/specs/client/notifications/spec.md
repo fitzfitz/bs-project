@@ -32,3 +32,15 @@ In-app notification inbox for the customer PWA. Shows a list of notifications (b
 ## Route
 
 `/notifications` under `ProtectedRoute` inside `AppLayout`.
+
+## Notification Settings (`/settings/notifications`)
+
+- Toggle controls for: Push, WhatsApp, SMS, Email
+- Each toggle maps to `PUT /notifications/preferences` `{ pushOptOut, whatsappOptOut, smsOptOut, emailOptOut }`
+- Email toggle added in GAP-38
+
+## OneSignal Email Registration
+
+- On login, `NotificationProvider` calls `OneSignal.User.addEmail(user.email)` to register the email address on the OneSignal profile
+- This enables OneSignal to target the user via the email channel using the same `external_id` (userId)
+- On logout, `OneSignal.logout()` clears the association

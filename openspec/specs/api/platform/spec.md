@@ -268,7 +268,7 @@ Base path: `/api/platform`.
 
 1. **Login:** bcrypt compare on `platformAdmin.passwordHash`; failure → **401** “Invalid credentials”. JWT includes `platformAdmin: true`, `sub`, `email`, `exp` 24h.
 2. **List orgs:** `isActive` filter only when query is exactly `"true"` or `"false"`.
-3. **Create org:** Unique `slug`; duplicate → **400** “Organization slug already in use”. Uses `industryTemplate` for `defaultRoles` JSON when present; else Owner/Manager/Staff/Customer defaults. Grants permissions for all features in DB to seeded roles (HQ-heavy pattern in service).
+3. **Create org**: Unique `slug`; duplicate → **400** “Organization slug already in use”. Uses `industryTemplate` for `defaultRoles` JSON when present; else Owner/Manager/Staff/Customer defaults. Grants permissions for all features in DB to seeded roles (HQ-heavy pattern in service). The owner user is created with `NotificationPreference` set to `emailOptOut: false`.
 4. **Protected routes:** Missing/invalid Bearer → **401**. Valid tenant token without `platformAdmin` → **403** “platform admin access required”.
 5. **Deactivate:** Hard Prisma `organization.update` — invalid id surfaces as Prisma error / **500** depending on error handling.
 

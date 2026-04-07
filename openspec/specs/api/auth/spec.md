@@ -255,7 +255,10 @@ When `tenantRoleId` is null, `permissions` may be omitted (service returns user 
 
 ```json
 {
-  "emailOptIn": false
+  "pushOptOut": "boolean (optional)",
+  "whatsappOptOut": "boolean (optional)",
+  "smsOptOut": "boolean (optional)",
+  "emailOptOut": "boolean (optional)"
 }
 ```
 
@@ -265,19 +268,26 @@ When `tenantRoleId` is null, `permissions` may be omitted (service returns user 
 {
   "success": true,
   "data": {
-    "emailOptIn": false
+    "pushOptOut": "boolean",
+    "whatsappOptOut": "boolean",
+    "smsOptOut": "boolean",
+    "emailOptOut": "boolean"
   }
 }
 ```
 
-**Business rules:** Any authenticated user can toggle their own email opt-in preference. The `emailOptIn` field on `User` defaults to `true`. No RBAC permission required beyond a valid JWT.
+**Business rules:** 
+1. Any authenticated user can toggle their own notification preferences. 
+2. **Default Behavior**: When a new user is registered (via email registration, Google Auth, or walk-in guest creation), a `NotificationPreference` record is automatically created with **`emailOptOut: false`** by default.
+3. **Legacy Migration**: Users without a `NotificationPreference` record are treated as **opted-in** (emails will be sent) to ensure backward compatibility for old accounts.
+4. No RBAC permission required beyond a valid JWT.
 
 **HTTP status coverage:**
 
 | Code | Applies |
 |------|---------|
 | **200** | Preference updated. |
-| **400** | Validation error (missing or non-boolean `emailOptIn`). |
+| **400** | Validation error (invalid body). |
 | **401** | Missing/invalid JWT. |
 | **403** | Missing `organizationId` on token (org scope middleware). |
 

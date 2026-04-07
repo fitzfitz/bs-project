@@ -54,8 +54,8 @@ Base path: `/api/payments`.
 - **Token**: If `XENDIT_WEBHOOK_TOKEN` env unset or header mismatch -> `401` "Invalid callback token".
 - **JSON**: Malformed body -> `400` "Invalid JSON".
 - **Non-PAID statuses**: Immediately `200` `{ success: true }` (no DB finalize).
-- **PAID**: Find `payment` where `reference === body.id`. If none -> `200` (idempotent no-op). If finalize throws -> `500` "Internal server error".
-- **Finalize**: Only updates if transaction exists and `status === "PENDING"` (see `TransactionService.finalizeTransactionOnPaid`).
+- **PAID**: Find `payment` where `reference === body.id`. If none -> `200` (idempotent no-op). If finalize throws -> `500` "Internal server error". Upon successful finalization, a payment receipt email is sent to the customer via `NotificationService`.
+- **Finalize**: Only updates if transaction exists and `status === "PENDING"` (see `TransactionService.finalizeTransactionOnPaid`). Passes `NotificationService` to handle side-effect emails.
 
 ## Scenarios
 

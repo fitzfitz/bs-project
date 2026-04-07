@@ -129,7 +129,7 @@ describe("AuthService", () => {
 
   it("register throws when customer role missing", async () => {
     vi.mocked(db.organization.findUnique).mockResolvedValue({ id: "org-1" } as never);
-    vi.mocked(db.tenantRole.findFirst).mockResolvedValue(null);
+    vi.mocked(db.tenantRole.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     await expect(
       AuthService.register(db, {
         orgSlug: "acme",
@@ -149,8 +149,7 @@ describe("AuthService", () => {
       scope: "CUSTOMER",
     } as never);
     vi.mocked(db.user.findUnique).mockResolvedValue({ id: "u1" } as never);
-    await expect(
-      AuthService.register(db, {
+    await expect(AuthService.register(db, {
         orgSlug: "acme",
         email: "a@b.com",
         password: "password12",
@@ -158,6 +157,40 @@ describe("AuthService", () => {
         lastName: "B",
       })
     ).rejects.toThrow("Email already in use");
+  });
+
+  it("register creates user and notification preference with emailOptOut: false", async () => {
+    vi.mocked(db.organization.findUnique).mockResolvedValue({ id: "org-1" } as never);
+    vi.mocked(db.tenantRole.findFirst).mockResolvedValue({
+      id: "cust-role",
+      name: "Customer",
+      scope: "CUSTOMER",
+    } as never);
+    vi.mocked(db.user.findUnique).mockResolvedValue(null);
+    vi.mocked(db.user.create).mockResolvedValue({
+      id: "u1",
+      email: "a@b.com",
+      organizationId: "org-1",
+      tenantRoleId: "cust-role",
+      tenantRole: { id: "cust-role", name: "Customer", scope: "CUSTOMER" },
+    } as never);
+
+    await AuthService.register(db, {
+      orgSlug: "acme",
+      email: "a@b.com",
+      password: "password12",
+      firstName: "A",
+      lastName: "B",
+    });
+
+    expect(db.user.create).toHaveBeenCalled();
+    expect(db.notificationPreference.create).toHaveBeenCalledWith({
+      data: {
+        userId: "u1",
+        organizationId: "org-1",
+        emailOptOut: false,
+      },
+    });
   });
 
   it("login returns null for wrong password", async () => {
@@ -430,34 +463,16 @@ describe("auth HTTP", () => {
     expect(res.status).toBe(400);
   });
 
-  it("PATCH /auth/me/notification-preferences toggles emailOptIn to false", async () => {
-    const scoped = withPrismaScopeChain(db);
-    vi.mocked(db.user.update).mockResolvedValue({ emailOptIn: false } as never);
-    const app = mountAuthTestApp(scoped);
-    const token = await bearerToken({
-      sub: "u1",
-      organizationId: "org-1",
-      tenantRoleId: "role-1",
-      isCustomer: true,
-      scope: "CUSTOMER",
-    });
-    const res = await app.request("http://test/auth/me/notification-preferences", {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ emailOptIn: false }),
-    });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { success: boolean; data: { emailOptIn: boolean } };
-    expect(body.success).toBe(true);
-    expect(body.data.emailOptIn).toBe(false);
-  });
 
-  it("PATCH /auth/me/notification-preferences toggles emailOptIn to true", async () => {
+
+  it("PATCH /auth/me/notification-preferences updates emailOptIn and syncs with NotificationPreference", async () => {
     const scoped = withPrismaScopeChain(db);
-    vi.mocked(db.user.update).mockResolvedValue({ emailOptIn: true } as never);
+    const mockUserUpdate = db.user.update as any;
+    mockUserUpdate.mockResolvedValue({ emailOptIn: true });
+    
+    const mockPrefUpsert = db.notificationPreference.upsert as any;
+    mockPrefUpsert.mockResolvedValue({ emailOptOut: false });
+
     const app = mountAuthTestApp(scoped);
     const token = await bearerToken({
       sub: "u1",
@@ -466,6 +481,7 @@ describe("auth HTTP", () => {
       isCustomer: true,
       scope: "CUSTOMER",
     });
+
     const res = await app.request("http://test/auth/me/notification-preferences", {
       method: "PATCH",
       headers: {
@@ -474,9 +490,55 @@ describe("auth HTTP", () => {
       },
       body: JSON.stringify({ emailOptIn: true }),
     });
+
     expect(res.status).toBe(200);
     const body = (await res.json()) as { success: boolean; data: { emailOptIn: boolean } };
     expect(body.data.emailOptIn).toBe(true);
+
+    // Verify both were called (sync happened)
+    expect(mockUserUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "u1" },
+      data: { emailOptIn: true }
+    }));
+    expect(mockPrefUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: "u1" },
+      update: { emailOptOut: false }
+    }));
+  });
+
+  it("PATCH /auth/me/notification-preferences updates emailOptIn=false and syncs emailOptOut=true", async () => {
+    const scoped = withPrismaScopeChain(db);
+    const mockUserUpdate = db.user.update as any;
+    mockUserUpdate.mockResolvedValue({ emailOptIn: false });
+    
+    const mockPrefUpsert = db.notificationPreference.upsert as any;
+    mockPrefUpsert.mockResolvedValue({ emailOptOut: true });
+
+    const app = mountAuthTestApp(scoped);
+    const token = await bearerToken({
+      sub: "u1",
+      organizationId: "org-1",
+      tenantRoleId: "role-1",
+      isCustomer: true,
+      scope: "CUSTOMER",
+    });
+
+    const res = await app.request("http://test/auth/me/notification-preferences", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ emailOptIn: false }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockUserUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      data: { emailOptIn: false }
+    }));
+    expect(mockPrefUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: { emailOptOut: true }
+    }));
   });
 
   it("PATCH /auth/me/notification-preferences returns 401 without auth", async () => {

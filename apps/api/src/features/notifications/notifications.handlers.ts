@@ -112,7 +112,7 @@ export const listChannelsHandler: RouteHandler<
   const orgId = c.get("organizationId") as string;
   const configs = await c.var.db.notificationChannelConfig.findMany({
     where: { organizationId: orgId },
-    select: { notificationType: true, pushEnabled: true, whatsappEnabled: true, smsEnabled: true },
+    select: { notificationType: true, pushEnabled: true, whatsappEnabled: true, smsEnabled: true, emailEnabled: true },
   });
   return c.json({ success: true as const, data: configs }, 200);
 };
@@ -123,15 +123,15 @@ export const upsertChannelHandler: RouteHandler<
 > = async (c) => {
   const orgId = c.get("organizationId") as string;
   const { notificationType } = c.req.valid("param");
-  const { pushEnabled, whatsappEnabled, smsEnabled } = c.req.valid("json");
+  const { pushEnabled, whatsappEnabled, smsEnabled, emailEnabled } = c.req.valid("json");
 
   const config = await c.var.db.notificationChannelConfig.upsert({
     where: {
       organizationId_notificationType: { organizationId: orgId, notificationType },
     },
-    create: { organizationId: orgId, notificationType, pushEnabled, whatsappEnabled, smsEnabled },
-    update: { pushEnabled, whatsappEnabled, smsEnabled },
-    select: { notificationType: true, pushEnabled: true, whatsappEnabled: true, smsEnabled: true },
+    create: { organizationId: orgId, notificationType, pushEnabled, whatsappEnabled, smsEnabled, emailEnabled },
+    update: { pushEnabled, whatsappEnabled, smsEnabled, emailEnabled },
+    select: { notificationType: true, pushEnabled: true, whatsappEnabled: true, smsEnabled: true, emailEnabled: true },
   });
 
   return c.json({ success: true as const, data: config }, 200);
@@ -147,13 +147,13 @@ export const getPreferencesHandler: RouteHandler<
 
   const pref = await c.var.db.notificationPreference.findUnique({
     where: { userId },
-    select: { pushOptOut: true, whatsappOptOut: true, smsOptOut: true },
+    select: { pushOptOut: true, whatsappOptOut: true, smsOptOut: true, emailOptOut: true },
   });
 
   return c.json(
     {
       success: true as const,
-      data: pref ?? { pushOptOut: false, whatsappOptOut: false, smsOptOut: false },
+      data: pref ?? { pushOptOut: false, whatsappOptOut: false, smsOptOut: false, emailOptOut: false },
     },
     200,
   );
@@ -165,13 +165,36 @@ export const updatePreferencesHandler: RouteHandler<
 > = async (c) => {
   const userId = c.get("userId") as string;
   const orgId = c.get("organizationId") as string;
-  const { pushOptOut, whatsappOptOut, smsOptOut } = c.req.valid("json");
+  const { pushOptOut, whatsappOptOut, smsOptOut, emailOptOut } = c.req.valid("json");
 
-  const pref = await c.var.db.notificationPreference.upsert({
-    where: { userId },
-    create: { organizationId: orgId, userId, pushOptOut, whatsappOptOut, smsOptOut },
-    update: { pushOptOut, whatsappOptOut, smsOptOut },
-    select: { pushOptOut: true, whatsappOptOut: true, smsOptOut: true },
+  // Use a transaction to ensure both fields stay in sync
+  const pref = await c.var.db.$transaction(async (tx) => {
+    const p = await tx.notificationPreference.upsert({
+      where: { userId },
+      create: { 
+        organizationId: orgId, 
+        userId, 
+        pushOptOut, 
+        whatsappOptOut, 
+        smsOptOut, 
+        emailOptOut 
+      },
+      update: { 
+        pushOptOut, 
+        whatsappOptOut, 
+        smsOptOut, 
+        emailOptOut 
+      },
+      select: { pushOptOut: true, whatsappOptOut: true, smsOptOut: true, emailOptOut: true },
+    });
+
+    // Sync legacy emailOptIn field on User
+    await tx.user.update({
+      where: { id: userId },
+      data: { emailOptIn: !emailOptOut },
+    });
+
+    return p;
   });
 
   return c.json({ success: true as const, data: pref }, 200);
@@ -263,7 +286,7 @@ export const adminTestSendHandler: RouteHandler<
 > = async (c) => {
   const orgId = c.get("organizationId") as string;
   const db = c.var.db;
-  const { userId, title, body, type } = c.req.valid("json");
+  const { userId, title, body, type, sendEmail } = c.req.valid("json");
 
   const user = await db.user.findFirst({
     where: { id: userId, organizationId: orgId },
@@ -276,11 +299,23 @@ export const adminTestSendHandler: RouteHandler<
     data: { organizationId: orgId, userId, title, body, type },
   });
 
-  const ns = createNotificationService(c.env);
+  const ns = createNotificationService(c.env, c.var.db);
   const pushSent = await ns.sendPush(userId, title, body, { type });
+  
+  let emailSent = false;
+  if (sendEmail) {
+    emailSent = await ns.sendEmail(
+      userId, 
+      `Test: ${title}`, 
+      `<html><body><h1>${title}</h1><p>${body}</p><p><small>Sent via Admin Test Tool</small></p></body></html>`
+    );
+  }
 
   return c.json(
-    { success: true as const, data: { notificationId: notification.id, pushSent } },
+    { 
+      success: true as const, 
+      data: { notificationId: notification.id, pushSent, emailSent } 
+    },
     200,
   );
 };

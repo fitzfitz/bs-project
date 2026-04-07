@@ -76,6 +76,8 @@ describe("QueueService", () => {
   beforeEach(() => {
     db = createMockDb();
     ConfigService.clearCache();
+    vi.mocked(db.surgeRule.findMany).mockResolvedValue([] as never);
+    vi.mocked(db.tenantRole.findFirst).mockResolvedValue({ id: "role-cust", name: "Customer", scope: "CUSTOMER" } as never);
   });
 
   it("listQueue builds filter and orders by position", async () => {
@@ -197,6 +199,54 @@ describe("QueueService", () => {
     expect(bookingCreate).toHaveBeenCalled();
     expect(queueCreate).toHaveBeenCalled();
     expect(result).toMatchObject({ id: "qe-new", bookingId: "bk-new" });
+  });
+
+  it("createEntry for walk-in guest sets emailOptOut to false by default", async () => {
+    (db.branch.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      isEmergencyClosed: false,
+      name: "Main Branch",
+    });
+    (db.service.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: "s1",
+        type: "REGULAR",
+        basePrice: 50000,
+        durationMinutes: 30,
+        bufferMinutes: 5,
+        branchOverrides: [],
+        tierSurcharges: [],
+      },
+    ]);
+    vi.mocked(db.tenantRole.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "role-cust", name: "Customer", scope: "CUSTOMER" });
+    vi.mocked(db.user.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "u-guest" });
+    vi.mocked(db.notificationPreference.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    vi.mocked(db.surgeRule.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    vi.mocked(db.booking.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "bk-new" });
+    vi.mocked(db.queueEntry.count as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+    vi.mocked(db.queueEntry.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "qe-new", branchId: "b1" });
+    vi.mocked(db.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn) => fn(db));
+    
+    await QueueService.createEntry(
+      db,
+      {
+        customerName: "Guest",
+        branchId: "b1",
+        serviceIds: ["s1"],
+        startTime: new Date().toISOString(),
+        estimatedDuration: 30,
+        source: "WALK_IN",
+      },
+      "org-1",
+    );
+
+    expect(db.notificationPreference.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: "u-guest",
+          emailOptOut: false,
+        }),
+      }),
+    );
   });
 
   it("createEntry rejects with 409 when staff time slot overlaps", async () => {
@@ -353,6 +403,7 @@ describe("QueueService", () => {
     expect(db.queueEntry.update as ReturnType<typeof vi.fn>).toHaveBeenCalledWith({
       where: { id: "q1" },
       data: { status: "CANCELLED" },
+      include: { booking: true },
     });
   });
 
@@ -515,6 +566,7 @@ describe("QueueService push notifications", () => {
       sendPush: vi.fn<(userId: string, title: string, body: string, data?: Record<string, string>) => Promise<boolean>>().mockResolvedValue(true),
       sendWhatsApp: vi.fn<(phone: string, templateId: string, vars?: Record<string, string>) => Promise<boolean>>().mockResolvedValue(false),
       sendSms: vi.fn<(phone: string, body: string) => Promise<boolean>>().mockResolvedValue(false),
+      sendEmail: vi.fn<(userId: string, subject: string, html: string) => Promise<boolean>>().mockResolvedValue(true),
     };
   });
 

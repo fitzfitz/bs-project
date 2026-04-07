@@ -5,6 +5,7 @@ import { TransactionService } from "../transactions/transactions.service";
 import { xenditWebhookBodySchema, createChargeSchema, savePaymentMethodSchema, paymentMethodIdParam } from "./payments.schema";
 import { createXenditInvoice } from "../../utils/xendit-adapter";
 import { createSuccessSchema, ErrorSchema } from "../../utils/openapi";
+import { createNotificationService } from "../../utils/notifications";
 
 export const webhookRoute = createRoute({
   method: "post",
@@ -66,7 +67,8 @@ export const webhookHandler: RouteHandler<typeof webhookRoute, AppEnv> = async (
     return c.json({ success: true }, 200);
   }
   try {
-    await TransactionService.finalizeTransactionOnPaid(db, payment.transactionId);
+    const ns = createNotificationService(c.env, db);
+    await TransactionService.finalizeTransactionOnPaid(db, payment.transactionId, ns);
   } catch (err) {
     console.error("Webhook finalize transaction:", err);
     return c.json({ success: false, message: "Internal server error" }, 500);
@@ -129,7 +131,7 @@ export const createChargeHandler: RouteHandler<typeof createChargeRoute, AppEnv>
   const db = c.var.db;
   const transaction = await db.transaction.findUnique({
     where: { id: transactionId },
-    select: { id: true, status: true, totalDue: true, organizationId: true },
+    select: { id: true, status: true, totalDue: true, organizationId: true, customerId: true },
   });
 
   if (!transaction) {
@@ -138,6 +140,16 @@ export const createChargeHandler: RouteHandler<typeof createChargeRoute, AppEnv>
 
   if (transaction.status !== "PENDING") {
     return c.json({ success: false as const, message: "Transaction is not in PENDING status" }, 400);
+  }
+
+  // Identity Handover: If the transaction has no customer ID (e.g. POS Walk-in), 
+  // link it to the authenticated user who is initiating this payment.
+  const authenticatedUserId = c.get("userId");
+  if (!transaction.customerId && authenticatedUserId) {
+    await db.transaction.update({
+      where: { id: transactionId },
+      data: { customerId: authenticatedUserId },
+    });
   }
 
   try {

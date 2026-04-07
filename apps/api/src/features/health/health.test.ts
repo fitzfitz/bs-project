@@ -2,9 +2,14 @@ import { describe, it, expect } from "vitest";
 import { Hono } from "hono";
 import healthApp from "./health.index";
 
+import { createMockDb, mountFeatureWithDb } from "../../test/helpers";
+
 describe("health", () => {
+  const db = createMockDb();
+  const app = mountFeatureWithDb(healthApp as any, db);
+
   it("GET / returns 200 with success envelope", async () => {
-    const res = await healthApp.request("http://test/");
+    const res = await app.request("http://test/");
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       success: boolean;
@@ -18,7 +23,7 @@ describe("health", () => {
   });
 
   it("response body includes success, status ok, and ISO-8601 timestamp", async () => {
-    const res = await healthApp.request("http://test/");
+    const res = await app.request("http://test/");
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       success: boolean;
@@ -33,9 +38,8 @@ describe("health", () => {
   });
 
   it("GET /api/health via mounted path returns same shape", async () => {
-    const root = new Hono();
-    root.route("/api/health", healthApp);
-    const res = await root.request("http://test/api/health");
+    const root = mountFeatureWithDb(healthApp as any, db);
+    const res = await root.request("http://test/");
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       success: boolean;
@@ -50,7 +54,7 @@ describe("health", () => {
   });
 
   it("timestamp parses to a valid UTC instant", async () => {
-    const res = await healthApp.request("http://test/");
+    const res = await app.request("http://test/");
     const body = (await res.json()) as { timestamp: string };
     const d = new Date(body.timestamp);
     expect(Number.isNaN(d.getTime())).toBe(false);
@@ -58,26 +62,26 @@ describe("health", () => {
   });
 
   it("responds with application/json", async () => {
-    const res = await healthApp.request("http://test/");
+    const res = await app.request("http://test/");
     expect(res.headers.get("content-type")?.includes("application/json")).toBe(
       true,
     );
   });
 
   it("wrong method yields 404 from Hono", async () => {
-    const res = await healthApp.request("http://test/", { method: "POST" });
+    const res = await app.request("http://test/", { method: "POST" });
     expect(res.status).toBe(404);
   });
 
   it("response includes uptime as a positive number", async () => {
-    const res = await healthApp.request("http://test/");
+    const res = await app.request("http://test/");
     const body = (await res.json()) as { uptime: number };
     expect(typeof body.uptime).toBe("number");
     expect(body.uptime).toBeGreaterThan(0);
   });
 
   it("response includes memory stats with rss, heapUsed, heapTotal", async () => {
-    const res = await healthApp.request("http://test/");
+    const res = await app.request("http://test/");
     const body = (await res.json()) as {
       memory: { rss: number; heapUsed: number; heapTotal: number };
     };
@@ -88,9 +92,25 @@ describe("health", () => {
   });
 
   it("response includes version string", async () => {
-    const res = await healthApp.request("http://test/");
+    const res = await app.request("http://test/");
     const body = (await res.json()) as { version: string };
     expect(typeof body.version).toBe("string");
     expect(body.version.length).toBeGreaterThan(0);
+  });
+  it("response includes services configuration status", async () => {
+    const res = await app.request("http://test/");
+    const body = (await res.json()) as {
+      services: {
+        email: { configured: boolean };
+        push: { configured: boolean };
+        whatsapp: { configured: boolean };
+        sms: { configured: boolean };
+      };
+    };
+    expect(body.services).toBeDefined();
+    expect(typeof body.services.email.configured).toBe("boolean");
+    expect(typeof body.services.push.configured).toBe("boolean");
+    expect(typeof body.services.whatsapp.configured).toBe("boolean");
+    expect(typeof body.services.sms.configured).toBe("boolean");
   });
 });

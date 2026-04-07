@@ -214,8 +214,8 @@ CALLED → NO_SHOW (auto after 5 min)
 - Overbooking prevention with 409 conflict on overlap
 - NO_SHOW auto-transition after 5 minutes of being CALLED (cron)
 - AT_CHECKOUT auto-creates draft transaction from booking items
-- Real-time updates via Pusher/Soketi WebSocket
-- Push notifications on CALLED and COMPLETED status transitions
+- Real-time updates via Pusher/Soketi WebSocket (Listens to specific `user-${id}` and broadcast channels)
+- Push notifications on CALLED and COMPLETED status transitions. (A foreground push notification event will automatically trigger a data refresh, serving as a robust fallback to WebSockets).
 
 ---
 
@@ -597,10 +597,10 @@ DRAFT → PENDING_APPROVAL → APPROVED → DISBURSED
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/notifications/preferences` | Auth | User push/WhatsApp/SMS preferences |
-| PUT | `/notifications/preferences` | Auth | Update preferences |
+| GET | `/notifications/preferences` | Auth | User push/WhatsApp/SMS/email preferences |
+| PUT | `/notifications/preferences` | Auth | Update preferences (with emailOptOut) |
 | GET | `/notifications/channels` | RBAC | Admin: channel config per notification type |
-| PUT | `/notifications/channels/:type` | RBAC | Admin: toggle push/WhatsApp/SMS per type |
+| PUT | `/notifications/channels/:type` | RBAC | Admin: toggle push/WhatsApp/SMS/email per type |
 
 ### Admin Endpoints
 
@@ -616,7 +616,7 @@ DRAFT → PENDING_APPROVAL → APPROVED → DISBURSED
 ### Client UI
 - **Notifications page** (`/notifications`) — paginated list, mark read
 - **Bell icon** with unread count badge on home page
-- **Notification settings** (`/settings/notifications`) — push/WhatsApp/SMS opt-out toggles
+- **Notification settings** (`/settings/notifications`) — push/WhatsApp/SMS/email opt-out toggles
 
 ### Push Notification Triggers
 
@@ -628,6 +628,18 @@ DRAFT → PENDING_APPROVAL → APPROVED → DISBURSED
 | Appointment reminder | 30 min before (cron) | "Upcoming Appointment" |
 | Retention nudge | Daily cron | At-risk / expiry message |
 | Campaign send | Manual trigger | Campaign title |
+
+### Email Notification Strategy
+
+All user-facing transactional emails are dispatched via Resend. HTML templates are built using the shared `@tmng/email-templates` package, ensuring consistent branding with branch headers and footers. SMTP remains reserved exclusively for scheduled report delivery.
+
+| Tier | Event | Priority | Template |
+|------|-------|---------|----------|
+| **Tier 1 — Transactional** | Booking Confirmed, Cancelled, Rescheduled, Payment Receipt | Critical — always sent | `bookingReceiptEmail`, `paymentReceiptEmail` |
+| **Tier 2 — Engagement** | 24h Appointment Reminder, Waitlist Slot Available | Respects user preferences | TBD |
+| **Tier 3 — Marketing** | Campaign send, Retention Nudge | Respects user preferences | TBD |
+
+See `business_logic.md §10.3` for the full trigger table. Email opt-out is managed via `emailOptOut` in user preferences.
 
 ---
 

@@ -1,0 +1,65 @@
+
+> @tmng/saas-api@0.1.0 test D:\Fitz\Misc\bs-project\apps\api
+> vitest run "src/features/transactions/transactions.test.ts"
+
+
+[1m[46m RUN [49m[22m [36mv4.1.0 [39m[90mD:/Fitz/Misc/bs-project/apps/api[39m
+
+[90mstderr[2m | src/features/transactions/transactions.test.ts[2m > [22m[2mTransactions HTTP Handlers[2m > [22m[2mGET /:id[2m > [22m[2mdenies access if customer is not the owner
+[22m[39m[Auth] Access denied for user cust-1 to transaction other-cust (Queue owner: undefined)
+
+[90mstdout[2m | src/features/transactions/transactions.test.ts[2m > [22m[2mTransactions HTTP Handlers[2m > [22m[2mGET /:id/receipt[2m > [22m[2mallows receipt access for the owner
+[22m[39mLazy-generating missing receipt number for transaction tx-1
+
+[90mstdout[2m | src/features/transactions/transactions.test.ts[2m > [22m[2mTransactions HTTP Handlers[2m > [22m[2mGET /:id/receipt[2m > [22m[2mallows receipt access via queueEntry.customerId if transaction.customerId is null
+[22m[39mLazy-generating missing receipt number for transaction tx-no-cust
+
+[90mstderr[2m | src/features/transactions/transactions.test.ts[2m > [22m[2mTransactions HTTP Handlers[2m > [22m[2mPOST /:id/pay[2m > [22m[2msends email when status moves to COMPLETED (manual checkout)
+[22m[39mFailed to add payments: TypeError: Cannot read properties of undefined (reading 'queueEntryId')
+    at finalizeTransactionSideEffects (D:/Fitz/Misc/bs-project/apps/api/src/features/transactions/transactions.service.ts:31:26)
+    at db.$transaction.timeout (D:/Fitz/Misc/bs-project/apps/api/src/features/transactions/transactions.service.ts:405:13)
+
+[90mstdout[2m | src/features/transactions/transactions.test.ts[2m > [22m[2mTransactions HTTP Handlers[2m > [22m[2mPOST /:id/pay[2m > [22m[2msends email when status moves to COMPLETED (manual checkout)
+[22m[39mDEBUG 403: {"success":false,"message":"Internal server error"}
+
+ [31m❯[39m src/features/transactions/transactions.test.ts [2m([22m[2m9 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 163[2mms[22m[39m
+       [32m✓[39m sends email when no preference record exists (legacy fallback)[32m 65[2mms[22m[39m
+       [32m✓[39m skips email when emailOptOut is true[32m 2[2mms[22m[39m
+       [32m✓[39m sends email when emailOptOut is false[32m 1[2mms[22m[39m
+       [32m✓[39m allows access for the owner (customer)[32m 42[2mms[22m[39m
+       [32m✓[39m denies access if customer is not the owner[32m 6[2mms[22m[39m
+       [32m✓[39m allows access for staff with TRANSACTION:read permission[32m 3[2mms[22m[39m
+       [32m✓[39m allows receipt access for the owner[32m 5[2mms[22m[39m
+       [32m✓[39m allows receipt access via queueEntry.customerId if transaction.customerId is null[32m 3[2mms[22m[39m
+[31m       [31m×[31m sends email when status moves to COMPLETED (manual checkout)[39m[32m 28[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/features/transactions/transactions.test.ts[2m > [22mTransactions HTTP Handlers[2m > [22mPOST /:id/pay[2m > [22msends email when status moves to COMPLETED (manual checkout)
+[31m[1mAssertionError[22m: expected 500 to be 200 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 500[39m
+
+[36m [2m❯[22m src/features/transactions/transactions.test.ts:[2m325:26[22m[39m
+    [90m323|[39m         console[33m.[39m[34mlog[39m([32m"DEBUG 403:"[39m[33m,[39m [33mJSON[39m[33m.[39m[34mstringify[39m(resBody))[33m;[39m
+    [90m324|[39m       }
+    [90m325|[39m       [34mexpect[39m(res[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m200[39m)[33m;[39m
+    [90m   |[39m                          [31m^[39m
+    [90m326|[39m       [34mexpect[39m(resBody[33m.[39msuccess)[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m327|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m8 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 19:46:55
+[2m   Duration [22m 2.05s[2m (transform 556ms, setup 121ms, import 1.19s, tests 163ms, environment 0ms)[22m
+
+D:\Fitz\Misc\bs-project\apps\api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @tmng/saas-api@0.1.0 test: `vitest run "src/features/transactions/transactions.test.ts"`
+Exit status 1

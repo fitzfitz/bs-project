@@ -108,7 +108,7 @@ describe("payments webhook HTTP", () => {
       { ...getTestBindings(), XENDIT_WEBHOOK_TOKEN: "tok" },
     );
     expect(res.status).toBe(200);
-    expect(TransactionService.finalizeTransactionOnPaid).toHaveBeenCalledWith(db, "tx-99");
+    expect(TransactionService.finalizeTransactionOnPaid).toHaveBeenCalledWith(db, "tx-99", expect.anything());
   });
 
   it("returns 500 when finalize throws", async () => {
@@ -291,6 +291,39 @@ describe("payments create-charge HTTP", () => {
     expect(body.success).toBe(true);
     expect(body.data.invoiceId).toBe("xendit-inv-123");
     expect(body.data.invoiceUrl).toContain("xendit.co");
+  });
+
+  it("links customerId if it is null during create-charge", async () => {
+    mockTenantRolePermissions(db, [{ featureCode: "TRANSACTION", canCreate: true, canRead: true }]);
+    (db.transaction.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "tx-no-cust",
+      status: "PENDING",
+      totalDue: 50000,
+      organizationId: "org-1",
+      customerId: null, // Initial state is null
+    });
+    (db.payment.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "pay-1" });
+    (db.transaction.update as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "tx-no-cust" });
+
+    const custJwt = { sub: "cust-123", organizationId: "org-1", tenantRoleId: "role-cust", branchId: "b1", scope: "CUSTOMER" as any, isCustomer: true };
+    const token = await signTestJwt(custJwt);
+    
+    const res = await app.request("/create-charge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        transactionId: "tx-no-cust",
+        successRedirectUrl: "https://ok.com/success",
+        failureRedirectUrl: "https://ok.com/fail",
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    // Verify that db.transaction.update was called to link the customer
+    expect(db.transaction.update).toHaveBeenCalledWith({
+      where: { id: "tx-no-cust" },
+      data: { customerId: "cust-123" },
+    });
   });
 });
 

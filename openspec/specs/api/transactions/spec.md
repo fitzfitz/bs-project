@@ -11,13 +11,13 @@ Creates draft (**PENDING**) sales transactions, records payments to complete the
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/` | Bearer + org + `TRANSACTION` create | Create `PENDING` transaction; idempotent when `clientUuid` already exists (returns existing). |
-| POST | `/{id}/pay` | Bearer + org + `TRANSACTION` create | Add payments; total must match `totalDue` within 0.01; sets **COMPLETED** and runs side effects. |
+| POST | `/{id}/pay` | Bearer + org + `TRANSACTION` create | Add payments; total must match `totalDue` within 0.01; sets **COMPLETED** and runs side effects (including receipt email if not opted out). |
 | POST | `/{id}/void` | Bearer + org + `TRANSACTION` delete | Void transaction; inventory reversal for product lines; audit log. |
 | POST | `/{id}/refund` | Bearer + org + `TRANSACTION` delete | Refund completed transaction; reverses inventory stock and loyalty points; audit log. |
 | GET | `/` | Bearer + org + `TRANSACTION` read | Paginated list; query: `branchId` (required), filters, `page`, `limit`. |
 | GET | `/summary` | Bearer + org + `TRANSACTION` read | Daily summary for `branchId` and optional `date`. |
-| GET | `/{id}` | Bearer + org + `TRANSACTION` read | Full transaction with items, payments, queue, branch. |
-| GET | `/{id}/receipt` | Bearer + org + `TRANSACTION` read | Receipt DTO (sequential receipt number, totals, staff from queue if present). |
+| GET | `/{id}` | Bearer + org | Full transaction details. **Access**: Requires `TRANSACTION` read permission OR ownership (`customerId` matches current user). |
+| GET | `/{id}/receipt` | Bearer + org | Receipt DTO. **Access**: Requires `TRANSACTION` read permission OR ownership (`customerId` matches current user). |
 
 ## Request / response shapes
 
@@ -181,6 +181,8 @@ Creates draft (**PENDING**) sales transactions, records payments to complete the
   "data": [
     {
       "id": "string",
+      "customerId": "ID of the authenticated user who owns the transaction (can be null for pure Guest walk-ins).",
+      "receiptNumber": "A persistent, human-readable identifier (e.g. TX-20260406-001) generated exactly once when the transaction is COMPLETED.",
       "status": "PENDING | COMPLETED | VOIDED | REFUNDED",
       "branchId": "string",
       "items": [],
@@ -331,7 +333,7 @@ Creates draft (**PENDING**) sales transactions, records payments to complete the
 | **200** | Receipt DTO. |
 | **400** | N/A |
 | **401** | Missing/invalid JWT. |
-| **403** | Missing `TRANSACTION` read. |
+| **403** | Forbidden: Not the owner and lacks `TRANSACTION` read permission. |
 | **404** | Transaction not found. |
 | **409** | N/A |
 
@@ -404,11 +406,19 @@ Creates draft (**PENDING**) sales transactions, records payments to complete the
 - Referral reward on first COMPLETED (best-effort).
 - Commission triggered via `CommissionService.triggerOnPaid` (best-effort).
 - Inventory stock-out per product line (best-effort).
-- Individual failures logged but do not fail the overall commit.
+- 407. **Receipt Email**: Sent via `NotificationService.sendEmail` IF the customer has not opted out (via `emailOptOut: true` in `NotificationPreference`). 
+    - **Legacy Fallback**: If no `NotificationPreference` record exists, the system defaults to **Opted-In** (email sent).
+    - **New Users**: Default to **Opted-Out** (record created with `emailOptOut: true` at registration).
+- 408. Individual failures logged but do not fail the overall commit.
 
 ## RBAC
 
-All routes: `TRANSACTION` with **read** (GETs), **create** (POST `/`, POST pay), or **delete** (void, refund).
+1. **Write operations** (POST `/`, pay, void, refund): Require explicit `TRANSACTION` permissions (`create` or `delete`).
+2. **Global read** (GET `/`, GET `/summary`): Requires explicit `TRANSACTION` read permission.
+3. **Detail/Receipt read** (GET `/{id}`, GET `/{id}/receipt`): Requires **EITHER** `TRANSACTION` read permission **OR** ownership. 
+   - **Ownership** is verified against `transaction.customerId` matching the current user's `userId`.
+   - **Fallback**: If `transaction.customerId` is null (e.g. Guest checkout), authorization is granted if the linked `transaction.queueEntry.customerId` matches the current user's `userId`.
+4. **Identity Handover**: During any checkout or payment finalization (e.g., via `createCharge` or `webhook`), the system MUST attempt to link the authenticated payer's `userId` to the `transaction.customerId` if it is currently unlinked.
 
 ## Dependencies
 

@@ -445,7 +445,21 @@ totalDuration(service, addOns):
 
 ## 10. Notification System
 
-### 10.1. Push Notification Triggers
+### 10.1. Notification Channels
+
+The platform supports four notification channels. All channels are dispatched through `NotificationService` in `utils/notifications.ts` and gracefully degrade to structured logs when credentials are absent.
+
+| Channel | Transport | Configured via | Current Status |
+|---------|-----------|----------------|----------------|
+| **Push** | OneSignal Web Push | `ONESIGNAL_APP_ID` + `ONESIGNAL_REST_API_KEY` | ✅ Implemented |
+| **In-App** | Database `Notification` table | Always available | ✅ Implemented |
+| **WhatsApp** | Twilio | `TWILIO_*` vars | ✅ Implemented |
+| **SMS** | Twilio | `TWILIO_*` vars | ✅ Implemented |
+| **Email** | OneSignal Email | `ONESIGNAL_APP_ID` + `ONESIGNAL_REST_API_KEY` | ⚠️ Not yet wired (GAP-38) |
+
+> **Note:** SMTP (`utils/email.ts`) is used exclusively for **scheduled report delivery** (PDF/CSV attachments). All user-facing notification emails go via OneSignal using the same `external_id` (userId) targeting already in place for push.
+
+### 10.2. Push Notification Triggers
 
 | Event | Trigger Point | Push Title | Push Body |
 |-------|--------------|------------|-----------|
@@ -457,6 +471,38 @@ totalDuration(service, addOns):
 | Campaign Send | `CampaignService.sendCampaign()` | Campaign title | Campaign body |
 
 Each push notification also creates a `Notification` record in the database for the in-app inbox.
+
+### 10.3. Email Notification Strategy (Planned — GAP-38)
+
+Email is sent via `NotificationService.sendEmail()` using OneSignal's email channel, targeting users by their `external_id` (userId). This gives unified delivery analytics alongside push in a single dashboard.
+
+#### Tier 1 — Transactional (Critical)
+These are the highest-trust customer touchpoints and should be implemented first:
+
+| Event | Trigger Point | Email Subject |
+|-------|--------------|---------------|
+| Booking Confirmed | `QueueService.createEntry()` | "Your Booking is Confirmed — [Service] at [Branch]" |
+| Booking Cancelled | `QueueService.updateStatus()` → CANCELLED | "Your Booking Has Been Cancelled" |
+| Booking Rescheduled | `QueueEntry.reschedule()` | "Your Appointment Has Been Rescheduled" |
+| Payment Receipt | `TransactionService` → PAID | "Your Receipt from [Branch]" |
+
+#### Tier 2 — Engagement (High Value)
+Complement push notifications for users who may have uninstalled the PWA:
+
+| Event | Trigger Point | Email Subject |
+|-------|--------------|---------------|
+| Appointment Reminder (24h before) | `scheduler.processAppointmentReminders()` | "Reminder: Your Appointment Tomorrow" |
+| Waitlist Slot Available | `WaitlistService.notifyWaitlist()` | "Good News — A Slot Just Opened Up!" |
+
+#### Tier 3 — Marketing (Nice to Have)
+Broadcast and retention use cases that leverage the existing CRM segmentation:
+
+| Event | Trigger Point | Email Subject |
+|-------|--------------|---------------|
+| Campaign Send | `CampaignService.sendCampaign()` | Campaign title (configurable) |
+| Retention Nudge | `scheduler` daily 03:05 UTC | "We Miss You! Come Visit [Branch]" |
+
+> **Design rule:** Tier 1 emails are always sent regardless of user notification preferences. Tier 2 and 3 respect the user's `NotificationPreference` opt-in/opt-out settings.
 
 ### 10.2. In-App Notification Inbox
 
@@ -697,7 +743,7 @@ ON sendCampaign(campaignId):
 |---|---|
 | **PUSH** | Calls `NotificationService.sendPush()` per recipient; only counts `sent` on success |
 | **IN_APP** | Creates in-app notification record; always counts as sent |
-| **EMAIL** | Sends via configured email service; always counts as sent |
+| **EMAIL** | Calls `NotificationService.sendEmail()` per recipient via OneSignal email channel (GAP-38 — not yet wired, currently no-op) |
 
 After dispatch: campaign `sentCount` updated, status → `ACTIVE`.
 

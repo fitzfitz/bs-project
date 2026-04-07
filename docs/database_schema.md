@@ -35,8 +35,8 @@
 
 | Action | Name | Details |
 |--------|------|---------|
-| NEW | `NotificationChannelConfig` | Per notification type push/WhatsApp toggle, org-scoped |
-| NEW | `NotificationPreference` | Per user push/WhatsApp opt-out, org-scoped |
+| NEW | `NotificationChannelConfig` | Per notification type push/WhatsApp/email toggle, org-scoped |
+| NEW | `NotificationPreference` | Per user push/WhatsApp/email opt-out, org-scoped |
 
 ### Models (Sprint 9 additions)
 
@@ -1789,10 +1789,11 @@ model Notification {
 model NotificationChannelConfig {
   id               String   @id @default(cuid())
   organizationId   String
-  notificationType String
+  notificationType String   // "BOOKING_CONFIRMED", etc.
   pushEnabled      Boolean  @default(true)
   whatsappEnabled  Boolean  @default(false)
-  createdAt        DateTime @default(now())
+  smsEnabled       Boolean  @default(false)
+  emailEnabled     Boolean  @default(true)
   updatedAt        DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -1807,6 +1808,8 @@ model NotificationPreference {
   userId         String   @unique
   pushOptOut     Boolean  @default(false)
   whatsappOptOut Boolean  @default(false)
+  smsOptOut      Boolean  @default(false)
+  emailOptOut    Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

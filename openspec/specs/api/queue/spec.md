@@ -259,7 +259,7 @@ Push notifications are sent to customers via `NotificationService.sendPush()` at
 - Happy path: booking + queue entry created; position = count(today) + 1.
 - Emergency-closed branch: throws 403.
 - Staff double-booking (overlapping interval): throws 409 `"Time slot already booked"`.
-- Walk-in guest: no `customerId` → guest `User` created with default CUSTOMER role; 500 if no default role.
+- Walk-in guest: no `customerId` → guest `User` created with default CUSTOMER role; `NotificationPreference` created with `emailOptOut: false`; 500 if no default role.
 - Surge pricing applied based on WIB day/hour from `startTime`.
 - Tier surcharges applied when `staffProfileId` with tier is selected.
 - Combo vs non-combo duration calculation.

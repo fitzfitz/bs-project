@@ -25,6 +25,7 @@
     "@hono/zod-validator": "^0.7.6",
     "@prisma/adapter-pg": "^7.4.1",
     "@prisma/client": "^7.4.1",
+    "@tmng/email-templates": "workspace:*",
     "bcryptjs": "^3.0.3",
     "google-auth-library": "^10.6.2",
     "hono": "^4.12.1",
@@ -33,6 +34,7 @@
     "nodemailer": "^8.0.3",
     "pdfkit": "^0.18.0",
     "pino": "^10.3.1",
+    "resend": "^6.10.0",
     "simple-statistics": "^7.8.9",
     "zod": "^4.3.6"
   },

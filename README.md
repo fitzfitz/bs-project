@@ -10,7 +10,7 @@ Headless, multi-tenant SaaS engine for appointment-based service businesses. The
 | **Admin** (`@tmng/barber-admin`) | React 19, Vite 7, Tailwind CSS 4 | 5175 |
 | **Client** (`@tmng/barber-client`) | React 19, Vite 7, PWA | 5174 |
 
-**Infrastructure:** PostgreSQL (56 models), MinIO (media), Soketi (WebSocket), OneSignal (push), Twilio (WhatsApp/SMS), Xendit (payments), nodemailer (SMTP)
+**Infrastructure:** PostgreSQL (56 models), MinIO (media), Soketi (WebSocket), OneSignal (push), Resend (transactional email), Twilio (WhatsApp/SMS), Xendit (payments), nodemailer (SMTP for reports)
 
 ## Quick Start
 
@@ -56,6 +56,8 @@ bs-project/
 │   ├── api/          # Hono REST API — 30 feature modules, 200+ endpoints
 │   ├── admin/        # Admin dashboard — 29 pages, desktop-first
 │   └── client/       # Customer PWA — 16 pages, mobile-first
+├── packages/
+│   └── email-templates/ # Shared HTML email templates (confirmed, cancelled, rescheduled, receipts)
 ├── docs/             # Architecture & documentation (8 core docs)
 ├── openspec/         # Feature specifications (spec.md per feature)
 ├── scripts/          # DB backup/restore, test runner

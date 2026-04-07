@@ -12,6 +12,7 @@ import { TransactionService } from "../transactions/transactions.service";
 import { ConfigService } from "../config/config.service";
 import { createXenditInvoice } from "../../utils/xendit-adapter";
 import { WaitlistService } from "../waitlist/waitlist.service";
+import { bookingConfirmedEmail, bookingCancelledEmail, bookingRescheduledEmail } from "@tmng/email-templates";
 
 export const QueueService = {
   // --- View Queue ---
@@ -209,6 +210,15 @@ export const QueueService = {
             phone: data.customerPhone || null,
           },
         });
+
+        await tx.notificationPreference.create({
+          data: {
+            userId: guestUser.id,
+            organizationId,
+            emailOptOut: false,
+          },
+        });
+
         customerId = guestUser.id;
       }
 
@@ -270,6 +280,26 @@ export const QueueService = {
       notificationService
         .sendPush(result.customerId, title, body, notifData)
         .catch((e: any) => console.error("[queue] Booking confirmation push failed:", e.message));
+
+      db.branch.findUnique({
+        where: { id: result.branchId },
+        select: { name: true, address: true, city: true, phone: true, email: true, imageUrl: true },
+      }).then(async (branchInfo) => {
+        if (!branchInfo) return;
+        const [pref, booking] = await Promise.all([
+          db.notificationPreference.findUnique({ where: { userId: result.customerId! } }),
+          result.bookingId ? db.booking.findUnique({ where: { id: result.bookingId } }) : Promise.resolve(null)
+        ]);
+        if ((!pref || pref.emailOptOut === false) && booking?.scheduledAt) {
+          const { subject, html } = bookingConfirmedEmail({
+            customerName: result.customerName ?? "Customer",
+            serviceName: "Your Service",
+            scheduledAt: booking.scheduledAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }),
+            branch: branchInfo,
+          });
+          await notificationService.sendEmail(result.customerId!, subject, html);
+        }
+      }).catch((e: any) => console.error("[queue] Booking confirmation email failed:", e.message));
 
       db.notification.create({
         data: {
@@ -428,13 +458,43 @@ export const QueueService = {
     return updated;
   },
 
-  async cancelEntry(db: PrismaClient, id: string, pusher?: CloudflarePusher) {
+  async cancelEntry(db: PrismaClient, id: string, pusher?: CloudflarePusher, notificationService?: NotificationService) {
     const entry = await db.queueEntry.update({
       where: { id },
       data: { status: "CANCELLED" },
+      include: { booking: true },
     });
     
     if (pusher) void pusher.trigger(`branch-${entry.branchId}`, "QUEUE_UPDATED", entry);
+
+    if (notificationService && entry.customerId && entry.booking) {
+      const branchName = "the branch";
+      const title = "Booking Cancelled";
+      const body = `Your booking at ${branchName} has been cancelled.`;
+      const notifData = { type: "BOOKING_CANCELLED", bookingId: entry.bookingId ?? "", branchId: entry.branchId };
+
+      notificationService
+        .sendPush(entry.customerId, title, body, notifData)
+        .catch((e: any) => console.error("[queue] Booking cancellation push failed:", e.message));
+        
+      db.branch.findUnique({
+        where: { id: entry.branchId },
+        select: { name: true, address: true, city: true, phone: true, email: true, imageUrl: true },
+      }).then(async (branchInfo) => {
+        if (!branchInfo) return;
+        const pref = await db.notificationPreference.findUnique({ where: { userId: entry.customerId! } });
+        if (!pref || pref.emailOptOut === false) {
+          const { subject, html } = bookingCancelledEmail({
+            customerName: entry.customerName ?? "Customer",
+            serviceName: "Your Service",
+            scheduledAt: entry.booking!.scheduledAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }),
+            branch: branchInfo,
+          });
+          await notificationService.sendEmail(entry.customerId!, subject, html);
+        }
+      }).catch((e: any) => console.error("[queue] Booking cancellation email failed:", e.message));
+    }
+
     return entry;
   },
 
@@ -588,6 +648,32 @@ export const QueueService = {
 
     if (pusher) void pusher.trigger(`branch-${updated.branchId}`, "QUEUE_UPDATED", updated);
 
+    if (notificationService && updated.customerId && entry.booking) {
+      const title = "Booking Cancelled ❌";
+      const body = `Your booking was cancelled. ${refundAmount != null ? `Refund processing: ${refundAmount}.` : ""}`;
+      
+      notificationService
+        .sendPush(updated.customerId, title, body, { type: "BOOKING_CANCELLED" })
+        .catch(console.warn);
+        
+      db.branch.findUnique({
+        where: { id: updated.branchId },
+        select: { name: true, address: true, city: true, phone: true, email: true, imageUrl: true },
+      }).then(async (branchInfo) => {
+        if (!branchInfo) return;
+        const pref = await db.notificationPreference.findUnique({ where: { userId: updated.customerId! } });
+        if (!pref || pref.emailOptOut === false) {
+          const { subject, html } = bookingCancelledEmail({
+            customerName: updated.customerName ?? "Customer",
+            serviceName: "Your Service",
+            scheduledAt: entry.booking!.scheduledAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }),
+            branch: branchInfo,
+          });
+          await notificationService.sendEmail(updated.customerId!, subject, html);
+        }
+      }).catch(console.warn);
+    }
+
     if (entry.booking) {
       void WaitlistService.notifyNextWaitlisted(
         db,
@@ -606,7 +692,8 @@ export const QueueService = {
     entryId: string,
     userId: string,
     newStartTime: string,
-    pusher?: CloudflarePusher
+    pusher?: CloudflarePusher,
+    notificationService?: NotificationService,
   ) {
     const entry = await db.queueEntry.findUnique({
       where: { id: entryId },
@@ -668,6 +755,35 @@ export const QueueService = {
     });
 
     if (pusher) void pusher.trigger(`branch-${updated.branchId}`, "QUEUE_UPDATED", updated);
+
+    if (notificationService && updated.customerId && entry.booking) {
+      const oldTime = entry.booking.scheduledAt;
+      const title = "Booking Rescheduled 📅";
+      const body = `Your booking is now at ${new Date(newStartTime).toLocaleString("en-US", { timeStyle: "short", dateStyle: "medium" })}`;
+      
+      notificationService
+        .sendPush(updated.customerId, title, body, { type: "BOOKING_RESCHEDULED" })
+        .catch(console.warn);
+        
+      db.branch.findUnique({
+        where: { id: updated.branchId },
+        select: { name: true, address: true, city: true, phone: true, email: true, imageUrl: true },
+      }).then(async (branchInfo) => {
+        if (!branchInfo) return;
+        const pref = await db.notificationPreference.findUnique({ where: { userId: updated.customerId! } });
+        if (!pref || pref.emailOptOut === false) {
+          const { subject, html } = bookingRescheduledEmail({
+            customerName: updated.customerName ?? "Customer",
+            serviceName: "Your Service",
+            oldTime: oldTime.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }),
+            newTime: new Date(newStartTime).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }),
+            branch: branchInfo,
+          });
+          await notificationService.sendEmail(updated.customerId!, subject, html);
+        }
+      }).catch(console.warn);
+    }
+
     return updated;
   },
 

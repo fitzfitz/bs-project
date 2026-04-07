@@ -23,9 +23,14 @@ git clone <repo-url>
 cd bs-project
 pnpm install
 
-# Database setup
+# Environment setup
 cp apps/api/.env.example apps/api/.dev.vars
-# Edit .dev.vars with your DATABASE_URL, JWT secrets, etc.
+# ⚠️ IMPORTANT: The API dev server uses `.dev.vars` exclusively (Not `.env`)!
+# Edit .dev.vars with your DATABASE_URL, JWT, PUSHER_, and ONESIGNAL_ secrets.
+
+# Client & Admin apps use traditional .env files:
+cp apps/client/.env.example apps/client/.env
+cp apps/admin/.env.example apps/admin/.env
 
 pnpm --filter @tmng/saas-api db:push    # Apply schema
 pnpm --filter @tmng/saas-api db:seed    # Seed reference data
@@ -270,7 +275,7 @@ cd apps/client && npx playwright install chromium
 
 ## 9. Environment Variables
 
-The API requires these env vars (documented in `apps/api/.env.example`):
+The API requires these env vars (documented in `apps/api/.env.example`, but must be configured inside `apps/api/.dev.vars` for local development):
 
 **Required:**
 - `DATABASE_URL` — PostgreSQL connection string

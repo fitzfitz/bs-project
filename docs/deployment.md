@@ -41,9 +41,9 @@ Copy `apps/api/.env.production.example` to `/opt/tmng/.env` on the VPS and fill 
 | `JWT_REFRESH_SECRET`  | Yes      | Min 32 chars, used for refresh tokens      |
 | `JWT_ACCESS_EXPIRY`   | No       | Default: `15m`                             |
 | `JWT_REFRESH_EXPIRY`  | No       | Default: `7d`                              |
-| `PUSHER_APP_ID`       | Yes      | Soketi app ID                              |
-| `PUSHER_KEY`          | Yes      | Soketi key                                 |
-| `PUSHER_SECRET`       | Yes      | Soketi secret                              |
+| `PUSHER_APP_ID`       | Yes      | Soketi app ID (e.g. `app-id` if using default) |
+| `PUSHER_KEY`          | Yes      | Soketi key (e.g. `app-key` if using default) |
+| `PUSHER_SECRET`       | Yes      | Soketi secret (e.g. `app-secret` if using default)|
 | `PUSHER_CLUSTER`      | No       | Default: `mt1`                             |
 | `PUSHER_HOST`         | Yes      | Soketi server hostname                     |
 | `PUSHER_PORT`         | No       | Default: `443`                             |
@@ -51,6 +51,8 @@ Copy `apps/api/.env.production.example` to `/opt/tmng/.env` on the VPS and fill 
 | `GOOGLE_CLIENT_ID`    | No       | Google OAuth client ID for JWKS verification |
 | `XENDIT_SECRET_KEY`   | No       | Xendit payment gateway (omit for CASH)     |
 | `XENDIT_WEBHOOK_TOKEN`| No       | Xendit webhook verification token          |
+| `RESEND_API_KEY`      | Yes      | Resend API key for transactional emails    |
+| `RESEND_FROM_EMAIL`   | Yes      | Verified "from" email/domain in Resend     |
 
 > **Important:** When PostgreSQL runs on the VPS host (not in Docker), set `DATABASE_URL` to use `host.docker.internal` as the hostname, e.g.: `postgresql://user:pass@host.docker.internal:5432/saas-api`
 
@@ -345,9 +347,10 @@ services:
 
 ```env
 SOKETI_DEBUG=true
-SOKETI_DEFAULT_APP_ID=barber-queue-app
-SOKETI_DEFAULT_APP_KEY=<openssl rand -hex 16>
-SOKETI_DEFAULT_APP_SECRET=<openssl rand -hex 16>
+SOKETI_DEFAULT_APP_ID=app-id
+SOKETI_DEFAULT_APP_KEY=app-key
+SOKETI_DEFAULT_APP_SECRET=app-secret
+# (Use Soketi defaults locally to prevent handshake errors, but use secure keys in real production deployment with matching backend envs)
 ```
 
 ### Nginx (SSL reverse proxy)
@@ -465,7 +468,7 @@ S3_PUBLIC_URL="https://media.yourdomain.com/saas-project"
 
 ---
 
-## Service Setup: OneSignal (Push Notifications)
+## Service Setup: OneSignal (Push Notifications Only)
 
 OneSignal free tier provides web push notifications for up to 10,000 subscribers.
 
@@ -474,6 +477,7 @@ OneSignal free tier provides web push notifications for up to 10,000 subscribers
 1. Create app at [onesignal.com](https://onesignal.com) (Web platform, Custom Code integration)
 2. Configure site URL to your production client domain
 3. Note the **App ID** and **REST API Key** from Settings > Keys & IDs
+4. Note the **App ID** and **REST API Key** from Settings > Keys & IDs
 
 ### Client Config
 
@@ -482,6 +486,8 @@ The client PWA has a `NotificationProvider` that initializes OneSignal and binds
 ```javascript
 importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 ```
+
+> **Note:** The `NotificationProvider` also implements a `foregroundWillDisplay` listener. This ensures that if the app is currently open, receiving a push notification acts as a fallback to gracefully invalidate TanStack Query caches, independently synchronizing the UI in case the primary WebSocket drops.
 
 ```env
 # apps/client/.env
@@ -516,9 +522,9 @@ Both channels gracefully degrade when env vars are absent. Admin can toggle push
 
 ---
 
-## Service Setup: Email (SMTP)
+## Service Setup: Email (SMTP — Reports Only)
 
-Used for scheduled report delivery (PDF + CSV attachments).
+SMTP is used exclusively for **scheduled report delivery** (PDF + CSV attachments via `utils/email.ts`). **User-facing notification emails** (booking confirmations, receipts, reminders) are handled via Resend — not SMTP.
 
 ### API Config
 

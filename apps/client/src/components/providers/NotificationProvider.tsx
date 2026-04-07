@@ -58,7 +58,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- init once on mount
   }, []);
 
-  // Bind OneSignal External User ID to backend User ID when logged in
+  // Bind OneSignal External User ID to backend User ID when logged in for Push
   useEffect(() => {
     if (isInitialized && user) {
       OneSignal.login(user.id).catch(console.warn);

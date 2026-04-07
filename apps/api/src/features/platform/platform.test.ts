@@ -8,8 +8,14 @@ import {
   updateOrgSchema,
   platformConfigSchema,
 } from "./platform.schema";
+import { invalidateAllPermissionCaches } from "../../middlewares/rbac";
+import { ConfigService } from "../config/config.service";
 import { PlatformService } from "./platform.service";
 import platformApp from "./platform.index";
+
+vi.mock("../../middlewares/rbac", () => ({
+  invalidateAllPermissionCaches: vi.fn(),
+}));
 
 describe("platform.schema", () => {
   it("platformLoginSchema requires email", () => {
@@ -58,7 +64,9 @@ describe("PlatformService", () => {
 
   beforeEach(() => {
     db = createMockDb();
-    vi.clearAllMocks();
+    ConfigService.clearCache();
+    vi.mocked(db.feature.findMany).mockResolvedValue([] as never);
+    vi.mocked(db.tenantRole.create).mockResolvedValue({ id: "role-hq", scope: "HQ" } as never);
   });
 
   it("loginAdmin returns null when user missing", async () => {
@@ -95,6 +103,41 @@ describe("PlatformService", () => {
   it("getOrganizationById returns null when missing", async () => {
     (db.organization.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     await expect(PlatformService.getOrganizationById(db, "missing")).resolves.toBeNull();
+  });
+
+  it("createOrganization sets owner emailOptOut: false by default", async () => {
+    (db.tenantRole.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "role-hq", scope: "HQ" });
+    (db.organization.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (db.organization.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "org-1" });
+    (db.industryTemplate.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (db.tenantRole.createMany as ReturnType<typeof vi.fn>).mockResolvedValue({ count: 4 });
+    (db.tenantRole.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "role-owner", name: "Owner", scope: "HQ" });
+    (db.user.create as ReturnType<typeof vi.fn>).mockResolvedValue({ 
+      id: "user-owner",
+      email: "owner@org.com",
+      tenantRole: { id: "role-owner", name: "Owner", scope: "HQ" }
+    });
+    (db.notificationPreference.create as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (db.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn) => fn(db));
+    
+    await PlatformService.createOrganization(db, {
+      name: "New Org",
+      slug: "new-org",
+      industry: "BARBERSHOP",
+      ownerEmail: "owner@org.com",
+      ownerFirstName: "John",
+      ownerLastName: "Doe",
+      ownerPassword: "password123",
+    });
+
+    expect(db.notificationPreference.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: "user-owner",
+          emailOptOut: false,
+        }),
+      }),
+    );
   });
 });
 

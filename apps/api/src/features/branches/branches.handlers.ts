@@ -363,7 +363,7 @@ export const emergencyCloseHandler: RouteHandler<
   const { id } = c.req.valid("param");
   const userId = c.var.userId!;
   const pusher = getPusher(c);
-  const ns = createNotificationService(c.env);
+  const ns = createNotificationService(c.env, c.var.db);
   const result = await BranchesService.emergencyClose(c.var.db, id, organizationId, userId, pusher, ns);
   return c.json({ success: true as const, data: result }, 200);
 };
@@ -376,7 +376,7 @@ export const reopenBranchHandler: RouteHandler<
   const { id } = c.req.valid("param");
   const userId = c.var.userId!;
   const pusher = getPusher(c);
-  const ns = createNotificationService(c.env);
+  const ns = createNotificationService(c.env, c.var.db);
   const result = await BranchesService.reopen(c.var.db, id, organizationId, userId, pusher, ns);
   return c.json({ success: true as const, data: result }, 200);
 };

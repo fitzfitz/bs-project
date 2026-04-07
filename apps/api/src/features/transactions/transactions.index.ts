@@ -23,33 +23,33 @@ import {
 } from "./transactions.handlers";
 
 const transactionsApp = new OpenAPIHono<AppEnv>();
+ 
+transactionsApp.use("*", authMiddleware(), orgScopeMiddleware());
 
 // Read endpoints
-transactionsApp.on("GET", listRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("TRANSACTION", "read"), (c, next) => next());
+transactionsApp.use(listRoute.path, requirePermission("TRANSACTION", "read"));
 transactionsApp.openapi(listRoute, listHandler);
 
-transactionsApp.on("GET", getSummaryRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("TRANSACTION", "read"), (c, next) => next());
+transactionsApp.use(getSummaryRoute.path, requirePermission("TRANSACTION", "read"));
 transactionsApp.openapi(getSummaryRoute, getSummaryHandler);
 
-transactionsApp.on("GET", "/:id", authMiddleware(), orgScopeMiddleware(), requirePermission("TRANSACTION", "read"), (c, next) => next());
 transactionsApp.openapi(getByIdRoute, getByIdHandler);
-
-transactionsApp.on("GET", "/:id/receipt", authMiddleware(), orgScopeMiddleware(), requirePermission("TRANSACTION", "read"), (c, next) => next());
+ 
 transactionsApp.openapi(getReceiptRoute, getReceiptHandler);
 
 // Create endpoints
-transactionsApp.on("POST", createTransactionRoute.path, authMiddleware(), orgScopeMiddleware(), requirePermission("TRANSACTION", "create"), (c, next) => next());
+transactionsApp.use(createTransactionRoute.path, requirePermission("TRANSACTION", "create"));
 transactionsApp.openapi(createTransactionRoute, createHandler);
 
-transactionsApp.on("POST", "/:id/pay", authMiddleware(), orgScopeMiddleware(), requirePermission("TRANSACTION", "create"), (c, next) => next());
+transactionsApp.use("/:id/pay", requirePermission("TRANSACTION", "create"));
 transactionsApp.openapi(addPaymentsRoute, addPaymentsHandler);
 
 // Void endpoint
-transactionsApp.on("POST", "/:id/void", authMiddleware(), orgScopeMiddleware(), requirePermission("TRANSACTION", "delete"), (c, next) => next());
+transactionsApp.use("/:id/void", requirePermission("TRANSACTION", "delete"));
 transactionsApp.openapi(voidRoute, voidHandler);
 
 // Refund endpoint
-transactionsApp.on("POST", "/:id/refund", authMiddleware(), orgScopeMiddleware(), requirePermission("TRANSACTION", "delete"), (c, next) => next());
+transactionsApp.use("/:id/refund", requirePermission("TRANSACTION", "delete"));
 transactionsApp.openapi(refundRoute, refundHandler);
 
 export default transactionsApp;

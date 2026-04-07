@@ -3,36 +3,52 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Bell, BellOff, Mail } from 'lucide-react';
 import { useNotifications } from '@/features/profile/api/use-notifications';
-import { useProfile } from '@/features/profile/api/use-profile';
-import { api } from '@/lib/api';
+import { api, type ApiResponse } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+
+type NotificationPreferences = {
+  pushOptOut: boolean;
+  whatsappOptOut: boolean;
+  smsOptOut: boolean;
+  emailOptOut: boolean;
+};
 
 export default function NotificationSettings() {
   const { t } = useTranslation('notifications');
   const navigate = useNavigate();
   const { isInitialized, isPushEnabled, enablePush } = useNotifications();
-  const { data: profile } = useProfile();
-  const [emailOptIn, setEmailOptIn] = useState(true);
+  const [prefs, setPrefs] = useState<NotificationPreferences>({
+    pushOptOut: false,
+    whatsappOptOut: false,
+    smsOptOut: false,
+    emailOptOut: false,
+  });
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (profile?.emailOptIn !== undefined) {
-      setEmailOptIn(profile.emailOptIn);
-    }
-  }, [profile?.emailOptIn]);
+    api.get<ApiResponse<NotificationPreferences>>('/notifications/preferences')
+      .then((res) => setPrefs(res.data))
+      .catch(console.warn)
+      .finally(() => setIsLoading(false));
+  }, []);
 
   const handleEmailToggle = async () => {
-    const newValue = !emailOptIn;
-    setEmailOptIn(newValue);
+    const newOptOut = !prefs.emailOptOut;
+    const updatedPrefs = { ...prefs, emailOptOut: newOptOut };
+    setPrefs(updatedPrefs);
     setIsSaving(true);
     try {
-      await api.patch('/auth/me/notification-preferences', { emailOptIn: newValue });
+      await api.put('/notifications/preferences', updatedPrefs);
     } catch {
-      setEmailOptIn(!newValue);
+      setPrefs({ ...prefs, emailOptOut: !newOptOut });
     } finally {
       setIsSaving(false);
     }
   };
+
+  // Email is enabled when NOT opted out
+  const emailEnabled = !prefs.emailOptOut;
 
   return (
     <div className="flex flex-col min-h-dvh bg-slate-50 relative">
@@ -85,11 +101,11 @@ export default function NotificationSettings() {
           </div>
         </div>
 
-        {/* Email Opt-in */}
+        {/* Email Notifications Toggle */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
           <div className="flex justify-between items-start">
             <div className="flex gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${emailOptIn ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-400'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${emailEnabled ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-400'}`}>
                 <Mail className="w-5 h-5" />
               </div>
               <div>
@@ -101,9 +117,9 @@ export default function NotificationSettings() {
               <input
                 type="checkbox"
                 className="sr-only peer"
-                checked={emailOptIn}
+                checked={emailEnabled}
                 onChange={handleEmailToggle}
-                disabled={isSaving}
+                disabled={isSaving || isLoading}
               />
               <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[6px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
