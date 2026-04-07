@@ -1,21 +1,10 @@
-import { test, expect, type Page } from '@playwright/test';
-
+import { test, expect } from '@playwright/test';
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5175';
 
-async function loginAsManager(page: Page) {
-  await page.goto(`${BASE_URL}/login`);
-  await page.waitForLoadState('networkidle');
-
-  await page.locator('input[name="email"]').fill('manager@barber.com');
-  await page.locator('input[name="password"]').fill('Password123!');
-  await page.getByRole('button', { name: /sign in|login|log in/i }).click();
-
-  await page.waitForURL(/^\/$|\/queue|\/dashboard/, { timeout: 15000 });
-}
-
 test.describe('Admin Dashboard', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAsManager(page);
+  test.use({ storageState: 'e2e/.auth/manager.json' });
+  test.beforeEach(async () => {
+    // Session restored
   });
 
   test('dashboard loads with revenue summary', async ({ page }) => {
@@ -54,8 +43,8 @@ test.describe('Admin Dashboard', () => {
 });
 
 test.describe('Queue Management — Kanban Board', () => {
+  test.use({ storageState: 'e2e/.auth/manager.json' });
   test.beforeEach(async ({ page }) => {
-    await loginAsManager(page);
     await page.goto(`${BASE_URL}/queue`);
     await page.waitForLoadState('networkidle');
   });
@@ -101,8 +90,8 @@ test.describe('Queue Management — Kanban Board', () => {
 });
 
 test.describe('Transactions Page', () => {
+  test.use({ storageState: 'e2e/.auth/manager.json' });
   test.beforeEach(async ({ page }) => {
-    await loginAsManager(page);
     await page.goto(`${BASE_URL}/transactions`);
     await page.waitForLoadState('networkidle');
   });
@@ -122,8 +111,8 @@ test.describe('Transactions Page', () => {
 });
 
 test.describe('Barber Management', () => {
+  test.use({ storageState: 'e2e/.auth/manager.json' });
   test.beforeEach(async ({ page }) => {
-    await loginAsManager(page);
     await page.goto(`${BASE_URL}/barbers`);
     await page.waitForLoadState('networkidle');
   });
@@ -136,8 +125,8 @@ test.describe('Barber Management', () => {
 });
 
 test.describe('Branch Settings', () => {
+  test.use({ storageState: 'e2e/.auth/manager.json' });
   test.beforeEach(async ({ page }) => {
-    await loginAsManager(page);
     await page.goto(`${BASE_URL}/branches`);
     await page.waitForLoadState('networkidle');
   });
@@ -151,8 +140,8 @@ test.describe('Branch Settings', () => {
 });
 
 test.describe('Cash Drawer', () => {
+  test.use({ storageState: 'e2e/.auth/manager.json' });
   test.beforeEach(async ({ page }) => {
-    await loginAsManager(page);
     await page.goto(`${BASE_URL}/cash-drawer`);
     await page.waitForLoadState('networkidle');
   });
@@ -165,8 +154,8 @@ test.describe('Cash Drawer', () => {
 });
 
 test.describe('Inventory', () => {
+  test.use({ storageState: 'e2e/.auth/manager.json' });
   test.beforeEach(async ({ page }) => {
-    await loginAsManager(page);
     await page.goto(`${BASE_URL}/inventory`);
     await page.waitForLoadState('networkidle');
   });
@@ -179,6 +168,8 @@ test.describe('Inventory', () => {
 });
 
 test.describe('Auth — Negative Tests', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test('invalid credentials show error', async ({ page }) => {
     await page.goto(`${BASE_URL}/login`);
     await page.locator('input[name="email"]').fill('wrong@test.com');

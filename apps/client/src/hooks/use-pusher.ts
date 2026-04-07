@@ -10,8 +10,12 @@ const PUSHER_USE_TLS = import.meta.env.VITE_PUSHER_USE_TLS === "true";
 let pusherInstance: Pusher | null = null;
 
 function getPusher(): Pusher | null {
-  if (!PUSHER_KEY) return null;
+  if (!PUSHER_KEY) {
+    console.warn("[pusher] No VITE_PUSHER_KEY configured — WebSocket disabled");
+    return null;
+  }
   if (!pusherInstance) {
+    console.log("[pusher] Initializing connection to", PUSHER_HOST, "key:", PUSHER_KEY);
     pusherInstance = new Pusher(PUSHER_KEY, {
       wsHost: PUSHER_HOST,
       wsPort: PUSHER_PORT,
@@ -19,6 +23,12 @@ function getPusher(): Pusher | null {
       forceTLS: PUSHER_USE_TLS,
       enabledTransports: ["ws", "wss"],
       cluster: "mt1",
+    });
+    pusherInstance.connection.bind("connected", () => {
+      console.log("[pusher] ✅ Connected! Socket ID:", pusherInstance?.connection.socket_id);
+    });
+    pusherInstance.connection.bind("error", (err: unknown) => {
+      console.error("[pusher] ❌ Connection error:", err);
     });
   }
   return pusherInstance;
@@ -59,8 +69,7 @@ export function usePusherChannel(
 
     return () => {
       channel.unbind(eventName, handler);
-      pusher.unsubscribe(channelName);
-      subscribedRef.current = null;
+      // Removed pusher.unsubscribe(channelName) to prevent React Strict Mode fast-refresh race conditions
     };
   }, [channelName, eventName, qc, queryKeys]);
 }

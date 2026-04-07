@@ -1,21 +1,9 @@
-import { test, expect, type Page } from '@playwright/test';
-
+import { test, expect } from '@playwright/test';
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5175';
-
-async function loginAsSuperAdmin(page: Page) {
-  await page.goto(`${BASE_URL}/login`);
-  await page.waitForLoadState('networkidle');
-
-  await page.locator('input[name="email"]').fill('owner@barber.com');
-  await page.locator('input[name="password"]').fill('Password123!');
-  await page.getByRole('button', { name: /sign in|login|log in/i }).click();
-
-  await page.waitForURL(/^\/$|\/dashboard/, { timeout: 15000 });
-}
 
 test.describe('Notification Management', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsSuperAdmin(page);
+    // Session already restored
     await page.goto(`${BASE_URL}/notifications`);
     await page.waitForLoadState('networkidle');
   });
@@ -47,7 +35,7 @@ test.describe('Notification Management', () => {
 
 test.describe('Retention Management', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsSuperAdmin(page);
+    // Session already restored
     await page.goto(`${BASE_URL}/retention`);
     await page.waitForLoadState('networkidle');
   });
@@ -73,7 +61,7 @@ test.describe('Retention Management', () => {
 
 test.describe('Dashboard Charts', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsSuperAdmin(page);
+    // Session already restored
     await page.goto(BASE_URL);
     await page.waitForLoadState('networkidle');
   });
@@ -92,6 +80,8 @@ test.describe('Dashboard Charts', () => {
 });
 
 test.describe('Login Flow', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test('successful login redirects to dashboard', async ({ page }) => {
     await page.goto(`${BASE_URL}/login`);
     await page.waitForLoadState('networkidle');
@@ -100,7 +90,7 @@ test.describe('Login Flow', () => {
     await page.locator('input[name="password"]').fill('Password123!');
     await page.getByRole('button', { name: /sign in|login|log in/i }).click();
 
-    await page.waitForURL(/^\/$|\/dashboard/, { timeout: 15000 });
+    await page.waitForURL((url) => url.pathname === '/' || url.pathname.includes('dashboard'), { timeout: 15000 });
     await expect(
       page.locator('text=/dashboard|revenue/i').first()
     ).toBeVisible({ timeout: 10000 });

@@ -1,21 +1,9 @@
-import { test, expect, type Page } from '@playwright/test';
-
+import { test, expect } from '@playwright/test';
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5175';
 
-async function loginAsManager(page: Page) {
-  await page.goto(`${BASE_URL}/login`);
-  await page.waitForLoadState('networkidle');
-
-  await page.locator('input[name="email"]').fill('manager@barber.com');
-  await page.locator('input[name="password"]').fill('Password123!');
-  await page.getByRole('button', { name: /sign in|login|log in/i }).click();
-
-  await page.waitForURL(/^\/$|\/queue|\/dashboard/, { timeout: 15000 });
-}
-
 test.describe('POS Checkout', () => {
+  test.use({ storageState: 'e2e/.auth/manager.json' });
   test.beforeEach(async ({ page }) => {
-    await loginAsManager(page);
     await page.goto(`${BASE_URL}/pos`);
     await page.waitForLoadState('networkidle');
   });
@@ -60,8 +48,8 @@ test.describe('POS Checkout', () => {
 });
 
 test.describe('Commission View', () => {
+  test.use({ storageState: 'e2e/.auth/manager.json' });
   test.beforeEach(async ({ page }) => {
-    await loginAsManager(page);
     await page.goto(`${BASE_URL}/commissions`);
     await page.waitForLoadState('networkidle');
   });
@@ -80,8 +68,8 @@ test.describe('Commission View', () => {
 });
 
 test.describe('Inventory Management', () => {
+  test.use({ storageState: 'e2e/.auth/manager.json' });
   test.beforeEach(async ({ page }) => {
-    await loginAsManager(page);
     await page.goto(`${BASE_URL}/inventory`);
     await page.waitForLoadState('networkidle');
   });

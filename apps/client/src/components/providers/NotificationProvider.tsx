@@ -1,5 +1,6 @@
 import { createContext, useEffect, useState, type ReactNode } from 'react';
 import OneSignal from 'react-onesignal';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSessionStore } from '@/features/auth/store';
 
 interface NotificationContextValue {
@@ -22,6 +23,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isPushEnabled, setIsPushEnabled] = useState(false);
   const { user } = useSessionStore();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const initOneSignal = async () => {
@@ -32,6 +34,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             allowLocalhostAsSecureOrigin: true,
           });
           setIsInitialized(true);
+          
+          OneSignal.Notifications.addEventListener('foregroundWillDisplay', () => {
+            // When a push arrives while the app is open, sync the data instantly
+            queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+            queryClient.invalidateQueries({ queryKey: ["notifications"] });
+            queryClient.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+          });
         }
         
         const hasOptedIn = OneSignal.Notifications.permission;

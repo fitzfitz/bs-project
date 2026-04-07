@@ -21,7 +21,7 @@ export function useNotificationList(page = 1) {
     queryKey: ["notifications", page],
     queryFn: async () => {
       const res = await api.get<NotificationListResponse>(
-        `/notifications?page=${page}&limit=20`
+        `/notifications?page=${page}&limit=20`,
       );
       return res;
     },
@@ -34,11 +34,11 @@ export function useUnreadCount() {
     queryKey: ["notifications-unread-count"],
     queryFn: async () => {
       const res = await api.get<ApiResponse<{ count: number }>>(
-        "/notifications/unread-count"
+        "/notifications/unread-count",
       );
       return res.data;
     },
-    refetchInterval: 30_000,
+    // refetchInterval: 30_000,
     enabled: hasToken,
   });
 }
@@ -48,7 +48,7 @@ export function useMarkRead() {
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await api.patch<ApiResponse<{ id: string; read: boolean }>>(
-        `/notifications/${id}/read`
+        `/notifications/${id}/read`,
       );
       return res.data;
     },
@@ -66,7 +66,7 @@ export function useMarkAllRead() {
   return useMutation({
     mutationFn: async () => {
       const res = await api.post<ApiResponse<{ updated: number }>>(
-        "/notifications/mark-all-read"
+        "/notifications/mark-all-read",
       );
       return res.data;
     },

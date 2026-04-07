@@ -1,0 +1,18 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:5175",
+      "localStorage": [
+        {
+          "name": "i18nextLng",
+          "value": "en-US"
+        },
+        {
+          "name": "tmng-admin-session",
+          "value": "{\"state\":{\"user\":{\"id\":\"cmmanq5qi005lzotz9miijnzg\",\"email\":\"owner@barber.com\",\"firstName\":\"Super\",\"lastName\":\"Admin\",\"tenantRoleId\":\"cmmanpxzm000vzotzabt6oada\",\"tenantRole\":{\"id\":\"cmmanpxzm000vzotzabt6oada\",\"name\":\"Owner\",\"scope\":\"HQ\"},\"staffProfile\":null,\"isCustomer\":false,\"permissions\":{\"QUEUE_MANAGEMENT\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"BOOKING\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"STAFF_MANAGEMENT\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"BRANCH_MANAGEMENT\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"SERVICE_CATALOG\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"ATTENDANCE\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"TRANSACTION\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"CASH_DRAWER\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"INVENTORY\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"COMMISSION\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"PAYROLL\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"FINANCE_REPORTS\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"ANALYTICS\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"REPORTS\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"LOYALTY\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"PROMOTIONS\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"REVIEWS\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"REFERRALS\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"CAMPAIGNS\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"CRM\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"RETENTION\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"AUDIT_LOG\":{\"canCreate\":false,\"canRead\":true,\"canUpdate\":false,\"canDelete\":false},\"USER_MANAGEMENT\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"ROLE_MANAGEMENT\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true},\"ORG_SETTINGS\":{\"canCreate\":true,\"canRead\":true,\"canUpdate\":true,\"canDelete\":true}}},\"accessToken\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjbW1hbnE1cWkwMDVsem90ejltaWlqbnpnIiwib3JnYW5pemF0aW9uSWQiOiJjbW1hbnB4N2IwMDB1em90enlrMmtvb2RoIiwidGVuYW50Um9sZUlkIjoiY21tYW5weHptMDAwdnpvdHphYnQ2b2FkYSIsImJyYW5jaElkIjpudWxsLCJpc0N1c3RvbWVyIjpmYWxzZSwic2NvcGUiOiJIUSIsImV4cCI6MTc3NTMwMDg0N30.rpUPiMJCesuptyKRSKtDsjAKiTLiBwlwudI5vIvZzbQ\",\"refreshToken\":\"fa6d56c3-6ef0-4bfe-a696-21af1f018008\"},\"version\":0}"
+        }
+      ]
+    }
+  ]
+}

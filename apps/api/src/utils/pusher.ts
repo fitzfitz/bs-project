@@ -48,6 +48,7 @@ export function getPusher(c: Context<AppEnv>): CloudflarePusher | undefined {
       const url = `${scheme}://${host}:${port}${path}?${authQueryString}&auth_signature=${authSignature}`;
 
       try {
+        console.log(`[pusher] Triggering ${event} on ${channel} → ${url.split('?')[0]}`);
         const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -56,6 +57,8 @@ export function getPusher(c: Context<AppEnv>): CloudflarePusher | undefined {
         if (!res.ok) {
           const text = await res.text();
           console.error(`[pusher] trigger failed: ${res.status} ${text}`);
+        } else {
+          console.log(`[pusher] ✅ ${event} on ${channel} sent successfully`);
         }
       } catch (err: any) {
         console.error("[pusher] fetch error:", err.message);

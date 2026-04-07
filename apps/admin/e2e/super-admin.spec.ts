@@ -1,21 +1,9 @@
-import { test, expect, type Page } from '@playwright/test';
-
+import { test, expect } from '@playwright/test';
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5175';
 
-async function loginAsSuperAdmin(page: Page) {
-  await page.goto(`${BASE_URL}/login`);
-  await page.waitForLoadState('networkidle');
-
-  await page.locator('input[name="email"]').fill('owner@barber.com');
-  await page.locator('input[name="password"]').fill('Password123!');
-  await page.getByRole('button', { name: /sign in|login|log in/i }).click();
-
-  await page.waitForURL(/^\/$|\/dashboard/, { timeout: 15000 });
-}
-
 test.describe('Super Admin — Sidebar Navigation', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAsSuperAdmin(page);
+  test.beforeEach(async () => {
+    // Session is already restored via storageState in playwright.config.ts
   });
 
   test('sidebar shows Super Admin section', async ({ page }) => {
@@ -30,6 +18,15 @@ test.describe('Super Admin — Sidebar Navigation', () => {
   test('super admin nav items are visible', async ({ page }) => {
     await page.goto(BASE_URL);
     await page.waitForLoadState('networkidle');
+
+    // Expand "Administration" group if it's collapsed
+    const adminGroup = page.locator('button, div').filter({ hasText: /Administration/i }).first();
+    // Assuming the chevron or the group header is clickable to expand it
+    // Check if "Analytics" is already visible; if not, click it
+    if (!(await page.locator('text=Analytics').first().isVisible())) {
+      await adminGroup.click();
+      await page.waitForTimeout(500); // Wait for transition
+    }
 
     const navItems = ['Analytics', 'Reports', 'User Management', 'Audit Log', 'Finance', 'Settings'];
     for (const label of navItems) {
@@ -61,7 +58,7 @@ test.describe('Super Admin — Sidebar Navigation', () => {
 
 test.describe('Super Admin — User Management', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsSuperAdmin(page);
+    // Session restored
     await page.goto(`${BASE_URL}/users`);
     await page.waitForLoadState('networkidle');
   });
@@ -94,7 +91,7 @@ test.describe('Super Admin — User Management', () => {
 
 test.describe('Super Admin — Audit Log', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsSuperAdmin(page);
+    // Session restored
     await page.goto(`${BASE_URL}/audit`);
     await page.waitForLoadState('networkidle');
   });
@@ -119,7 +116,7 @@ test.describe('Super Admin — Audit Log', () => {
 
 test.describe('Super Admin — Analytics', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsSuperAdmin(page);
+    // Session is already restored
     await page.goto(`${BASE_URL}/analytics`);
     await page.waitForLoadState('networkidle');
   });
@@ -161,7 +158,7 @@ test.describe('Super Admin — Analytics', () => {
 
 test.describe('Super Admin — Reports', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsSuperAdmin(page);
+    // Session restored
     await page.goto(`${BASE_URL}/reports`);
     await page.waitForLoadState('networkidle');
   });
@@ -192,7 +189,7 @@ test.describe('Super Admin — Reports', () => {
 
 test.describe('Super Admin — Finance', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsSuperAdmin(page);
+    // Session restored
     await page.goto(`${BASE_URL}/finance`);
     await page.waitForLoadState('networkidle');
   });
@@ -206,7 +203,7 @@ test.describe('Super Admin — Finance', () => {
 
 test.describe('Super Admin — Platform Config', () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsSuperAdmin(page);
+    // Session restored
     await page.goto(`${BASE_URL}/config`);
     await page.waitForLoadState('networkidle');
   });
@@ -224,14 +221,11 @@ test.describe('Super Admin — Platform Config', () => {
 });
 
 test.describe('Super Admin — RBAC Enforcement', () => {
-  test('non-super-admin cannot see super admin nav items', async ({ page }) => {
-    await page.goto(`${BASE_URL}/login`);
-    await page.waitForLoadState('networkidle');
+  test.use({ storageState: 'e2e/.auth/manager.json' });
 
-    await page.locator('input[name="email"]').fill('manager@barber.com');
-    await page.locator('input[name="password"]').fill('Password123!');
-    await page.getByRole('button', { name: /sign in|login|log in/i }).click();
-    await page.waitForURL(/^\/$|\/dashboard/, { timeout: 15000 });
+  test('non-super-admin cannot see super admin nav items', async ({ page }) => {
+    await page.goto(BASE_URL);
+    await page.waitForLoadState('networkidle');
 
     await expect(
       page.locator('nav').locator('text=/super admin/i')

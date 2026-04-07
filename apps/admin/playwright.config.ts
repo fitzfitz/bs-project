@@ -12,6 +12,24 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: undefined,
+  projects: [
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // Default to Super Admin state
+        storageState: 'e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
+    },
+  ],
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:5175',
+    reuseExistingServer: !process.env.CI,
+  },
 });

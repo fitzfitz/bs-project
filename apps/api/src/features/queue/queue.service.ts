@@ -389,6 +389,8 @@ export const QueueService = {
             type: notif.type,
             data: notifData,
           },
+        }).then((newNotif) => {
+          if (pusher) void pusher.trigger(`user-${entry.customerId}`, "NOTIFICATION_NEW", newNotif);
         }).catch((e: any) => console.error(`[queue] ${notif.type} notification record failed:`, e.message));
       }
     }
