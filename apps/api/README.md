@@ -9,7 +9,7 @@ Multi-tenant SaaS API built with **Hono** + **Node.js** + **Prisma** + **Postgre
 pnpm install
 
 # Set up environment
-cp apps/api/.dev.vars.example apps/api/.dev.vars
+cp apps/api/.env.example apps/api/.env
 
 # Run database migration and seed
 cd apps/api

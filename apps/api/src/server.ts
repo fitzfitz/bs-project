@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 
 if (!process.env.DATABASE_URL) {
   const { config } = await import("dotenv");
-  config({ path: ".dev.vars" });
+  config({ path: ".env" });
 }
 
 const { default: app } = await import("./index.js");

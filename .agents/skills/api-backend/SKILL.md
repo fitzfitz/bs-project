@@ -144,7 +144,7 @@ app.openapi(customerCancelRoute, customerCancelHandler);
 ## Infrastructure & Shared Logic
 
 - **Database:** PostgreSQL via Prisma ORM (`prisma/schema.prisma`). Never write raw SQL.
-- **Environment:** `.dev.vars` file for local dev (loaded by `server.ts` when `DATABASE_URL` is missing). Zod-validated via `utils/env.ts`.
+- **Environment:** `.env` file for local dev (loaded by `server.ts` when `DATABASE_URL` is missing). Zod-validated via `utils/env.ts`.
 - **Scheduler:** `src/scheduler.ts` runs `node-cron` jobs (no-show marking, grace period, auto clock-out, loyalty/retention, analytics snapshots).
 - **Real-time:** Pusher HTTP API via `utils/pusher.ts` for broadcasting queue/booking events to frontend clients connected to Soketi.
 - **Media:** S3-compatible uploads via `utils/s3.ts` (MinIO on VPS).
