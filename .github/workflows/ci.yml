@@ -15,8 +15,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
@@ -25,6 +23,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @tmng/saas-api exec prisma generate
 
       - name: Lint
         run: pnpm lint
@@ -44,8 +45,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
@@ -55,8 +54,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm --filter @tmng/saas-api exec prisma generate
+
       - name: Install Playwright browsers
-        run: npx playwright install chromium --with-deps
+        run: pnpm --filter @tmng/barber-admin exec playwright install chromium --with-deps
 
       - name: Build apps
         run: pnpm build

@@ -305,7 +305,9 @@ describe("booking hooks", () => {
         });
       });
 
-      expect(result.current.isSuccess).toBe(true);
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
     });
 
     it("surfaces API error", async () => {
@@ -405,7 +407,9 @@ describe("booking hooks", () => {
       });
 
       expect(posted.json?.branchId).toBe("b1");
-      expect(result.current.isSuccess).toBe(true);
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
     });
   });
 
