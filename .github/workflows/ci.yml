@@ -58,7 +58,7 @@ jobs:
         run: pnpm --filter @tmng/saas-api exec prisma generate
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install chromium --with-deps
+        run: pnpm --filter @tmng/barber-admin exec playwright install chromium --with-deps
 
       - name: Build apps
         run: pnpm build
