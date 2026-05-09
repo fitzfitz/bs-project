@@ -7,6 +7,7 @@ export const envSchema = z.object({
   JWT_ACCESS_EXPIRY: z.string().default("15m"),
   JWT_REFRESH_EXPIRY: z.string().default("7d"),
   NODE_ENV: z.enum(["development", "production"]).default("development"),
+  ALLOWED_ORIGINS: z.string().optional(),
 
   // Pusher / Soketi
   PUSHER_APP_ID: z.string().min(1),

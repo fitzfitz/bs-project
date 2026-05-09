@@ -5,6 +5,7 @@ import { swaggerUI } from "@hono/swagger-ui";
 
 import type { AppEnv } from "./types";
 import { getPrisma, isConnectionError } from "./utils/db";
+import { getAllowedOrigins, getCORSOrigin } from "./utils/cors";
 import { logger } from "./utils/logger";
 import { rateLimitMiddleware } from "./middlewares/rate-limit";
 import { cacheMiddleware } from "./middlewares/cache";
@@ -73,16 +74,17 @@ app.use("*", async (c, next) => {
     userId: c.get("userId"),
   }, `${c.req.method} ${c.req.path} ${c.res.status} ${duration}ms`);
 });
-app.use(
-  "*",
-  cors({
-    origin: (origin) => origin || "*",
+app.use("*", async (c, next) => {
+  const allowedOrigins = getAllowedOrigins(c.env.ALLOWED_ORIGINS);
+  const corsMiddleware = cors({
+    origin: (origin) => getCORSOrigin(origin, allowedOrigins, c.env.NODE_ENV),
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "X-Org-Slug"],
     exposeHeaders: ["Content-Length"],
     maxAge: 86400,
-  })
-);
+  });
+  return corsMiddleware(c, next);
+});
 app.use("*", async (c, next) => {
   const db = getPrisma(c.env.DATABASE_URL);
   c.set("db", db);
@@ -193,14 +195,22 @@ app.onError((err, c) => {
             ? "Internal Server Error"
             : msg || "Internal Server Error",
       };
-  const origin = c.req.header("Origin") || "*";
-  c.header("Access-Control-Allow-Origin", origin);
-  c.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-  );
-  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Org-Slug");
-  if (origin !== "*") c.header("Access-Control-Allow-Credentials", "true");
+  const allowedOrigins = getAllowedOrigins(c.env.ALLOWED_ORIGINS);
+  const reqOrigin = c.req.header("Origin");
+  const origin = getCORSOrigin(reqOrigin, allowedOrigins, c.env.NODE_ENV);
+
+  if (origin) {
+    c.header("Access-Control-Allow-Origin", origin);
+    c.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    );
+    c.header(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Org-Slug"
+    );
+    if (origin !== "*") c.header("Access-Control-Allow-Credentials", "true");
+  }
   return c.json(body, status);
 });
 
