@@ -189,7 +189,6 @@ describe("notifications feature", () => {
       const { result } = renderHook(() => useUnreadCount(), {
         wrapper: qcWrapper(qc),
       });
-      console.log(result);
       await waitFor(() => expect(result.current.isError).toBe(true));
     });
   });
