@@ -32,6 +32,7 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.3",
     "pdfkit": "^0.18.0",
+    "pg": "^8.20.0",
     "pino": "^10.3.1",
     "simple-statistics": "^7.8.9",
     "zod": "^4.3.6"
