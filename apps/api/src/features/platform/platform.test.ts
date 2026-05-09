@@ -183,4 +183,34 @@ describe("platform HTTP", () => {
     );
     expect(res.status).toBe(404);
   });
+
+  it("returns 400 for duplicate organization slug", async () => {
+    (db.organization.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "exists" });
+
+    const res = await app.request(
+      "/organizations",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await platformToken()}`,
+        },
+        body: JSON.stringify({
+          name: "Duplicate Org",
+          slug: "duplicate-slug",
+          industry: "BARBERSHOP",
+          ownerEmail: "owner@test.com",
+          ownerFirstName: "John",
+          ownerLastName: "Doe",
+          ownerPassword: "password123",
+        }),
+      },
+      getTestBindings(),
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.message).toBe("Organization slug already in use");
+  });
 });
