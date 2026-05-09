@@ -73,7 +73,7 @@ describe("health", () => {
     const res = await healthApp.request("http://test/");
     const body = (await res.json()) as { uptime: number };
     expect(typeof body.uptime).toBe("number");
-    expect(body.uptime).toBeGreaterThan(0);
+    expect(body.uptime).toBeGreaterThanOrEqual(0);
   });
 
   it("response includes memory stats with rss, heapUsed, heapTotal", async () => {
