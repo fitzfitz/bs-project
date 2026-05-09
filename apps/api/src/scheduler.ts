@@ -159,18 +159,16 @@ async function processGracePeriodRelease(): Promise<void> {
       });
     }
 
-    for (const entry of lateEntries) {
-      await db.auditLog.create({
-        data: {
-          organizationId: entry.organizationId,
-          action: "STATUS_CHANGE",
-          entityType: "QueueEntry",
-          entityId: entry.id,
-          branchId: entry.branchId,
-          details: { from: "WAITING", to: "NO_SHOW", reason: "Grace period expired (10 min)" },
-        },
-      });
-    }
+    await db.auditLog.createMany({
+      data: lateEntries.map((entry) => ({
+        organizationId: entry.organizationId,
+        action: "STATUS_CHANGE",
+        entityType: "QueueEntry",
+        entityId: entry.id,
+        branchId: entry.branchId,
+        details: { from: "WAITING", to: "NO_SHOW", reason: "Grace period expired (10 min)" },
+      })),
+    });
 
     log.info({ count: lateEntries.length }, "Grace period: released late online bookings");
   } catch (err: unknown) {
