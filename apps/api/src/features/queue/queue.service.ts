@@ -294,26 +294,6 @@ export const QueueService = {
     pusher?: CloudflarePusher,
     notificationService?: NotificationService,
   ) {
-    const currentEntry = await db.queueEntry.findUnique({ where: { id } });
-    if (!currentEntry) throw new HTTPException(404, { message: "Queue entry not found" });
-
-    if (data.status === "CALLED" && currentEntry.status === "WAITING") {
-      const prepayEnabled = await ConfigService.getValue(db, "PREPAYMENT_ENABLED");
-      if (prepayEnabled === "true") {
-        const prepaidNum = currentEntry.prepaidAmount != null ? Number(currentEntry.prepaidAmount.toString()) : 0;
-        if (prepaidNum <= 0) {
-          throw new HTTPException(400, { message: "Payment is required to move from waiting list" });
-        }
-      }
-    }
-
-    if (data.status === "WAITING" && currentEntry.status !== "WAITING") {
-      const prepaidNum = currentEntry.prepaidAmount != null ? Number(currentEntry.prepaidAmount.toString()) : 0;
-      if (prepaidNum > 0) {
-        throw new HTTPException(400, { message: "Cannot move back to waiting list once paid" });
-      }
-    }
-
     const updateData: Prisma.QueueEntryUpdateInput = {
       status: data.status as QueueStatus,
     };

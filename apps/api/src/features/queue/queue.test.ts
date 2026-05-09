@@ -247,12 +247,6 @@ describe("QueueService", () => {
   });
 
   it("updateStatus CALLED sets calledAt timestamp", async () => {
-    const findUnique = db.queueEntry.findUnique as ReturnType<typeof vi.fn>;
-    findUnique.mockResolvedValueOnce({
-      id: "q1",
-      status: "WAITING",
-      prepaidAmount: "100",
-    });
     const update = db.queueEntry.update as ReturnType<typeof vi.fn>;
     update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
       id: "q1",
@@ -273,11 +267,6 @@ describe("QueueService", () => {
   });
 
   it("updateStatus IN_SERVICE sets startedAt timestamp", async () => {
-    const findUnique = db.queueEntry.findUnique as ReturnType<typeof vi.fn>;
-    findUnique.mockResolvedValueOnce({
-      id: "q1",
-      status: "CALLED",
-    });
     const update = db.queueEntry.update as ReturnType<typeof vi.fn>;
     update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
       id: "q1",
@@ -298,11 +287,6 @@ describe("QueueService", () => {
   });
 
   it("updateStatus COMPLETED sets completedAt timestamp", async () => {
-    const findUnique = db.queueEntry.findUnique as ReturnType<typeof vi.fn>;
-    findUnique.mockResolvedValueOnce({
-      id: "q1",
-      status: "IN_SERVICE",
-    });
     const update = db.queueEntry.update as ReturnType<typeof vi.fn>;
     update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
       id: "q1",
@@ -629,11 +613,6 @@ describe("QueueService push notifications", () => {
   });
 
   it("sends CALLED push on status transition to CALLED", async () => {
-    const findUnique = db.queueEntry.findUnique as ReturnType<typeof vi.fn>;
-    findUnique.mockResolvedValueOnce({
-      id: "q1",
-      status: "WAITING",
-    });
     (db.queueEntry.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "q1",
       branchId: "b1",
@@ -661,11 +640,6 @@ describe("QueueService push notifications", () => {
   });
 
   it("sends COMPLETED push on status transition to COMPLETED", async () => {
-    const findUnique = db.queueEntry.findUnique as ReturnType<typeof vi.fn>;
-    findUnique.mockResolvedValueOnce({
-      id: "q1",
-      status: "IN_SERVICE",
-    });
     (db.queueEntry.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "q1",
       branchId: "b1",
@@ -693,11 +667,6 @@ describe("QueueService push notifications", () => {
   });
 
   it("does not send push for non-notification statuses like IN_SERVICE", async () => {
-    const findUnique = db.queueEntry.findUnique as ReturnType<typeof vi.fn>;
-    findUnique.mockResolvedValueOnce({
-      id: "q1",
-      status: "WAITING",
-    });
     (db.queueEntry.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "q1",
       branchId: "b1",
@@ -719,11 +688,6 @@ describe("QueueService push notifications", () => {
   });
 
   it("does not throw when push notification fails", async () => {
-    const findUnique = db.queueEntry.findUnique as ReturnType<typeof vi.fn>;
-    findUnique.mockResolvedValueOnce({
-      id: "q1",
-      status: "WAITING",
-    });
     mockNotificationService.sendPush.mockRejectedValue(new Error("OneSignal down"));
     (db.queueEntry.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "q1",
@@ -839,16 +803,12 @@ describe("queue HTTP", () => {
       branchId: testUsers.branchManager.branchId,
       scope: testUsers.branchManager.scope,
     });
-    (db.queueEntry.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "q1",
-      status: "WAITING",
-      prepaidAmount: "100",
-    });
     (db.queueEntry.update as ReturnType<typeof vi.fn>).mockResolvedValue({
       id: "q1",
       branchId: "b1",
       status: "CALLED",
     });
+    (db.queueEntry.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     const app = mountFeatureWithDb(queueApp, db);
     const res = await app.request("http://t/q1/status", {
       method: "PATCH",
